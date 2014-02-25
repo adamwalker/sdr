@@ -10,6 +10,7 @@ import Data.Array.MArray
 import Foreign.Storable
 import Foreign.Marshal.Array
 import Foreign.Marshal.Alloc
+import Foreign.Marshal.Utils
 import Data.Array.Storable
 import Foreign.C.Types
 import Data.Array.CArray
@@ -106,17 +107,35 @@ fftw samples array = do
         lift $ execute plan
         yield array
 
+mkFFTWArrayReal :: Int -> IO (IOCArray Int CDouble)
+mkFFTWArrayReal samples = do
+    memory <- fftwMalloc (fromIntegral $ samples * sizeOf (undefined :: CDouble))
+    fp <- newForeignPtr_ memory
+    unsafeForeignPtrToIOCArray fp (0, samples - 1) :: IO (IOCArray Int CDouble)
+
+fftwReal :: Int -> IOCArray Int CDouble -> IOCArray Int (Complex CDouble) -> IO (Pipe (StorableArray Int CDouble) (IOCArray Int (Complex CDouble)) IO ())
+fftwReal samples ina out = do
+    plan <- withIOCArray ina $ \ip -> 
+        withIOCArray out $ \op -> 
+            planDFTR2C1d samples ip op (1 `shiftL` 6)
+
+    return $ forever $ do
+        res <- await
+        lift $ withStorableArray res $ \ip -> 
+            withIOCArray ina $ \op -> 
+                moveBytes op ip (samples * sizeOf (undefined :: CDouble))
+        lift $ execute plan
+        yield out
+
 --Spectrum analyser plots
-plot :: Int -> EitherT String IO (Consumer (IOCArray Int (Complex CDouble)) IO ())
-plot samples = do
+plot :: Int -> CFloat -> EitherT String IO (Consumer (IOCArray Int (Complex CDouble)) IO ())
+plot samples gain = do
     graphFunc <- graph
     let xCoords = take samples $ iterate (+ (2 / fromIntegral samples)) (-1)
     return $ forever $ do
         dat <- await
         e <- lift $ getElems dat
-        let mags' = map (realToFrac . magnitude) e
-            m = maximum mags'
-            mags = map (/ m) mags'
+        let mags = map ((* gain) . realToFrac . magnitude) e
         let interleave = concatMap (\(x, y) -> [x, y])
         lift $ graphFunc $ interleave $ zip xCoords mags
 
@@ -144,6 +163,32 @@ doFilter coeffsLength coeffs samples lastBuffer thisBuffer = do
         withStorableArray thisBuffer $ \tp -> 
         withStorableArray outBuffer  $ \op -> 
             c_filter (fromIntegral coeffsLength) cp (fromIntegral samples) lp tp op
+    return outBuffer
+   
+--Decimation
+decimate :: Int -> Int -> [Complex CDouble] -> IO (Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ())
+decimate factor samples coeffs = do
+    c <- newListArray (0, length coeffs - 1) coeffs
+    return $ do
+        first <- await
+        let loop last = do
+            this <- await
+            out <- lift $ doDecimation factor (length coeffs) c samples last this 
+            yield out
+            loop this
+        loop first
+
+foreign import ccall unsafe "decimate"
+    c_decimate :: CInt -> CInt -> Ptr (Complex CDouble) -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble ) -> Ptr (Complex CDouble) -> IO ()
+
+doDecimation :: Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> StorableArray Int (Complex CDouble) -> IO (StorableArray Int (Complex CDouble))
+doDecimation factor coeffsLength coeffs samples lastBuffer thisBuffer = do
+    outBuffer <- newArray_ (0, (samples `quot` factor) - 1)
+    withStorableArray coeffs     $ \cp -> 
+        withStorableArray lastBuffer $ \lp -> 
+        withStorableArray thisBuffer $ \tp -> 
+        withStorableArray outBuffer  $ \op -> 
+            c_decimate (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral samples) lp tp op
     return outBuffer
 
 --Demodulation
