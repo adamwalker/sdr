@@ -64,14 +64,14 @@ devnull = forever await
 
 --Conversion of sample bytes to doubles
 foreign import ccall unsafe "convertArray"
-    c_convertArray :: CInt -> Ptr CUChar -> Ptr CDouble -> IO ()
+    c_convertArray :: CInt -> Ptr CUChar -> Ptr (Complex CDouble) -> IO ()
 
 makeComplexBuffer :: Int -> StorableArray Int CUChar -> IO (StorableArray Int (Complex CDouble))
 makeComplexBuffer samples ina = do
     oArray <- newArray_ (0, samples - 1) 
     withStorableArray oArray $ \op -> 
         withStorableArray ina $ \inp -> do
-            c_convertArray (fromIntegral samples * 2) (castPtr inp) (castPtr op)
+            c_convertArray (fromIntegral samples * 2) inp op
             return oArray
 
 --FFT
@@ -99,7 +99,7 @@ convertForFFT samples out = forever $ do
 fftw :: Int -> IOCArray Int (Complex CDouble) -> IO (Pipe (StorableArray Int (Complex CDouble)) (IOCArray Int (Complex CDouble)) IO ())
 fftw samples array = do
     plan <- withIOCArray array $ \ptr -> 
-        planDFT1d samples (castPtr ptr) (castPtr ptr) (-1) (1 `shiftL` 6)
+        planDFT1d samples ptr ptr (-1) (1 `shiftL` 6)
     
     return $ forever $ do
         res <- await
