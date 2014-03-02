@@ -19,7 +19,6 @@ import Data.Complex
 import Foreign.ForeignPtr
 import Foreign.Storable.Complex
 import Foreign.Ptr
-import Control.Exception
 
 import Pipes
 
@@ -290,6 +289,9 @@ decimate2CrossBuf factor coeffsLength coeffs numInput num lastOffset lastBuf nex
     withStorableArray nextBuf $ \np -> 
     withStorableArray outBuf  $ \op -> 
         c_decimate2CrossBuf (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (plusPtr lp (lastOffset * sizeOf (undefined :: Complex CDouble))) np (plusPtr op (outOffset * sizeOf (undefined :: Complex CDouble)))
+
+assert False x = error "Assertion failed"
+assert True  x = x
 
 decimate2 :: Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
 decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
