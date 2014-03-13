@@ -387,9 +387,9 @@ resampleCrossBuf cfunc interpolation decimation coeffsLength coeffs filterOffset
                            (fromIntegral filterOffset) 
                            (fromIntegral numInput) 
                            (fromIntegral count) 
-                           (plusPtr lp lastOffset)
+                           (advancePtr lp lastOffset)
                            np 
-                           (plusPtr op outOffset)
+                           (advancePtr op outOffset)
 
 resampleOneBufC   = resampleOneBuf   c_resampleOneBufC
 resampleCrossBufC = resampleCrossBuf c_resampleCrossBufC
@@ -402,6 +402,8 @@ resample :: (Storable a) => ResampleSingle a -> ResampleCross a ->Int -> Int -> 
 resample single cross interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newArray_ (0, blockSizeOut - 1)
+    (_, max) <- lift $ getBounds inBuf
+    assert "10" (max + 1 == blockSizeIn) (return ())
 
     simple inBuf 0 blockSizeIn outBuf 0 blockSizeOut 0
 
@@ -421,6 +423,7 @@ resample single cross interpolation decimation numCoeffs coeffs blockSizeIn bloc
 
         --Check that we have space in the input buffer for at least one output
         assert "1" (spaceIn * interpolation >= numCoeffs - filterOffset) (return ())
+        assert "9" (offsetIn + spaceIn == blockSizeIn) (return ())
 
         --available number of samples == interpolation * num_input
         --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
@@ -450,6 +453,8 @@ resample single cross interpolation decimation numCoeffs coeffs blockSizeIn bloc
 
         assert "6" (spaceLast > 0) (return ())
         assert "3" (spaceLast * interpolation < numCoeffs - filterOffset) (return ())
+
+        assert "8" (offsetLast + spaceLast == blockSizeIn) (return ())
 
         --outputsComputable is the number of outputs that need to be computed for the last buffer to no longer be needed
         --outputsComputable * decimation == numInput * interpolation + filterOffset + k

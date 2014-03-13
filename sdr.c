@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <complex.h>
+#include <assert.h>
 
 void convertArray(int size, uint8_t *in, double *out){
     int i;
@@ -238,10 +239,11 @@ int resample_crossbuf_r(int interpolation, int decimation, int coeff_size, doubl
         double accum = 0;
 
         for(l=0, j=filter_offset; input_offset + l < remaining_input; l++, j+=interpolation) {
+            assert(j <= coeff_size);
             accum += last_buf[input_offset + l] * coeffs[j];
         }
 
-        for(; j<coeff_size; j+=interpolation) {
+        for(; j<coeff_size; l++, j+=interpolation) {
             accum += this_buf[input_offset + l - remaining_input] * coeffs[j];
         }
 
