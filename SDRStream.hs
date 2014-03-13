@@ -342,7 +342,52 @@ decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
             False -> crossover bufLast (offsetLast + count * factor) (spaceLast - count * factor) bufNext bufOut' offsetOut' spaceOut'
 
 foreign import ccall unsafe "resample_onebuf_c"
-    c_resampleOneBufC :: CInt -> CInt -> CInt -> Ptr (Complex CDouble) -> CInt -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> IO CInt
+    c_resampleOneBufC   :: CInt 
+                        -> CInt 
+                        -> CInt 
+                        -> Ptr (Complex CDouble) 
+                        -> CInt 
+                        -> CInt 
+                        -> Ptr (Complex CDouble) 
+                        -> Ptr (Complex CDouble) 
+                        -> IO CInt
+
+foreign import ccall unsafe "resample_crossbuf_c"
+    c_resampleCrossBufC :: CInt 
+                        -> CInt 
+                        -> CInt 
+                        -> Ptr (Complex CDouble) 
+                        -> CInt 
+                        -> CInt 
+                        -> CInt 
+                        -> Ptr (Complex CDouble) 
+                        -> Ptr (Complex CDouble) 
+                        -> Ptr (Complex CDouble) 
+                        -> IO CInt
+
+foreign import ccall unsafe "resample_onebuf_r"
+    c_resampleOneBufR   :: CInt 
+                        -> CInt 
+                        -> CInt 
+                        -> Ptr CDouble
+                        -> CInt 
+                        -> CInt 
+                        -> Ptr CDouble 
+                        -> Ptr CDouble 
+                        -> IO CInt
+
+foreign import ccall unsafe "resample_crossbuf_r"
+    c_resampleCrossBufR :: CInt 
+                        -> CInt 
+                        -> CInt 
+                        -> Ptr CDouble 
+                        -> CInt 
+                        -> CInt 
+                        -> CInt 
+                        -> Ptr CDouble 
+                        -> Ptr CDouble 
+                        -> Ptr CDouble 
+                        -> IO CInt
 
 resampleOneBufC :: Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> IO Int
 resampleOneBufC interpolation decimation coeffsLength coeffs filterOffset count inOffset inBuf outOffset outBuf = liftM fromIntegral $ 
@@ -357,9 +402,6 @@ resampleOneBufC interpolation decimation coeffsLength coeffs filterOffset count 
                          (fromIntegral count) 
                          (advancePtr ip inOffset)
                          (advancePtr op outOffset)
-
-foreign import ccall unsafe "resample_crossbuf_c"
-    c_resampleCrossBufC :: CInt -> CInt -> CInt -> Ptr (Complex CDouble) -> CInt -> CInt -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> Ptr (Complex doubles) -> IO CInt
 
 resampleCrossBufC :: Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> IO Int
 resampleCrossBufC interpolation decimation coeffsLength coeffs filterOffset numInput count lastOffset lastBuf nextBuf outOffset outBuf = liftM fromIntegral $ 
