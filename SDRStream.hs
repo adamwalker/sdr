@@ -355,8 +355,8 @@ resampleOneBufC interpolation decimation coeffsLength coeffs filterOffset count 
                          cp 
                          (fromIntegral filterOffset) 
                          (fromIntegral count) 
-                         (plusPtr ip (inOffset * sizeOf (undefined :: Complex CDouble))) 
-                         (plusPtr op (outOffset * sizeOf (undefined :: Complex CDouble)))
+                         (advancePtr ip inOffset)
+                         (advancePtr op outOffset)
 
 foreign import ccall unsafe "resample_crossbuf_c"
     c_resampleCrossBufC :: CInt -> CInt -> CInt -> Ptr (Complex CDouble) -> CInt -> CInt -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> Ptr (Complex doubles) -> IO CInt
@@ -374,9 +374,9 @@ resampleCrossBufC interpolation decimation coeffsLength coeffs filterOffset numI
                            (fromIntegral filterOffset) 
                            (fromIntegral numInput) 
                            (fromIntegral count) 
-                           (plusPtr lp (lastOffset * sizeOf (undefined :: Complex CDouble))) 
+                           (plusPtr lp lastOffset)
                            np 
-                           (plusPtr op (outOffset * sizeOf (undefined :: Complex CDouble)))
+                           (plusPtr op outOffset)
 
 quotUp q d = (q + (d - 1)) `quot` d
 
