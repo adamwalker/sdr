@@ -341,70 +341,31 @@ decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
             True  -> simple bufNext (offsetLast + count * factor - blockSizeIn) (blockSizeIn - (offsetLast + count * factor - blockSizeIn)) bufOut' offsetOut' spaceOut'
             False -> crossover bufLast (offsetLast + count * factor) (spaceLast - count * factor) bufNext bufOut' offsetOut' spaceOut'
 
+--Rational resampling
+type ResampleSingleC a  = CInt -> CInt -> CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> IO CInt
+type ResampleCrossC a   = CInt -> CInt -> CInt -> Ptr a -> CInt -> CInt -> CInt -> Ptr a -> Ptr a -> Ptr a -> IO CInt
+
 foreign import ccall unsafe "resample_onebuf_c"
-    c_resampleOneBufC   :: CInt 
-                        -> CInt 
-                        -> CInt 
-                        -> Ptr (Complex CDouble) 
-                        -> CInt 
-                        -> CInt 
-                        -> Ptr (Complex CDouble) 
-                        -> Ptr (Complex CDouble) 
-                        -> IO CInt
+    c_resampleOneBufC   :: ResampleSingleC (Complex CDouble)
 
 foreign import ccall unsafe "resample_crossbuf_c"
-    c_resampleCrossBufC :: CInt 
-                        -> CInt 
-                        -> CInt 
-                        -> Ptr (Complex CDouble) 
-                        -> CInt 
-                        -> CInt 
-                        -> CInt 
-                        -> Ptr (Complex CDouble) 
-                        -> Ptr (Complex CDouble) 
-                        -> Ptr (Complex CDouble) 
-                        -> IO CInt
+    c_resampleCrossBufC :: ResampleCrossC (Complex CDouble)
 
 foreign import ccall unsafe "resample_onebuf_r"
-    c_resampleOneBufR   :: CInt 
-                        -> CInt 
-                        -> CInt 
-                        -> Ptr CDouble
-                        -> CInt 
-                        -> CInt 
-                        -> Ptr CDouble 
-                        -> Ptr CDouble 
-                        -> IO CInt
+    c_resampleOneBufR   :: ResampleSingleC CDouble
 
 foreign import ccall unsafe "resample_crossbuf_r"
-    c_resampleCrossBufR :: CInt 
-                        -> CInt 
-                        -> CInt 
-                        -> Ptr CDouble 
-                        -> CInt 
-                        -> CInt 
-                        -> CInt 
-                        -> Ptr CDouble 
-                        -> Ptr CDouble 
-                        -> Ptr CDouble 
-                        -> IO CInt
+    c_resampleCrossBufR :: ResampleCrossC CDouble
 
-resampleOneBufC :: Int 
-                -> Int 
-                -> Int 
-                -> StorableArray Int (Complex CDouble) 
-                -> Int 
-                -> Int 
-                -> Int 
-                -> StorableArray Int (Complex CDouble) 
-                -> Int 
-                -> StorableArray Int (Complex CDouble) 
-                -> IO Int
-resampleOneBufC interpolation decimation coeffsLength coeffs filterOffset count inOffset inBuf outOffset outBuf = liftM fromIntegral $ 
+type ResampleSingle a = Int -> Int -> Int -> StorableArray Int a -> Int -> Int -> Int -> StorableArray Int a -> Int -> StorableArray Int a -> IO Int
+type ResampleCross  a = Int -> Int -> Int -> StorableArray Int a -> Int -> Int -> Int -> Int -> StorableArray Int a -> StorableArray Int a -> Int -> StorableArray Int a -> IO Int
+
+resampleOneBuf :: Storable a => ResampleSingleC a -> ResampleSingle a
+resampleOneBuf cfunc interpolation decimation coeffsLength coeffs filterOffset count inOffset inBuf outOffset outBuf = liftM fromIntegral $ 
     withStorableArray coeffs $ \cp -> 
     withStorableArray inBuf  $ \ip -> 
     withStorableArray outBuf $ \op -> 
-        c_resampleOneBufC (fromIntegral interpolation) 
+        cfunc (fromIntegral interpolation) 
                          (fromIntegral decimation) 
                          (fromIntegral coeffsLength) 
                          cp 
@@ -413,25 +374,13 @@ resampleOneBufC interpolation decimation coeffsLength coeffs filterOffset count 
                          (advancePtr ip inOffset)
                          (advancePtr op outOffset)
 
-resampleCrossBufC :: Int 
-                  -> Int 
-                  -> Int 
-                  -> StorableArray Int (Complex CDouble) 
-                  -> Int 
-                  -> Int 
-                  -> Int 
-                  -> Int 
-                  -> StorableArray Int (Complex CDouble) 
-                  -> StorableArray Int (Complex CDouble) 
-                  -> Int 
-                  -> StorableArray Int (Complex CDouble) 
-                  -> IO Int
-resampleCrossBufC interpolation decimation coeffsLength coeffs filterOffset numInput count lastOffset lastBuf nextBuf outOffset outBuf = liftM fromIntegral $ 
+resampleCrossBuf :: Storable a => ResampleCrossC a -> ResampleCross a
+resampleCrossBuf cfunc interpolation decimation coeffsLength coeffs filterOffset numInput count lastOffset lastBuf nextBuf outOffset outBuf = liftM fromIntegral $ 
     withStorableArray coeffs  $ \cp -> 
     withStorableArray lastBuf $ \lp -> 
     withStorableArray nextBuf $ \np -> 
     withStorableArray outBuf  $ \op -> 
-        c_resampleCrossBufC (fromIntegral interpolation) 
+        cfunc (fromIntegral interpolation) 
                            (fromIntegral decimation) 
                            (fromIntegral coeffsLength) 
                            cp 
@@ -442,10 +391,15 @@ resampleCrossBufC interpolation decimation coeffsLength coeffs filterOffset numI
                            np 
                            (plusPtr op outOffset)
 
+resampleOneBufC   = resampleOneBuf   c_resampleOneBufC
+resampleCrossBufC = resampleCrossBuf c_resampleCrossBufC
+resampleOneBufR   = resampleOneBuf   c_resampleOneBufR
+resampleCrossBufR = resampleCrossBuf c_resampleCrossBufR
+
 quotUp q d = (q + (d - 1)) `quot` d
 
-resample :: Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
-resample interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
+resample :: (Storable a) => ResampleSingle a -> ResampleCross a ->Int -> Int -> Int -> StorableArray Int a -> Int -> Int -> Pipe (StorableArray Int a) (StorableArray Int a) IO ()
+resample single cross interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newArray_ (0, blockSizeOut - 1)
 
@@ -461,14 +415,6 @@ resample interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
         else 
             return (bufOut, offsetOut + count, spaceOut - count) 
 
-    simple :: StorableArray Int (Complex CDouble) 
-           -> Int 
-           -> Int 
-           -> StorableArray Int (Complex CDouble) 
-           -> Int 
-           -> Int 
-           -> Int 
-           -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
     simple bufIn offsetIn spaceIn bufOut offsetOut spaceOut filterOffset = do
 
         --filterOffset is the offset in the filter that the first input data is multiplied with
@@ -479,7 +425,7 @@ resample interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
         --available number of samples == interpolation * num_input
         --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
         let count = min (((spaceIn * interpolation - numCoeffs + filterOffset) `quot` decimation) + 1) spaceOut
-        endOffset <- lift $ resampleOneBufC interpolation decimation numCoeffs coeffs filterOffset count offsetIn bufIn offsetOut bufOut
+        endOffset <- lift $ single interpolation decimation numCoeffs coeffs filterOffset count offsetIn bufIn offsetOut bufOut
 
         assert "2" ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) (return ())
 
@@ -500,15 +446,6 @@ resample interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
                     True ->  simple next 0 blockSizeIn bufOut' offsetOut' spaceOut' endOffset
                     False -> crossover bufIn offsetIn' spaceIn' next bufOut' offsetOut' spaceOut' endOffset
 
-    crossover :: StorableArray Int (Complex CDouble) 
-              -> Int 
-              -> Int 
-              -> StorableArray Int (Complex CDouble) 
-              -> StorableArray Int (Complex CDouble) 
-              -> Int 
-              -> Int 
-              -> Int 
-              -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
     crossover bufLast offsetLast spaceLast bufNext bufOut offsetOut spaceOut filterOffset = do
 
         assert "6" (spaceLast > 0) (return ())
@@ -520,7 +457,7 @@ resample interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
             count = min outputsComputable spaceOut
         assert "7" (count /= 0) (return ())
 
-        endOffset <- lift $ resampleCrossBufC interpolation decimation numCoeffs coeffs filterOffset spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+        endOffset <- lift $ cross interpolation decimation numCoeffs coeffs filterOffset spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
         assert "2" ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) (return ())
 
@@ -531,4 +468,7 @@ resample interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
         case inputUsed >= spaceLast of 
             True  -> simple bufNext (offsetLast + inputUsed - blockSizeIn) (2 * blockSizeIn - (offsetLast + inputUsed)) bufOut' offsetOut' spaceOut' endOffset
             False -> crossover bufLast (offsetLast + inputUsed) (spaceLast - inputUsed) bufNext bufOut' offsetOut' spaceOut' endOffset
+
+resampleC = resample resampleOneBufC resampleCrossBufC
+resampleR = resample resampleOneBufR resampleCrossBufR
 
