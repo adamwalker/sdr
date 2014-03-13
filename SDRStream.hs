@@ -290,8 +290,8 @@ decimate2CrossBuf factor coeffsLength coeffs numInput num lastOffset lastBuf nex
     withStorableArray outBuf  $ \op -> 
         c_decimate2CrossBuf (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (plusPtr lp (lastOffset * sizeOf (undefined :: Complex CDouble))) np (plusPtr op (outOffset * sizeOf (undefined :: Complex CDouble)))
 
-assert False x = error "Assertion failed"
-assert True  x = x
+assert msg False x = error $ "Assertion failed: " ++ msg
+assert msg True  x = x
 
 decimate2 :: Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
 decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
@@ -312,7 +312,7 @@ decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
 
     simple bufIn offsetIn spaceIn bufOut offsetOut spaceOut = do
 
-        assert (spaceIn >= numCoeffs) (return ())
+        assert "" (spaceIn >= numCoeffs) (return ())
 
         let count = min (((spaceIn - numCoeffs) `quot` factor) + 1) spaceOut
         lift $ decimate2OneBuf factor numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
@@ -330,7 +330,7 @@ decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
 
     crossover bufLast offsetLast spaceLast bufNext bufOut offsetOut spaceOut = do
 
-        assert (spaceLast < numCoeffs) (return ())
+        assert "" (spaceLast < numCoeffs) (return ())
 
         let count = min (((spaceLast - 1) `quot` factor) + 1) spaceOut
         lift $ decimate2CrossBuf factor numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
@@ -341,4 +341,130 @@ decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
             True  -> simple bufNext (offsetLast + count * factor - blockSizeIn) (blockSizeIn - (offsetLast + count * factor - blockSizeIn)) bufOut' offsetOut' spaceOut'
             False -> crossover bufLast (offsetLast + count * factor) (spaceLast - count * factor) bufNext bufOut' offsetOut' spaceOut'
 
+foreign import ccall unsafe "resample_onebuf"
+    c_resampleOneBuf :: CInt -> CInt -> CInt -> Ptr (Complex CDouble) -> CInt -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> IO CInt
+
+resampleOneBuf :: Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> IO Int
+resampleOneBuf interpolation decimation coeffsLength coeffs filterOffset count inOffset inBuf outOffset outBuf = liftM fromIntegral $ 
+    withStorableArray coeffs $ \cp -> 
+    withStorableArray inBuf  $ \ip -> 
+    withStorableArray outBuf $ \op -> 
+        c_resampleOneBuf (fromIntegral interpolation) 
+                         (fromIntegral decimation) 
+                         (fromIntegral coeffsLength) 
+                         cp 
+                         (fromIntegral filterOffset) 
+                         (fromIntegral count) 
+                         (plusPtr ip (inOffset * sizeOf (undefined :: Complex CDouble))) 
+                         (plusPtr op (outOffset * sizeOf (undefined :: Complex CDouble)))
+
+foreign import ccall unsafe "resample_crossbuf"
+    c_resampleCrossBuf :: CInt -> CInt -> CInt -> Ptr (Complex CDouble) -> CInt -> CInt -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> Ptr (Complex doubles) -> IO CInt
+
+resampleCrossBuf :: Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> IO Int
+resampleCrossBuf interpolation decimation coeffsLength coeffs filterOffset numInput count lastOffset lastBuf nextBuf outOffset outBuf = liftM fromIntegral $ 
+    withStorableArray coeffs  $ \cp -> 
+    withStorableArray lastBuf $ \lp -> 
+    withStorableArray nextBuf $ \np -> 
+    withStorableArray outBuf  $ \op -> 
+        c_resampleCrossBuf (fromIntegral interpolation) 
+                           (fromIntegral decimation) 
+                           (fromIntegral coeffsLength) 
+                           cp 
+                           (fromIntegral filterOffset) 
+                           (fromIntegral numInput) 
+                           (fromIntegral count) 
+                           (plusPtr lp (lastOffset * sizeOf (undefined :: Complex CDouble))) 
+                           np 
+                           (plusPtr op (outOffset * sizeOf (undefined :: Complex CDouble)))
+
+quotUp q d = (q + (d - 1)) `quot` d
+
+resample :: Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
+resample interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
+    inBuf  <- await
+    outBuf <- lift $ newArray_ (0, blockSizeOut - 1)
+
+    simple inBuf 0 blockSizeIn outBuf 0 blockSizeOut 0
+
+    where
+
+    advanceOutBuf bufOut offsetOut spaceOut count = 
+        if count == spaceOut then do
+            yield bufOut
+            outBuf' <- lift $ newArray_ (0, blockSizeOut - 1)
+            return (outBuf', 0, blockSizeOut) 
+        else 
+            return (bufOut, offsetOut + count, spaceOut - count) 
+
+    simple :: StorableArray Int (Complex CDouble) 
+           -> Int 
+           -> Int 
+           -> StorableArray Int (Complex CDouble) 
+           -> Int 
+           -> Int 
+           -> Int 
+           -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
+    simple bufIn offsetIn spaceIn bufOut offsetOut spaceOut filterOffset = do
+
+        --filterOffset is the offset in the filter that the first input data is multiplied with
+
+        --Check that we have space in the input buffer for at least one output
+        assert "1" (spaceIn * interpolation >= numCoeffs - filterOffset) (return ())
+
+        --available number of samples == interpolation * num_input
+        --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
+        let count = min (((spaceIn * interpolation - numCoeffs + filterOffset) `quot` decimation) + 1) spaceOut
+        endOffset <- lift $ resampleOneBuf interpolation decimation numCoeffs coeffs filterOffset count offsetIn bufIn offsetOut bufOut
+
+        assert "2" ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) (return ())
+
+        (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
+
+        --samples no longer needed starting from filterOffset == count * decimation - filterOffset
+        --inputs lying in this region                         == (count * decimation - filterOffset) / interpolation (rounding up)
+        let usedInput = (count * decimation - filterOffset) `quotUp` interpolation 
+            spaceIn'  = spaceIn  - usedInput
+            offsetIn' = offsetIn + usedInput
+
+        case spaceIn' * interpolation < numCoeffs - endOffset of
+            False -> do
+                simple bufIn offsetIn' spaceIn' bufOut' offsetOut' spaceOut' endOffset
+            True  -> do
+                next <- await
+                case spaceIn' == 0 of
+                    True ->  simple next 0 blockSizeIn bufOut' offsetOut' spaceOut' endOffset
+                    False -> crossover bufIn offsetIn' spaceIn' next bufOut' offsetOut' spaceOut' endOffset
+
+    crossover :: StorableArray Int (Complex CDouble) 
+              -> Int 
+              -> Int 
+              -> StorableArray Int (Complex CDouble) 
+              -> StorableArray Int (Complex CDouble) 
+              -> Int 
+              -> Int 
+              -> Int 
+              -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
+    crossover bufLast offsetLast spaceLast bufNext bufOut offsetOut spaceOut filterOffset = do
+
+        assert "6" (spaceLast > 0) (return ())
+        assert "3" (spaceLast * interpolation < numCoeffs - filterOffset) (return ())
+
+        --outputsComputable is the number of outputs that need to be computed for the last buffer to no longer be needed
+        --outputsComputable * decimation == numInput * interpolation + filterOffset + k
+        let outputsComputable = (spaceLast * interpolation + filterOffset) `quotUp` decimation
+            count = min outputsComputable spaceOut
+        assert "7" (count /= 0) (return ())
+
+        endOffset <- lift $ resampleCrossBuf interpolation decimation numCoeffs coeffs filterOffset spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+
+        assert "2" ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) (return ())
+
+        (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
+
+        let inputUsed = (count * decimation - filterOffset) `quotUp` interpolation
+
+        case inputUsed >= spaceLast of 
+            True  -> simple bufNext (offsetLast + inputUsed - blockSizeIn) (2 * blockSizeIn - (offsetLast + inputUsed)) bufOut' offsetOut' spaceOut' endOffset
+            False -> crossover bufLast (offsetLast + inputUsed) (spaceLast - inputUsed) bufNext bufOut' offsetOut' spaceOut' endOffset
 
