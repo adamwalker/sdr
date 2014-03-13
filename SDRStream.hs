@@ -389,7 +389,17 @@ foreign import ccall unsafe "resample_crossbuf_r"
                         -> Ptr CDouble 
                         -> IO CInt
 
-resampleOneBufC :: Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> IO Int
+resampleOneBufC :: Int 
+                -> Int 
+                -> Int 
+                -> StorableArray Int (Complex CDouble) 
+                -> Int 
+                -> Int 
+                -> Int 
+                -> StorableArray Int (Complex CDouble) 
+                -> Int 
+                -> StorableArray Int (Complex CDouble) 
+                -> IO Int
 resampleOneBufC interpolation decimation coeffsLength coeffs filterOffset count inOffset inBuf outOffset outBuf = liftM fromIntegral $ 
     withStorableArray coeffs $ \cp -> 
     withStorableArray inBuf  $ \ip -> 
@@ -403,7 +413,19 @@ resampleOneBufC interpolation decimation coeffsLength coeffs filterOffset count 
                          (advancePtr ip inOffset)
                          (advancePtr op outOffset)
 
-resampleCrossBufC :: Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> IO Int
+resampleCrossBufC :: Int 
+                  -> Int 
+                  -> Int 
+                  -> StorableArray Int (Complex CDouble) 
+                  -> Int 
+                  -> Int 
+                  -> Int 
+                  -> Int 
+                  -> StorableArray Int (Complex CDouble) 
+                  -> StorableArray Int (Complex CDouble) 
+                  -> Int 
+                  -> StorableArray Int (Complex CDouble) 
+                  -> IO Int
 resampleCrossBufC interpolation decimation coeffsLength coeffs filterOffset numInput count lastOffset lastBuf nextBuf outOffset outBuf = liftM fromIntegral $ 
     withStorableArray coeffs  $ \cp -> 
     withStorableArray lastBuf $ \lp -> 
