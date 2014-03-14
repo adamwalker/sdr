@@ -156,43 +156,43 @@ fmDemod samples ina = do
 type FilterSingleC a = CInt -> Ptr a -> CInt -> Ptr a -> Ptr a -> IO ()
 type FilterCrossC  a = CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> Ptr a -> IO ()
 
-foreign import ccall unsafe "filter2_onebuf_c"
-    c_filter2OneBufC   :: FilterSingleC (Complex CDouble)
+foreign import ccall unsafe "filter_onebuf_c"
+    c_filterOneBufC   :: FilterSingleC (Complex CDouble)
 
-foreign import ccall unsafe "filter2_crossbuf_c"
-    c_filter2CrossBufC :: FilterCrossC (Complex CDouble)
+foreign import ccall unsafe "filter_crossbuf_c"
+    c_filterCrossBufC :: FilterCrossC (Complex CDouble)
 
-foreign import ccall unsafe "filter2_onebuf_r"
-    c_filter2OneBufR   :: FilterSingleC CDouble
+foreign import ccall unsafe "filter_onebuf_r"
+    c_filterOneBufR   :: FilterSingleC CDouble
 
-foreign import ccall unsafe "filter2_crossbuf_r"
-    c_filter2CrossBufR :: FilterCrossC CDouble
+foreign import ccall unsafe "filter_crossbuf_r"
+    c_filterCrossBufR :: FilterCrossC CDouble
 
 type FilterSingle a = Int -> StorableArray Int a -> Int -> Int -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
 type FilterCross  a = Int -> StorableArray Int a -> Int -> Int -> Int -> StorableArray Int a -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
 
-filter2OneBuf :: Storable a => FilterSingleC a -> FilterSingle a
-filter2OneBuf cfunc coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
+filterOneBuf :: Storable a => FilterSingleC a -> FilterSingle a
+filterOneBuf cfunc coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
     withStorableArray coeffs $ \cp -> 
     withStorableArray inBuf  $ \ip -> 
     withStorableArray outBuf $ \op -> 
         cfunc (fromIntegral coeffsLength) cp (fromIntegral num) (advancePtr ip inOffset) (advancePtr op outOffset)
 
-filter2CrossBuf :: Storable a => FilterCrossC a -> FilterCross a
-filter2CrossBuf cfunc coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
+filterCrossBuf :: Storable a => FilterCrossC a -> FilterCross a
+filterCrossBuf cfunc coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
     withStorableArray coeffs  $ \cp -> 
     withStorableArray lastBuf $ \lp -> 
     withStorableArray nextBuf $ \np -> 
     withStorableArray outBuf  $ \op -> 
         cfunc (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (advancePtr lp lastOffset) np (advancePtr op outOffset)
 
-filter2OneBufC   = filter2OneBuf   c_filter2OneBufC
-filter2CrossBufC = filter2CrossBuf c_filter2CrossBufC
-filter2OneBufR   = filter2OneBuf   c_filter2OneBufR
-filter2CrossBufR = filter2CrossBuf c_filter2CrossBufR
+filterOneBufC   = filterOneBuf   c_filterOneBufC
+filterCrossBufC = filterCrossBuf c_filterCrossBufC
+filterOneBufR   = filterOneBuf   c_filterOneBufR
+filterCrossBufR = filterCrossBuf c_filterCrossBufR
 
-filter2 :: Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
-filter2 numCoeffs coeffs blockSizeIn blockSizeOut = do
+filter :: Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
+filter numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newArray_ (0, blockSizeOut - 1)
 
@@ -210,7 +210,7 @@ filter2 numCoeffs coeffs blockSizeIn blockSizeOut = do
 
     simple bufIn offsetIn spaceIn bufOut offsetOut spaceOut = do
         let count = min (spaceIn - numCoeffs + 1) spaceOut
-        lift $ filter2OneBufC numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
+        lift $ filterOneBufC numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
@@ -225,7 +225,7 @@ filter2 numCoeffs coeffs blockSizeIn blockSizeOut = do
 
     crossover bufLast offsetLast spaceLast bufNext bufOut offsetOut spaceOut = do
         let count = min (spaceLast - 1) spaceOut
-        lift $ filter2CrossBufC numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+        lift $ filterCrossBufC numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
