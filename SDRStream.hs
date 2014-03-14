@@ -252,10 +252,10 @@ foreign import ccall unsafe "decimate_crossbuf_c"
     c_decimateCrossBufC :: DecimateCrossC (Complex CDouble)
 
 foreign import ccall unsafe "decimate_onebuf_r"
-    c_decimateOneBufR   :: DecimateSingleC (Complex CDouble)
+    c_decimateOneBufR   :: DecimateSingleC CDouble
 
 foreign import ccall unsafe "decimate_crossbuf_r"
-    c_decimateCrossBufR :: DecimateCrossC (Complex CDouble)
+    c_decimateCrossBufR :: DecimateCrossC CDouble
 
 type DecimateSingle a = Int -> Int -> StorableArray Int a -> Int -> Int -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
 type DecimateCross  a = Int -> Int -> StorableArray Int a -> Int -> Int -> Int -> StorableArray Int a -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
