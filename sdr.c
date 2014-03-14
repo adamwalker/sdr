@@ -29,37 +29,6 @@ void fmDemod(int buf_size, double complex *last_sample, double complex *in_buf, 
     }
 }
 
-// It is assumed that size of out_buf * factor = size of in_buf
-void decimate(int factor, int coeff_size, double complex *coeffs, int buf_size, double complex *last_buf, double complex *this_buf, double complex *out_buf){
-    int i, j, k;
-    
-    //Use samples from last block
-    for(i=0, k=0; i<coeff_size - 1; i+=factor, k++){
-        double complex accum = 0;
-
-        for(j=0; j<coeff_size - 1 - i; j++){
-            accum += last_buf[i + j + buf_size - coeff_size] * coeffs[j];
-        }
-
-        for(; j<coeff_size; j++){
-            accum += this_buf[i + j - coeff_size + 1] * coeffs[j];
-        }
-
-        out_buf[k] = accum;
-    }
-
-    //Use samples from this block
-    for(; i<buf_size; i+=factor, k++){
-        double complex accum = 0;
-
-        for(j=0; j<coeff_size; j++){
-            accum += this_buf[i + j - coeff_size + 1] * coeffs[j];
-        };
-
-        out_buf[k] = accum;
-    }
-}
-
 void filter2_onebuf_c(int coeff_size, double complex *coeffs, int buf_size, double complex *in_buf, double complex *out_buf){
     int i, j;
     for(i=0; i<buf_size; i++){
