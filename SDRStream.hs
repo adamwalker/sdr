@@ -195,8 +195,8 @@ filterCrossBufC = filterCrossBuf c_filterCrossBufC
 filterOneBufR   = filterOneBuf   c_filterOneBufR
 filterCrossBufR = filterCrossBuf c_filterCrossBufR
 
-filter :: Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
-filter numCoeffs coeffs blockSizeIn blockSizeOut = do
+filterr :: (Storable a) => FilterSingle a -> FilterCross a -> Int -> StorableArray Int a -> Int -> Int -> Pipe (StorableArray Int a) (StorableArray Int a) IO ()
+filterr single cross numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newArray_ (0, blockSizeOut - 1)
 
@@ -214,7 +214,7 @@ filter numCoeffs coeffs blockSizeIn blockSizeOut = do
 
     simple bufIn offsetIn spaceIn bufOut offsetOut spaceOut = do
         let count = min (spaceIn - numCoeffs + 1) spaceOut
-        lift $ filterOneBufC numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
+        lift $ single numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
@@ -229,7 +229,7 @@ filter numCoeffs coeffs blockSizeIn blockSizeOut = do
 
     crossover bufLast offsetLast spaceLast bufNext bufOut offsetOut spaceOut = do
         let count = min (spaceLast - 1) spaceOut
-        lift $ filterCrossBufC numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+        lift $ cross numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
@@ -237,6 +237,9 @@ filter numCoeffs coeffs blockSizeIn blockSizeOut = do
             True  -> do
                 simple bufNext 0 blockSizeIn bufOut' offsetOut' spaceOut'
             False -> crossover bufLast (offsetLast + count) (spaceLast - count) bufNext bufOut' offsetOut' spaceOut'
+
+filterC = filterr filterOneBufC filterCrossBufC
+filterR = filterr filterOneBufR filterCrossBufR
 
 --Decimation
 type DecimateSingleC a = CInt -> CInt -> Ptr a -> CInt -> Ptr a -> Ptr a -> IO ()
@@ -277,8 +280,8 @@ decimateCrossBufC = decimateCrossBuf c_decimateCrossBufC
 decimateOneBufR   = decimateOneBuf   c_decimateOneBufR
 decimateCrossBufR = decimateCrossBuf c_decimateCrossBufR
 
-decimate2 :: Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
-decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
+decimate :: (Storable a) => DecimateSingle a -> DecimateCross a -> Int -> Int -> StorableArray Int a -> Int -> Int -> Pipe (StorableArray Int a) (StorableArray Int a) IO ()
+decimate single cross factor numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newArray_ (0, blockSizeOut - 1)
 
@@ -299,7 +302,7 @@ decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
         assert "" (spaceIn >= numCoeffs) (return ())
 
         let count = min (((spaceIn - numCoeffs) `quot` factor) + 1) spaceOut
-        lift $ decimateOneBufC factor numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
+        lift $ single factor numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
@@ -317,13 +320,16 @@ decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
         assert "" (spaceLast < numCoeffs) (return ())
 
         let count = min (((spaceLast - 1) `quot` factor) + 1) spaceOut
-        lift $ decimateCrossBufC factor numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+        lift $ cross factor numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
         case ((spaceLast - 1) `quot` factor) + 1 == count of 
             True  -> simple bufNext (offsetLast + count * factor - blockSizeIn) (blockSizeIn - (offsetLast + count * factor - blockSizeIn)) bufOut' offsetOut' spaceOut'
             False -> crossover bufLast (offsetLast + count * factor) (spaceLast - count * factor) bufNext bufOut' offsetOut' spaceOut'
+
+decimateC = decimate decimateOneBufC decimateCrossBufC
+decimateR = decimate decimateOneBufR decimateCrossBufR
 
 --Rational resampling
 type ResampleSingleC a = CInt -> CInt -> CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> IO CInt
