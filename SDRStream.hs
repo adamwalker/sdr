@@ -139,32 +139,6 @@ plot samples gain = do
         let interleave = concatMap (\(x, y) -> [x, y])
         lift $ graphFunc $ interleave $ zip xCoords mags
 
---Filtering
-firFilter :: Int -> [Complex CDouble] -> IO (Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ())
-firFilter samples coeffs = do
-    c <- newListArray (0, length coeffs - 1) coeffs
-    return $ do
-        first <- await
-        let loop last = do
-            this <- await
-            out <- lift $ doFilter (length coeffs) c samples last this 
-            yield out
-            loop this
-        loop first
-
-foreign import ccall unsafe "filter"
-    c_filter :: CInt -> Ptr (Complex CDouble) -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble ) -> Ptr (Complex CDouble) -> IO ()
-
-doFilter :: Int -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> StorableArray Int (Complex CDouble) -> IO (StorableArray Int (Complex CDouble))
-doFilter coeffsLength coeffs samples lastBuffer thisBuffer = do
-    outBuffer <- newArray_ (0, samples - 1)
-    withStorableArray coeffs     $ \cp -> 
-        withStorableArray lastBuffer $ \lp -> 
-        withStorableArray thisBuffer $ \tp -> 
-        withStorableArray outBuffer  $ \op -> 
-            c_filter (fromIntegral coeffsLength) cp (fromIntegral samples) lp tp op
-    return outBuffer
-   
 --Decimation
 decimate :: Int -> Int -> [Complex CDouble] -> IO (Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ())
 decimate factor samples coeffs = do
