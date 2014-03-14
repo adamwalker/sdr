@@ -26,6 +26,9 @@ import RTLSDR
 import HFFT
 import SimpleLine
 
+assert msg False x = error $ "Assertion failed: " ++ msg
+assert msg True  x = x
+
 --RTLSDR streaming
 sdrStream :: Word32 -> Word32 -> Int -> EitherT String IO (Producer (StorableArray Int CUChar) IO ())
 sdrStream frequency sampleRate samples = do
@@ -153,6 +156,7 @@ fmDemod samples ina = do
             c_fmDemod (fromIntegral samples) sp ip op
     return out
 
+--Filtering
 type FilterSingleC a = CInt -> Ptr a -> CInt -> Ptr a -> Ptr a -> IO ()
 type FilterCrossC  a = CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> Ptr a -> IO ()
 
@@ -235,30 +239,43 @@ filter numCoeffs coeffs blockSizeIn blockSizeOut = do
             False -> crossover bufLast (offsetLast + count) (spaceLast - count) bufNext bufOut' offsetOut' spaceOut'
 
 --Decimation
+type DecimateSingleC a = CInt -> CInt -> Ptr a -> CInt -> Ptr a -> Ptr a -> IO ()
+type DecimateCrossC  a = CInt -> CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> Ptr a -> IO ()
 
-foreign import ccall unsafe "decimate2_onebuf"
-    c_decimate2OneBuf :: CInt -> CInt -> Ptr (Complex CDouble) -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> IO ()
+foreign import ccall unsafe "decimate_onebuf_c"
+    c_decimateOneBufC   :: DecimateSingleC (Complex CDouble)
 
-decimate2OneBuf :: Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> IO ()
-decimate2OneBuf factor coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
+foreign import ccall unsafe "decimate_crossbuf_c"
+    c_decimateCrossBufC :: DecimateCrossC (Complex CDouble)
+
+foreign import ccall unsafe "decimate_onebuf_r"
+    c_decimateOneBufR   :: DecimateSingleC (Complex CDouble)
+
+foreign import ccall unsafe "decimate_crossbuf_r"
+    c_decimateCrossBufR :: DecimateCrossC (Complex CDouble)
+
+type DecimateSingle a = Int -> Int -> StorableArray Int a -> Int -> Int -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
+type DecimateCross  a = Int -> Int -> StorableArray Int a -> Int -> Int -> Int -> StorableArray Int a -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
+
+decimateOneBuf :: Storable a => DecimateSingleC a -> DecimateSingle a
+decimateOneBuf cfunc factor coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
     withStorableArray coeffs $ \cp -> 
     withStorableArray inBuf  $ \ip -> 
     withStorableArray outBuf $ \op -> 
-        c_decimate2OneBuf (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral num) (plusPtr ip (inOffset * sizeOf (undefined :: Complex CDouble))) (plusPtr op (outOffset * sizeOf (undefined :: Complex CDouble)))
+        cfunc (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral num) (advancePtr ip inOffset) (advancePtr op outOffset)
 
-foreign import ccall unsafe "decimate2_crossbuf"
-    c_decimate2CrossBuf :: CInt -> CInt -> Ptr (Complex CDouble) -> CInt -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> Ptr (Complex doubles) -> IO ()
-
-decimate2CrossBuf :: Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> IO ()
-decimate2CrossBuf factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
+decimateCrossBuf :: Storable a => DecimateCrossC a -> DecimateCross a
+decimateCrossBuf cfunc factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
     withStorableArray coeffs  $ \cp -> 
     withStorableArray lastBuf $ \lp -> 
     withStorableArray nextBuf $ \np -> 
     withStorableArray outBuf  $ \op -> 
-        c_decimate2CrossBuf (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (plusPtr lp (lastOffset * sizeOf (undefined :: Complex CDouble))) np (plusPtr op (outOffset * sizeOf (undefined :: Complex CDouble)))
+        cfunc (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (advancePtr lp lastOffset) np (advancePtr op outOffset)
 
-assert msg False x = error $ "Assertion failed: " ++ msg
-assert msg True  x = x
+decimateOneBufC   = decimateOneBuf   c_decimateOneBufC
+decimateCrossBufC = decimateCrossBuf c_decimateCrossBufC
+decimateOneBufR   = decimateOneBuf   c_decimateOneBufR
+decimateCrossBufR = decimateCrossBuf c_decimateCrossBufR
 
 decimate2 :: Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
 decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
@@ -282,7 +299,7 @@ decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
         assert "" (spaceIn >= numCoeffs) (return ())
 
         let count = min (((spaceIn - numCoeffs) `quot` factor) + 1) spaceOut
-        lift $ decimate2OneBuf factor numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
+        lift $ decimateOneBufC factor numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
@@ -300,7 +317,7 @@ decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
         assert "" (spaceLast < numCoeffs) (return ())
 
         let count = min (((spaceLast - 1) `quot` factor) + 1) spaceOut
-        lift $ decimate2CrossBuf factor numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+        lift $ decimateCrossBufC factor numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
@@ -309,8 +326,8 @@ decimate2 factor numCoeffs coeffs blockSizeIn blockSizeOut = do
             False -> crossover bufLast (offsetLast + count * factor) (spaceLast - count * factor) bufNext bufOut' offsetOut' spaceOut'
 
 --Rational resampling
-type ResampleSingleC a  = CInt -> CInt -> CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> IO CInt
-type ResampleCrossC a   = CInt -> CInt -> CInt -> Ptr a -> CInt -> CInt -> CInt -> Ptr a -> Ptr a -> Ptr a -> IO CInt
+type ResampleSingleC a = CInt -> CInt -> CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> IO CInt
+type ResampleCrossC  a = CInt -> CInt -> CInt -> Ptr a -> CInt -> CInt -> CInt -> Ptr a -> Ptr a -> Ptr a -> IO CInt
 
 foreign import ccall unsafe "resample_onebuf_c"
     c_resampleOneBufC   :: ResampleSingleC (Complex CDouble)

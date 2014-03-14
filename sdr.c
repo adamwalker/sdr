@@ -89,7 +89,7 @@ void filter_crossbuf_r(int coeff_size, double *coeffs, int remaining_input, int 
     }
 }
 
-void decimate2_onebuf(int factor, int coeff_size, double complex *coeffs, int buf_size, double complex *in_buf, double complex *out_buf){
+void decimate_onebuf_c(int factor, int coeff_size, double complex *coeffs, int buf_size, double complex *in_buf, double complex *out_buf){
     int i, j, k;
     for(i=0, k=0; k<buf_size; i+=factor, k++){
         complex double accum = 0;
@@ -102,10 +102,40 @@ void decimate2_onebuf(int factor, int coeff_size, double complex *coeffs, int bu
     }
 }
 
-void decimate2_crossbuf(int factor, int coeff_size, double complex *coeffs, int remaining_input, int buf_size, double complex *last_buf, double complex *this_buf, double complex *out_buf){
+void decimate_crossbuf_c(int factor, int coeff_size, double complex *coeffs, int remaining_input, int buf_size, double complex *last_buf, double complex *this_buf, double complex *out_buf){
     int i, j, k;
     for(i=0, k=0; k<buf_size; i+=factor, k++){
         double complex accum = 0;
+
+        for(j=0; i+j < remaining_input; j++){
+            accum += last_buf[i + j] * coeffs[j];
+        }
+
+        for(; j<coeff_size; j++){
+            accum += this_buf[i + j - remaining_input] * coeffs[j];
+        }
+
+        out_buf[k] = accum;
+    }
+}
+
+void decimate_onebuf_r(int factor, int coeff_size, double *coeffs, int buf_size, double *in_buf, double *out_buf){
+    int i, j, k;
+    for(i=0, k=0; k<buf_size; i+=factor, k++){
+        double accum = 0;
+
+        for(j=0; j<coeff_size; j++){
+            accum += in_buf[i + j] * coeffs[j];
+        }
+
+        out_buf[k] = accum;
+    }
+}
+
+void decimate_crossbuf_r(int factor, int coeff_size, double *coeffs, int remaining_input, int buf_size, double *last_buf, double *this_buf, double *out_buf){
+    int i, j, k;
+    for(i=0, k=0; k<buf_size; i+=factor, k++){
+        double accum = 0;
 
         for(j=0; i+j < remaining_input; j++){
             accum += last_buf[i + j] * coeffs[j];
