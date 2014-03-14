@@ -90,7 +90,7 @@ void decimate(int factor, int coeff_size, double complex *coeffs, int buf_size, 
     }
 }
 
-void filter2_onebuf(int coeff_size, double complex *coeffs, int buf_size, double complex *in_buf, double complex *out_buf){
+void filter2_onebuf_c(int coeff_size, double complex *coeffs, int buf_size, double complex *in_buf, double complex *out_buf){
     int i, j;
     for(i=0; i<buf_size; i++){
         complex double accum = 0;
@@ -103,10 +103,40 @@ void filter2_onebuf(int coeff_size, double complex *coeffs, int buf_size, double
     }
 }
 
-void filter2_crossbuf(int coeff_size, double complex *coeffs, int remaining_input, int buf_size, double complex *last_buf, double complex *this_buf, double complex *out_buf){
+void filter2_crossbuf_c(int coeff_size, double complex *coeffs, int remaining_input, int buf_size, double complex *last_buf, double complex *this_buf, double complex *out_buf){
     int i, j;
     for(i=0; i<buf_size; i++){
         double complex accum = 0;
+
+        for(j=0; j<remaining_input - i; j++){
+            accum += last_buf[i + j] * coeffs[j];
+        }
+
+        for(; j<coeff_size; j++){
+            accum += this_buf[i + j - remaining_input] * coeffs[j];
+        }
+
+        out_buf[i] = accum;
+    }
+}
+
+void filter2_onebuf_r(int coeff_size, double *coeffs, int buf_size, double *in_buf, double *out_buf){
+    int i, j;
+    for(i=0; i<buf_size; i++){
+        complex accum = 0;
+
+        for(j=0; j<coeff_size; j++){
+            accum += in_buf[i + j] * coeffs[j];
+        }
+
+        out_buf[i] = accum;
+    }
+}
+
+void filter2_crossbuf_r(int coeff_size, double *coeffs, int remaining_input, int buf_size, double *last_buf, double *this_buf, double *out_buf){
+    int i, j;
+    for(i=0; i<buf_size; i++){
+        double accum = 0;
 
         for(j=0; j<remaining_input - i; j++){
             accum += last_buf[i + j] * coeffs[j];

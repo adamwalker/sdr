@@ -205,26 +205,43 @@ fmDemod samples ina = do
             c_fmDemod (fromIntegral samples) sp ip op
     return out
 
-foreign import ccall unsafe "filter2_onebuf"
-    c_filter2OneBuf :: CInt -> Ptr (Complex CDouble) -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> IO ()
+type FilterSingleC a = CInt -> Ptr a -> CInt -> Ptr a -> Ptr a -> IO ()
+type FilterCrossC  a = CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> Ptr a -> IO ()
 
-filter2OneBuf :: Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> IO ()
-filter2OneBuf coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
+foreign import ccall unsafe "filter2_onebuf_c"
+    c_filter2OneBufC   :: FilterSingleC (Complex CDouble)
+
+foreign import ccall unsafe "filter2_crossbuf_c"
+    c_filter2CrossBufC :: FilterCrossC (Complex CDouble)
+
+foreign import ccall unsafe "filter2_onebuf_r"
+    c_filter2OneBufR   :: FilterSingleC CDouble
+
+foreign import ccall unsafe "filter2_crossbuf_r"
+    c_filter2CrossBufR :: FilterCrossC CDouble
+
+type FilterSingle a = Int -> StorableArray Int a -> Int -> Int -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
+type FilterCross  a = Int -> StorableArray Int a -> Int -> Int -> Int -> StorableArray Int a -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
+
+filter2OneBuf :: Storable a => FilterSingleC a -> FilterSingle a
+filter2OneBuf cfunc coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
     withStorableArray coeffs $ \cp -> 
     withStorableArray inBuf  $ \ip -> 
     withStorableArray outBuf $ \op -> 
-        c_filter2OneBuf (fromIntegral coeffsLength) cp (fromIntegral num) (plusPtr ip (inOffset * sizeOf (undefined :: Complex CDouble))) (plusPtr op (outOffset * sizeOf (undefined :: Complex CDouble)))
+        cfunc (fromIntegral coeffsLength) cp (fromIntegral num) (advancePtr ip inOffset) (advancePtr op outOffset)
 
-foreign import ccall unsafe "filter2_crossbuf"
-    c_filter2CrossBuf :: CInt -> Ptr (Complex CDouble) -> CInt -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> Ptr (Complex doubles) -> IO ()
-
-filter2CrossBuf :: Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Int -> StorableArray Int (Complex CDouble) -> StorableArray Int (Complex CDouble) -> Int -> StorableArray Int (Complex CDouble) -> IO ()
-filter2CrossBuf coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
+filter2CrossBuf :: Storable a => FilterCrossC a -> FilterCross a
+filter2CrossBuf cfunc coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
     withStorableArray coeffs  $ \cp -> 
     withStorableArray lastBuf $ \lp -> 
     withStorableArray nextBuf $ \np -> 
     withStorableArray outBuf  $ \op -> 
-        c_filter2CrossBuf (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (plusPtr lp (lastOffset * sizeOf (undefined :: Complex CDouble))) np (plusPtr op (outOffset * sizeOf (undefined :: Complex CDouble)))
+        cfunc (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (advancePtr lp lastOffset) np (advancePtr op outOffset)
+
+filter2OneBufC   = filter2OneBuf   c_filter2OneBufC
+filter2CrossBufC = filter2CrossBuf c_filter2CrossBufC
+filter2OneBufR   = filter2OneBuf   c_filter2OneBufR
+filter2CrossBufR = filter2CrossBuf c_filter2CrossBufR
 
 filter2 :: Int -> StorableArray Int (Complex CDouble) -> Int -> Int -> Pipe (StorableArray Int (Complex CDouble)) (StorableArray Int (Complex CDouble)) IO ()
 filter2 numCoeffs coeffs blockSizeIn blockSizeOut = do
@@ -245,7 +262,7 @@ filter2 numCoeffs coeffs blockSizeIn blockSizeOut = do
 
     simple bufIn offsetIn spaceIn bufOut offsetOut spaceOut = do
         let count = min (spaceIn - numCoeffs + 1) spaceOut
-        lift $ filter2OneBuf numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
+        lift $ filter2OneBufC numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
@@ -260,7 +277,7 @@ filter2 numCoeffs coeffs blockSizeIn blockSizeOut = do
 
     crossover bufLast offsetLast spaceLast bufNext bufOut offsetOut spaceOut = do
         let count = min (spaceLast - 1) spaceOut
-        lift $ filter2CrossBuf numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+        lift $ filter2CrossBufC numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
@@ -268,6 +285,8 @@ filter2 numCoeffs coeffs blockSizeIn blockSizeOut = do
             True  -> do
                 simple bufNext 0 blockSizeIn bufOut' offsetOut' spaceOut'
             False -> crossover bufLast (offsetLast + count) (spaceLast - count) bufNext bufOut' offsetOut' spaceOut'
+
+--Decimation
 
 foreign import ccall unsafe "decimate2_onebuf"
     c_decimate2OneBuf :: CInt -> CInt -> Ptr (Complex CDouble) -> CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> IO ()
