@@ -11,10 +11,7 @@ import Foreign.Storable
 import Foreign.Marshal.Array
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Utils
-import Data.Array.Storable
 import Foreign.C.Types
-import Data.Array.CArray
-import Data.Array.CArray.Base
 import Data.Complex
 import Foreign.ForeignPtr
 import Foreign.Storable.Complex
@@ -41,22 +38,22 @@ foreign import ccall unsafe "filter_onebuf_r"
 foreign import ccall unsafe "filter_crossbuf_r"
     c_filterCrossBufR :: FilterCrossC CDouble
 
-type FilterSingle a = Int -> StorableArray Int a -> Int -> Int -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
-type FilterCross  a = Int -> StorableArray Int a -> Int -> Int -> Int -> StorableArray Int a -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
+type FilterSingle a = Int -> ForeignPtr a -> Int -> Int -> ForeignPtr a -> Int -> ForeignPtr a -> IO ()
+type FilterCross  a = Int -> ForeignPtr a -> Int -> Int -> Int -> ForeignPtr a -> ForeignPtr a -> Int -> ForeignPtr a -> IO ()
 
 filterOneBuf :: Storable a => FilterSingleC a -> FilterSingle a
 filterOneBuf cfunc coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
-    withStorableArray coeffs $ \cp -> 
-    withStorableArray inBuf  $ \ip -> 
-    withStorableArray outBuf $ \op -> 
+    withForeignPtr coeffs $ \cp -> 
+    withForeignPtr inBuf  $ \ip -> 
+    withForeignPtr outBuf $ \op -> 
         cfunc (fromIntegral coeffsLength) cp (fromIntegral num) (advancePtr ip inOffset) (advancePtr op outOffset)
 
 filterCrossBuf :: Storable a => FilterCrossC a -> FilterCross a
 filterCrossBuf cfunc coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
-    withStorableArray coeffs  $ \cp -> 
-    withStorableArray lastBuf $ \lp -> 
-    withStorableArray nextBuf $ \np -> 
-    withStorableArray outBuf  $ \op -> 
+    withForeignPtr coeffs  $ \cp -> 
+    withForeignPtr lastBuf $ \lp -> 
+    withForeignPtr nextBuf $ \np -> 
+    withForeignPtr outBuf  $ \op -> 
         cfunc (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (advancePtr lp lastOffset) np (advancePtr op outOffset)
 
 filterOneBufC   = filterOneBuf   c_filterOneBufC
@@ -64,10 +61,10 @@ filterCrossBufC = filterCrossBuf c_filterCrossBufC
 filterOneBufR   = filterOneBuf   c_filterOneBufR
 filterCrossBufR = filterCrossBuf c_filterCrossBufR
 
-filterr :: (Storable a) => FilterSingle a -> FilterCross a -> Int -> StorableArray Int a -> Int -> Int -> Pipe (StorableArray Int a) (StorableArray Int a) IO ()
+filterr :: (Storable a) => FilterSingle a -> FilterCross a -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
 filterr single cross numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
-    outBuf <- lift $ newArray_ (0, blockSizeOut - 1)
+    outBuf <- lift $ mallocForeignPtrArray blockSizeOut
 
     simple inBuf 0 blockSizeIn outBuf 0 blockSizeOut 
 
@@ -76,7 +73,7 @@ filterr single cross numCoeffs coeffs blockSizeIn blockSizeOut = do
     advanceOutBuf bufOut offsetOut spaceOut count = 
         if count == spaceOut then do
             yield bufOut
-            outBuf' <- lift $ newArray_ (0, blockSizeOut - 1)
+            outBuf' <- lift $ mallocForeignPtrArray blockSizeOut
             return (outBuf', 0, blockSizeOut) 
         else 
             return (bufOut, offsetOut + count, spaceOut - count) 
@@ -103,8 +100,7 @@ filterr single cross numCoeffs coeffs blockSizeIn blockSizeOut = do
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
         case spaceLast - 1 == count of 
-            True  -> do
-                simple bufNext 0 blockSizeIn bufOut' offsetOut' spaceOut'
+            True  -> simple bufNext 0 blockSizeIn bufOut' offsetOut' spaceOut'
             False -> crossover bufLast (offsetLast + count) (spaceLast - count) bufNext bufOut' offsetOut' spaceOut'
 
 filterC = filterr filterOneBufC filterCrossBufC
@@ -126,22 +122,22 @@ foreign import ccall unsafe "decimate_onebuf_r"
 foreign import ccall unsafe "decimate_crossbuf_r"
     c_decimateCrossBufR :: DecimateCrossC CDouble
 
-type DecimateSingle a = Int -> Int -> StorableArray Int a -> Int -> Int -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
-type DecimateCross  a = Int -> Int -> StorableArray Int a -> Int -> Int -> Int -> StorableArray Int a -> StorableArray Int a -> Int -> StorableArray Int a -> IO ()
+type DecimateSingle a = Int -> Int -> ForeignPtr a -> Int -> Int -> ForeignPtr a -> Int -> ForeignPtr a -> IO ()
+type DecimateCross  a = Int -> Int -> ForeignPtr a -> Int -> Int -> Int -> ForeignPtr a -> ForeignPtr a -> Int -> ForeignPtr a -> IO ()
 
 decimateOneBuf :: Storable a => DecimateSingleC a -> DecimateSingle a
 decimateOneBuf cfunc factor coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
-    withStorableArray coeffs $ \cp -> 
-    withStorableArray inBuf  $ \ip -> 
-    withStorableArray outBuf $ \op -> 
+    withForeignPtr coeffs $ \cp -> 
+    withForeignPtr inBuf  $ \ip -> 
+    withForeignPtr outBuf $ \op -> 
         cfunc (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral num) (advancePtr ip inOffset) (advancePtr op outOffset)
 
 decimateCrossBuf :: Storable a => DecimateCrossC a -> DecimateCross a
 decimateCrossBuf cfunc factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
-    withStorableArray coeffs  $ \cp -> 
-    withStorableArray lastBuf $ \lp -> 
-    withStorableArray nextBuf $ \np -> 
-    withStorableArray outBuf  $ \op -> 
+    withForeignPtr coeffs  $ \cp -> 
+    withForeignPtr lastBuf $ \lp -> 
+    withForeignPtr nextBuf $ \np -> 
+    withForeignPtr outBuf  $ \op -> 
         cfunc (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (advancePtr lp lastOffset) np (advancePtr op outOffset)
 
 decimateOneBufC   = decimateOneBuf   c_decimateOneBufC
@@ -149,10 +145,10 @@ decimateCrossBufC = decimateCrossBuf c_decimateCrossBufC
 decimateOneBufR   = decimateOneBuf   c_decimateOneBufR
 decimateCrossBufR = decimateCrossBuf c_decimateCrossBufR
 
-decimate :: (Storable a) => DecimateSingle a -> DecimateCross a -> Int -> Int -> StorableArray Int a -> Int -> Int -> Pipe (StorableArray Int a) (StorableArray Int a) IO ()
+decimate :: (Storable a) => DecimateSingle a -> DecimateCross a -> Int -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
 decimate single cross factor numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
-    outBuf <- lift $ newArray_ (0, blockSizeOut - 1)
+    outBuf <- lift $ mallocForeignPtrArray blockSizeOut
 
     simple inBuf 0 blockSizeIn outBuf 0 blockSizeOut 
 
@@ -161,7 +157,7 @@ decimate single cross factor numCoeffs coeffs blockSizeIn blockSizeOut = do
     advanceOutBuf bufOut offsetOut spaceOut count = 
         if count == spaceOut then do
             yield bufOut
-            outBuf' <- lift $ newArray_ (0, blockSizeOut - 1)
+            outBuf' <- lift $ mallocForeignPtrArray blockSizeOut
             return (outBuf', 0, blockSizeOut) 
         else 
             return (bufOut, offsetOut + count, spaceOut - count) 
@@ -216,14 +212,14 @@ foreign import ccall unsafe "resample_onebuf_r"
 foreign import ccall unsafe "resample_crossbuf_r"
     c_resampleCrossBufR :: ResampleCrossC CDouble
 
-type ResampleSingle a = Int -> Int -> Int -> StorableArray Int a -> Int -> Int -> Int -> StorableArray Int a -> Int -> StorableArray Int a -> IO Int
-type ResampleCross  a = Int -> Int -> Int -> StorableArray Int a -> Int -> Int -> Int -> Int -> StorableArray Int a -> StorableArray Int a -> Int -> StorableArray Int a -> IO Int
+type ResampleSingle a = Int -> Int -> Int -> ForeignPtr a -> Int -> Int -> Int -> ForeignPtr a -> Int -> ForeignPtr a -> IO Int
+type ResampleCross  a = Int -> Int -> Int -> ForeignPtr a -> Int -> Int -> Int -> Int -> ForeignPtr a -> ForeignPtr a -> Int -> ForeignPtr a -> IO Int
 
 resampleOneBuf :: Storable a => ResampleSingleC a -> ResampleSingle a
 resampleOneBuf cfunc interpolation decimation coeffsLength coeffs filterOffset count inOffset inBuf outOffset outBuf = liftM fromIntegral $ 
-    withStorableArray coeffs $ \cp -> 
-    withStorableArray inBuf  $ \ip -> 
-    withStorableArray outBuf $ \op -> 
+    withForeignPtr coeffs $ \cp -> 
+    withForeignPtr inBuf  $ \ip -> 
+    withForeignPtr outBuf $ \op -> 
         cfunc (fromIntegral interpolation) 
                          (fromIntegral decimation) 
                          (fromIntegral coeffsLength) 
@@ -235,10 +231,10 @@ resampleOneBuf cfunc interpolation decimation coeffsLength coeffs filterOffset c
 
 resampleCrossBuf :: Storable a => ResampleCrossC a -> ResampleCross a
 resampleCrossBuf cfunc interpolation decimation coeffsLength coeffs filterOffset numInput count lastOffset lastBuf nextBuf outOffset outBuf = liftM fromIntegral $ 
-    withStorableArray coeffs  $ \cp -> 
-    withStorableArray lastBuf $ \lp -> 
-    withStorableArray nextBuf $ \np -> 
-    withStorableArray outBuf  $ \op -> 
+    withForeignPtr coeffs  $ \cp -> 
+    withForeignPtr lastBuf $ \lp -> 
+    withForeignPtr nextBuf $ \np -> 
+    withForeignPtr outBuf  $ \op -> 
         cfunc (fromIntegral interpolation) 
                            (fromIntegral decimation) 
                            (fromIntegral coeffsLength) 
@@ -257,12 +253,10 @@ resampleCrossBufR = resampleCrossBuf c_resampleCrossBufR
 
 quotUp q d = (q + (d - 1)) `quot` d
 
-resample :: (Storable a) => ResampleSingle a -> ResampleCross a ->Int -> Int -> Int -> StorableArray Int a -> Int -> Int -> Pipe (StorableArray Int a) (StorableArray Int a) IO ()
+resample :: (Storable a) => ResampleSingle a -> ResampleCross a -> Int -> Int -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
 resample single cross interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
-    outBuf <- lift $ newArray_ (0, blockSizeOut - 1)
-    (_, max) <- lift $ getBounds inBuf
-    assert "10" (max + 1 == blockSizeIn) (return ())
+    outBuf <- lift $ mallocForeignPtrArray blockSizeOut
 
     simple inBuf 0 blockSizeIn outBuf 0 blockSizeOut 0
 
@@ -271,7 +265,7 @@ resample single cross interpolation decimation numCoeffs coeffs blockSizeIn bloc
     advanceOutBuf bufOut offsetOut spaceOut count = 
         if count == spaceOut then do
             yield bufOut
-            outBuf' <- lift $ newArray_ (0, blockSizeOut - 1)
+            outBuf' <- lift $ mallocForeignPtrArray blockSizeOut
             return (outBuf', 0, blockSizeOut) 
         else 
             return (bufOut, offsetOut + count, spaceOut - count) 
