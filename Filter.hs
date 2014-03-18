@@ -46,7 +46,11 @@ filterOneBuf cfunc coeffsLength coeffs num inOffset inBuf outOffset outBuf =
     withForeignPtr coeffs $ \cp -> 
     withForeignPtr inBuf  $ \ip -> 
     withForeignPtr outBuf $ \op -> 
-        cfunc (fromIntegral coeffsLength) cp (fromIntegral num) (advancePtr ip inOffset) (advancePtr op outOffset)
+        cfunc (fromIntegral coeffsLength) 
+              cp 
+              (fromIntegral num) 
+              (advancePtr ip inOffset) 
+              (advancePtr op outOffset)
 
 filterCrossBuf :: Storable a => FilterCrossC a -> FilterCross a
 filterCrossBuf cfunc coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
@@ -54,7 +58,13 @@ filterCrossBuf cfunc coeffsLength coeffs numInput num lastOffset lastBuf nextBuf
     withForeignPtr lastBuf $ \lp -> 
     withForeignPtr nextBuf $ \np -> 
     withForeignPtr outBuf  $ \op -> 
-        cfunc (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (advancePtr lp lastOffset) np (advancePtr op outOffset)
+        cfunc (fromIntegral coeffsLength) 
+              cp 
+              (fromIntegral numInput) 
+              (fromIntegral num) 
+              (advancePtr lp lastOffset) 
+              np 
+              (advancePtr op outOffset)
 
 filterOneBufC   = filterOneBuf   c_filterOneBufC
 filterCrossBufC = filterCrossBuf c_filterCrossBufC
@@ -130,7 +140,12 @@ decimateOneBuf cfunc factor coeffsLength coeffs num inOffset inBuf outOffset out
     withForeignPtr coeffs $ \cp -> 
     withForeignPtr inBuf  $ \ip -> 
     withForeignPtr outBuf $ \op -> 
-        cfunc (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral num) (advancePtr ip inOffset) (advancePtr op outOffset)
+        cfunc (fromIntegral factor) 
+              (fromIntegral coeffsLength) 
+              cp 
+              (fromIntegral num) 
+              (advancePtr ip inOffset) 
+              (advancePtr op outOffset)
 
 decimateCrossBuf :: Storable a => DecimateCrossC a -> DecimateCross a
 decimateCrossBuf cfunc factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
@@ -138,7 +153,14 @@ decimateCrossBuf cfunc factor coeffsLength coeffs numInput num lastOffset lastBu
     withForeignPtr lastBuf $ \lp -> 
     withForeignPtr nextBuf $ \np -> 
     withForeignPtr outBuf  $ \op -> 
-        cfunc (fromIntegral factor) (fromIntegral coeffsLength) cp (fromIntegral numInput) (fromIntegral num) (advancePtr lp lastOffset) np (advancePtr op outOffset)
+        cfunc (fromIntegral factor) 
+              (fromIntegral coeffsLength) 
+              cp 
+              (fromIntegral numInput) 
+              (fromIntegral num) 
+              (advancePtr lp lastOffset) 
+              np 
+              (advancePtr op outOffset)
 
 decimateOneBufC   = decimateOneBuf   c_decimateOneBufC
 decimateCrossBufC = decimateCrossBuf c_decimateCrossBufC
@@ -221,13 +243,13 @@ resampleOneBuf cfunc interpolation decimation coeffsLength coeffs filterOffset c
     withForeignPtr inBuf  $ \ip -> 
     withForeignPtr outBuf $ \op -> 
         cfunc (fromIntegral interpolation) 
-                         (fromIntegral decimation) 
-                         (fromIntegral coeffsLength) 
-                         cp 
-                         (fromIntegral filterOffset) 
-                         (fromIntegral count) 
-                         (advancePtr ip inOffset)
-                         (advancePtr op outOffset)
+              (fromIntegral decimation) 
+              (fromIntegral coeffsLength) 
+              cp 
+              (fromIntegral filterOffset) 
+              (fromIntegral count) 
+              (advancePtr ip inOffset)
+              (advancePtr op outOffset)
 
 resampleCrossBuf :: Storable a => ResampleCrossC a -> ResampleCross a
 resampleCrossBuf cfunc interpolation decimation coeffsLength coeffs filterOffset numInput count lastOffset lastBuf nextBuf outOffset outBuf = liftM fromIntegral $ 
@@ -236,15 +258,15 @@ resampleCrossBuf cfunc interpolation decimation coeffsLength coeffs filterOffset
     withForeignPtr nextBuf $ \np -> 
     withForeignPtr outBuf  $ \op -> 
         cfunc (fromIntegral interpolation) 
-                           (fromIntegral decimation) 
-                           (fromIntegral coeffsLength) 
-                           cp 
-                           (fromIntegral filterOffset) 
-                           (fromIntegral numInput) 
-                           (fromIntegral count) 
-                           (advancePtr lp lastOffset)
-                           np 
-                           (advancePtr op outOffset)
+              (fromIntegral decimation) 
+              (fromIntegral coeffsLength) 
+              cp 
+              (fromIntegral filterOffset) 
+              (fromIntegral numInput) 
+              (fromIntegral count) 
+              (advancePtr lp lastOffset)
+              np 
+              (advancePtr op outOffset)
 
 resampleOneBufC   = resampleOneBuf   c_resampleOneBufC
 resampleCrossBufC = resampleCrossBuf c_resampleCrossBufC

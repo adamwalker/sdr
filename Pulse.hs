@@ -19,7 +19,6 @@ pulseAudioSink samples = do
     forkOS $ runEffect $ fromInput input >-> doIt
     return $ toOutput output
 
-
 doPulse :: Int -> IO (Consumer (ForeignPtr CFloat) IO ())
 doPulse samples = do
     s <- simpleNew Nothing "example" Play Nothing "this is an example application" (SampleSpec (F32 LittleEndian) 48000 1) Nothing Nothing
