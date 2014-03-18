@@ -6,6 +6,7 @@ import Data.Word
 import Foreign.Storable
 import Foreign.ForeignPtr
 import Foreign.C.Types
+import Data.Time.Clock
 
 import Pipes
 import RTLSDR
@@ -28,12 +29,16 @@ sdrStream frequency sampleRate samples = do
 
         resetBuffer dev
 
-        return $ mkSdrStream samples dev
+        tm <- getCurrentTime
 
-mkSdrStream :: Int -> RTLSDR -> Producer (ForeignPtr CUChar) IO ()
-mkSdrStream samples dev = do
+        return $ mkSdrStream samples dev tm
+
+mkSdrStream :: Int -> RTLSDR -> UTCTime -> Producer (ForeignPtr CUChar) IO ()
+mkSdrStream samples dev tm = do
     buf  <- lift $ mallocForeignPtrArray (samples * 2)
     res' <- lift $ withForeignPtr buf $ \bp -> 
         readSync dev bp (samples * 2)
-    if res'==False then lift $ print "Stream terminated" else yield buf >> mkSdrStream samples dev
+    tm' <- lift getCurrentTime
+    lift $ putStrLn $ "Received packet. TS: " ++ show (diffUTCTime tm' tm)
+    if res'==False then lift $ print "Stream terminated" else yield buf >> mkSdrStream samples dev tm'
 
