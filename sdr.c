@@ -10,6 +10,13 @@ void convertArray(int size, uint8_t *in, double *out){
     }
 }
 
+void doubleToFloat(int size, double *in, float *out){
+    int i;
+    for(i=0; i<size; i++){
+        out[i] = (float) in[i];
+    }
+}
+
 void convertFFT(int samples, double complex *in, double complex *out){
     int i;
     double complex sign = 1;

@@ -34,3 +34,14 @@ makeComplexBuffer samples ina = do
             c_convertArray (fromIntegral samples * 2) inp op
             return oArray
 
+foreign import ccall unsafe "doubleToFloat"
+    c_doubleToFloat :: CInt -> Ptr CDouble -> Ptr CFloat -> IO ()
+
+doubleToFloat :: Int -> ForeignPtr CDouble -> IO (ForeignPtr CFloat)
+doubleToFloat samples ina = do
+    oArray <- mallocForeignPtrArray samples
+    withForeignPtr oArray $ \op -> 
+        withForeignPtr ina $ \inp -> do
+            c_doubleToFloat (fromIntegral samples) inp op
+            return oArray
+

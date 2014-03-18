@@ -5,13 +5,14 @@ import Foreign.Marshal.Array
 import Foreign.C.Types
 import Control.Monad
 import Control.Concurrent
+import Data.ByteString.Internal
 
 import Sound.Pulse.Simple
 
 import Pipes
 import Pipes.Concurrent
 
-pulseAudioSink :: Int -> IO (Consumer (ForeignPtr CDouble) IO ())
+pulseAudioSink :: Int -> IO (Consumer (ForeignPtr CFloat) IO ())
 pulseAudioSink samples = do
     (output, input) <- spawn Unbounded
     doIt <- doPulse samples
@@ -19,12 +20,11 @@ pulseAudioSink samples = do
     return $ toOutput output
 
 
-doPulse :: Int -> IO (Consumer (ForeignPtr CDouble) IO ())
+doPulse :: Int -> IO (Consumer (ForeignPtr CFloat) IO ())
 doPulse samples = do
     s <- simpleNew Nothing "example" Play Nothing "this is an example application" (SampleSpec (F32 LittleEndian) 48000 1) Nothing Nothing
     return $ forever $ do
         buf <- await
         lift $ do
-            dat <- withForeignPtr buf $ peekArray samples
             --simpleDrain s
-            simpleWrite s (map (realToFrac . (* 0.1)) dat :: [Float])
+            simpleWriteRaw s (PS (castForeignPtr buf) 0 (samples * 4))
