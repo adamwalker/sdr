@@ -4,6 +4,7 @@ import Foreign.ForeignPtr
 import Foreign.Marshal.Array
 import Foreign.C.Types
 import Control.Monad
+import Control.Concurrent
 
 import Sound.Pulse.Simple
 
@@ -14,7 +15,7 @@ pulseAudioSink :: Int -> IO (Consumer (ForeignPtr CDouble) IO ())
 pulseAudioSink samples = do
     (output, input) <- spawn Unbounded
     doIt <- doPulse samples
-    forkIO $ runEffect $ fromInput input >-> doIt
+    forkOS $ runEffect $ fromInput input >-> doIt
     return $ toOutput output
 
 
@@ -25,4 +26,5 @@ doPulse samples = do
         buf <- await
         lift $ do
             dat <- withForeignPtr buf $ peekArray samples
+            --simpleDrain s
             simpleWrite s (map (realToFrac . (* 0.1)) dat :: [Float])
