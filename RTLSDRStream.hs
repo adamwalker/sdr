@@ -7,8 +7,11 @@ import Foreign.Storable
 import Foreign.ForeignPtr
 import Foreign.C.Types
 import Data.Time.Clock
+import Control.Concurrent hiding (yield)
+import Foreign.Marshal.Utils
 
 import Pipes
+import Pipes.Concurrent 
 import RTLSDR
 
 sdrStream :: Word32 -> Word32 -> Int -> EitherT String IO (Producer (ForeignPtr CUChar) IO ())
@@ -31,7 +34,7 @@ sdrStream frequency sampleRate samples = do
 
         tm <- getCurrentTime
 
-        return $ mkSdrStream samples dev tm
+        async samples dev --mkSdrStream samples dev tm
 
 mkSdrStream :: Int -> RTLSDR -> UTCTime -> Producer (ForeignPtr CUChar) IO ()
 mkSdrStream samples dev tm = do
@@ -41,4 +44,17 @@ mkSdrStream samples dev tm = do
     tm' <- lift getCurrentTime
     lift $ putStrLn $ "Received packet. TS: " ++ show (diffUTCTime tm' tm)
     if res'==False then lift $ print "Stream terminated" else yield buf >> mkSdrStream samples dev tm'
+
+async :: Int -> RTLSDR -> IO (Producer (ForeignPtr CUChar) IO ())
+async samples dev = do
+    (output, input) <- spawn Unbounded
+    forkOS $ doAsync dev output
+    return $ fromInput input
+
+doAsync dev output = void $ readAsync dev 0 0 $ \dat num -> void $ do
+    print num 
+    let numBytes = 262144
+    fp <- mallocForeignPtrArray numBytes
+    withForeignPtr fp $ \fpp -> moveBytes fpp dat numBytes
+    atomically (send output fp)
 
