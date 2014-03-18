@@ -10,8 +10,12 @@ import Foreign.Ptr
 import Foreign.ForeignPtr
 import Data.Complex
 import Foreign.Storable.Complex
+import Data.ByteString.Internal
+import System.IO
 
 import Pipes
+import qualified Pipes.Prelude as P
+import qualified Pipes.ByteString as PB
 
 printStream :: (Show e, Storable e, m ~ IO, MArray a e m, Ix i) => Consumer (a i e) m ()
 printStream = forever $ do
@@ -44,4 +48,16 @@ doubleToFloat samples ina = do
         withForeignPtr ina $ \inp -> do
             c_doubleToFloat (fromIntegral samples) inp op
             return oArray
+
+toByteString :: Int -> Pipe (ForeignPtr a) ByteString IO ()
+toByteString bytes = P.map $ \dat -> PS (castForeignPtr dat) 0 bytes
+
+fromByteString :: Pipe ByteString (ForeignPtr a) IO ()
+fromByteString = P.map $ \(PS fp _ _) -> castForeignPtr fp
+
+toHandle :: Int -> Handle -> Consumer (ForeignPtr a) IO ()
+toHandle bytes handle = toByteString bytes >-> PB.toHandle handle 
+
+fromHandle :: Int -> Handle -> Producer (ForeignPtr a) IO ()
+fromHandle bytes handle = PB.hGet bytes handle >-> fromByteString 
 
