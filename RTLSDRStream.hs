@@ -14,6 +14,8 @@ import Pipes
 import Pipes.Concurrent 
 import RTLSDR
 
+import Buffer
+
 sdrStream :: Word32 -> Word32 -> Int -> EitherT String IO (Producer (ForeignPtr CUChar) IO ())
 sdrStream frequency sampleRate samples = do
     lift $ putStrLn "Initializing RTLSDR device"
@@ -38,7 +40,7 @@ sdrStream frequency sampleRate samples = do
 
 mkSdrStream :: Int -> RTLSDR -> UTCTime -> Producer (ForeignPtr CUChar) IO ()
 mkSdrStream samples dev tm = do
-    buf  <- lift $ mallocForeignPtrArray (samples * 2)
+    buf  <- lift $ mallocForeignBufferAligned (samples * 2)
     res' <- lift $ withForeignPtr buf $ \bp -> 
         readSync dev bp (samples * 2)
     tm' <- lift getCurrentTime
@@ -54,7 +56,7 @@ async samples dev = do
 doAsync dev output = void $ readAsync dev 0 0 $ \dat num -> void $ do
     print num 
     let numBytes = 262144
-    fp <- mallocForeignPtrArray numBytes
+    fp <- mallocForeignBufferAligned numBytes
     withForeignPtr fp $ \fpp -> moveBytes fpp dat numBytes
     atomically (send output fp)
 

@@ -17,6 +17,8 @@ import Pipes
 import qualified Pipes.Prelude as P
 import qualified Pipes.ByteString as PB
 
+import Buffer
+
 printStream :: (Show e, Storable e, m ~ IO, MArray a e m, Ix i) => Consumer (a i e) m ()
 printStream = forever $ do
     res <- await 
@@ -32,7 +34,7 @@ foreign import ccall unsafe "convertArray"
 
 makeComplexBuffer :: Int -> ForeignPtr CUChar -> IO (ForeignPtr (Complex CDouble))
 makeComplexBuffer samples ina = do
-    oArray <- mallocForeignPtrArray samples
+    oArray <- mallocForeignBufferAligned samples
     withForeignPtr oArray $ \op -> 
         withForeignPtr ina $ \inp -> do
             c_convertArray (fromIntegral samples * 2) inp op
@@ -43,7 +45,7 @@ foreign import ccall unsafe "doubleToFloat"
 
 doubleToFloat :: Int -> ForeignPtr CDouble -> IO (ForeignPtr CFloat)
 doubleToFloat samples ina = do
-    oArray <- mallocForeignPtrArray samples
+    oArray <- mallocForeignBufferAligned samples
     withForeignPtr oArray $ \op -> 
         withForeignPtr ina $ \inp -> do
             c_doubleToFloat (fromIntegral samples) inp op

@@ -17,6 +17,8 @@ import Foreign.ForeignPtr
 import Foreign.Storable.Complex
 import Foreign.Ptr
 
+import Buffer
+
 import Pipes
 
 assert msg False x = error $ "Assertion failed: " ++ msg
@@ -74,7 +76,7 @@ filterCrossBufR = filterCrossBuf c_filterCrossBufR
 filterr :: (Storable a) => FilterSingle a -> FilterCross a -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
 filterr single cross numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
-    outBuf <- lift $ mallocForeignPtrArray blockSizeOut
+    outBuf <- lift $ mallocForeignBufferAligned blockSizeOut
 
     simple inBuf 0 blockSizeIn outBuf 0 blockSizeOut 
 
@@ -83,7 +85,7 @@ filterr single cross numCoeffs coeffs blockSizeIn blockSizeOut = do
     advanceOutBuf bufOut offsetOut spaceOut count = 
         if count == spaceOut then do
             yield bufOut
-            outBuf' <- lift $ mallocForeignPtrArray blockSizeOut
+            outBuf' <- lift $ mallocForeignBufferAligned blockSizeOut
             return (outBuf', 0, blockSizeOut) 
         else 
             return (bufOut, offsetOut + count, spaceOut - count) 
@@ -170,7 +172,7 @@ decimateCrossBufR = decimateCrossBuf c_decimateCrossBufR
 decimate :: (Storable a) => DecimateSingle a -> DecimateCross a -> Int -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
 decimate single cross factor numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
-    outBuf <- lift $ mallocForeignPtrArray blockSizeOut
+    outBuf <- lift $ mallocForeignBufferAligned blockSizeOut
 
     simple inBuf 0 blockSizeIn outBuf 0 blockSizeOut 
 
@@ -179,7 +181,7 @@ decimate single cross factor numCoeffs coeffs blockSizeIn blockSizeOut = do
     advanceOutBuf bufOut offsetOut spaceOut count = 
         if count == spaceOut then do
             yield bufOut
-            outBuf' <- lift $ mallocForeignPtrArray blockSizeOut
+            outBuf' <- lift $ mallocForeignBufferAligned blockSizeOut
             return (outBuf', 0, blockSizeOut) 
         else 
             return (bufOut, offsetOut + count, spaceOut - count) 
@@ -278,7 +280,7 @@ quotUp q d = (q + (d - 1)) `quot` d
 resample :: (Storable a) => ResampleSingle a -> ResampleCross a -> Int -> Int -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
 resample single cross interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
-    outBuf <- lift $ mallocForeignPtrArray blockSizeOut
+    outBuf <- lift $ mallocForeignBufferAligned blockSizeOut
 
     simple inBuf 0 blockSizeIn outBuf 0 blockSizeOut 0
 
@@ -287,7 +289,7 @@ resample single cross interpolation decimation numCoeffs coeffs blockSizeIn bloc
     advanceOutBuf bufOut offsetOut spaceOut count = 
         if count == spaceOut then do
             yield bufOut
-            outBuf' <- lift $ mallocForeignPtrArray blockSizeOut
+            outBuf' <- lift $ mallocForeignBufferAligned blockSizeOut
             return (outBuf', 0, blockSizeOut) 
         else 
             return (bufOut, offsetOut + count, spaceOut - count) 

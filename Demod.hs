@@ -10,6 +10,8 @@ import Foreign.Marshal.Array
 
 import Pipes
 
+import Buffer
+
 foreign import ccall unsafe "fmDemod"
     c_fmDemod :: CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> Ptr CDouble -> IO ()
 
@@ -18,7 +20,7 @@ fmDemod samples = fmDemod' 0
     where
     fmDemod' lastVal = do
         ina <- await
-        out <- lift $ mallocForeignPtrArray samples
+        out <- lift $ mallocForeignBufferAligned samples
         last <- lift $ withForeignPtr ina $ \ip -> do
             withForeignPtr out $ \op -> 
                 alloca $ \sp -> do
