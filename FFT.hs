@@ -3,6 +3,7 @@ module FFT where
 import Control.Monad
 import Data.Bits
 import Foreign.Storable
+import Foreign.Storable.Complex
 import Foreign.C.Types
 import Foreign.Ptr
 import Data.Complex
