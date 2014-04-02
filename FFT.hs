@@ -29,27 +29,20 @@ convertFFT samples ina out =
     withForeignPtr out $ \op -> 
         c_convertFFT (fromIntegral samples) ip op
 
-convertForFFT :: Int -> ForeignPtr (Complex CDouble) -> Pipe (ForeignPtr (Complex CDouble)) (ForeignPtr (Complex CDouble)) IO ()
-convertForFFT samples out = forever $ do
-    res <- await
-    lift $ convertFFT samples res out
-    yield out
+fftw :: Int -> IO (Pipe (ForeignPtr (Complex CDouble)) (ForeignPtr (Complex CDouble)) IO ())
+fftw samples = do
+    ina <- mallocForeignBufferAligned samples
 
-fftw :: Int -> ForeignPtr (Complex CDouble) -> IO (Pipe (ForeignPtr (Complex CDouble)) (ForeignPtr (Complex CDouble)) IO ())
-fftw samples array = do
-    plan <- withForeignPtr array $ \ptr -> 
-        planDFT1d samples ptr ptr fftwForward fftwEstimate
+    plan <- withForeignPtr ina $ \ip -> 
+        planDFT1d samples ip ip fftwForward fftwEstimate
     
     return $ forever $ do
+        out <- lift $ mallocForeignBufferAligned samples
         res <- await
-        lift $ convertFFT samples res array
-        lift $ execute plan
-        yield array
-
-mkFFTWArrayReal :: Int -> IO (ForeignPtr CDouble)
-mkFFTWArrayReal samples = do
-    memory <- fftwMalloc (fromIntegral $ samples * sizeOf (undefined :: CDouble))
-    newForeignPtr_ memory
+        lift $ convertFFT samples res out
+        lift $ withForeignPtr out $ \op -> 
+            executeDFT plan op op
+        yield out
 
 fftwReal :: Int -> IO (Pipe (ForeignPtr CDouble) (ForeignPtr (Complex CDouble)) IO ())
 fftwReal samples = do
@@ -63,7 +56,7 @@ fftwReal samples = do
 
     return $ forever $ do
         out <- lift $ mallocForeignBufferAligned samples
-        ina  <- await
+        ina <- await
         lift $ withForeignPtr ina $ \ip -> 
             withForeignPtr out $ \op -> 
                 executeDFTR2C plan ip op
