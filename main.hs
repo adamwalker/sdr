@@ -275,27 +275,27 @@ decimation = 8
 main = eitherT putStrLn return $ do
     str     <- sdrStream 91100000 1280000
 
-    fftReal <- lift $ fftwReal (samples `quot` decimation) 
-    pt      <- plot (((samples `quot` decimation) `quot` 2) + 1) (1/100)
-
     c       <- lift $ mallocForeignBufferAligned (length coeffs)
     lift $ withForeignPtr c $ \cp -> pokeArray cp coeffs
     let filterr = decimateC decimation (length coeffs) c samples samples
 
+    fftReal <- lift $ fftwReal (samples `quot` decimation) 
+    pt      <- plot (((samples `quot` decimation) `quot` 2) + 1) (1/100)
+
     c       <- lift $ mallocForeignBufferAligned (length coeffs7)
     lift $ withForeignPtr c $ \cp -> pokeArray cp coeffs7
-    let rr      = resampleR 3 10 (length coeffs7) c samples samples
+    let rr  = resampleR 3 10 (length coeffs7) c samples samples
+
+    fft     <- lift $ fftw (samples `quot` decimation)
+    pt2     <- plot (samples `quot` decimation) (1 / fromIntegral (samples `quot` decimation))
+
+    sink <- lift $ pulseAudioSink samples
 
     --sampling frequency of fm demodulated signal is 160 khz
     --resampling factor is 48/160
     --resampling factor is 3/10
     --audio frequency cutoff is 15khz
     --which is ~0.1 of sampling frequency
-
-    fft     <- lift $ fftw samples 
-    pt2     <- plot samples (1 / fromIntegral samples)
-
-    sink <- lift $ pulseAudioSink samples
 
     let inputSpectrum :: Producer (ForeignPtr (Complex CDouble)) IO ()
         inputSpectrum = str >-> (P.mapM (makeComplexBuffer samples)) >-> filterr 
