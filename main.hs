@@ -292,33 +292,46 @@ main = eitherT putStrLn return $ do
     --audio frequency cutoff is 15khz
     --which is ~0.1 of sampling frequency
 
-    {-
     fft     <- lift $ fftw samples 
     pt2     <- plot samples (1 / fromIntegral samples)
-    -}
 
     sink <- lift $ pulseAudioSink samples
 
-    let producer' :: Producer (ForeignPtr CDouble) IO ()
-        producer' = str 
+    let inputSpectrum' :: Producer (ForeignPtr (Complex CDouble)) IO ()
+        inputSpectrum' = str 
                 >-> (P.mapM (makeComplexBuffer samples))
                 >-> filterr 
-                >-> (fmDemod samples)
-                >-> rr 
 
-        producer :: Producer (ForeignPtr CDouble) (Producer (ForeignPtr CDouble) IO) ()
-        producer = runEffect $ hoist (lift . lift) producer' >-> fork
+        inputSpectrum :: Producer (ForeignPtr (Complex CDouble)) (Producer (ForeignPtr (Complex CDouble)) IO) ()
+        inputSpectrum = runEffect $ hoist (lift . lift) inputSpectrum' >-> fork
 
-        audioSink' :: Consumer (ForeignPtr CDouble) IO ()
-        audioSink' = (P.mapM (multiplyConstFF samples 0.2))
-                 >-> (P.mapM (doubleToFloat samples))
-                 >-> sink 
+        spectrumFFTSink :: Consumer (ForeignPtr (Complex CDouble)) IO () 
+        spectrumFFTSink = fft >-> pt2
 
-        p :: Producer (ForeignPtr CDouble) IO ()
-        p = runEffect $ producer >-> hoist lift audioSink'
+        p1 :: Producer (ForeignPtr (Complex CDouble)) IO () 
+        p1 = runEffect $ inputSpectrum >-> hoist lift spectrumFFTSink
+
+        p2 :: Producer (ForeignPtr CDouble) IO ()
+        p2 = p1 
+         >-> (fmDemod samples)
+         >-> rr 
+
+        p3 :: Producer (ForeignPtr CDouble) (Producer (ForeignPtr CDouble) IO) ()
+        p3 = runEffect $ hoist (lift . lift) p2 >-> fork
+
+        audioSpectrumSink :: Consumer (ForeignPtr CDouble) IO ()
+        audioSpectrumSink = fftReal >-> pt
+
+        p4 :: Producer (ForeignPtr CDouble) IO ()
+        p4 = runEffect $ p3 >-> hoist lift audioSpectrumSink
+
+        audioSink :: Consumer (ForeignPtr CDouble) IO ()
+        audioSink = (P.mapM (multiplyConstFF samples 0.2))
+                >-> (P.mapM (doubleToFloat samples))
+                >-> sink 
 
         pipeline :: IO ()
-        pipeline = runEffect $ p >-> fftReal >-> pt
+        pipeline = runEffect $ p4 >-> audioSink
 
     lift pipeline
 
