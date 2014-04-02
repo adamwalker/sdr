@@ -17,6 +17,13 @@ void doubleToFloat(int size, double *in, float *out){
     }
 }
 
+void multiplyConstFF(int size, double gain, double *in, double *out){
+    int i;
+    for(i=0; i<size; i++){
+        out[i] = gain * in[i];
+    }
+}
+
 void convertFFT(int samples, double complex *in, double complex *out){
     int i;
     double complex sign = 1;

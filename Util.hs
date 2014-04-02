@@ -63,3 +63,14 @@ toHandle bytes handle = toByteString bytes >-> PB.toHandle handle
 fromHandle :: Int -> Handle -> Producer (ForeignPtr a) IO ()
 fromHandle bytes handle = PB.hGet bytes handle >-> fromByteString 
 
+foreign import ccall unsafe "multiplyConstFF"
+    c_multiplyConstFF :: CInt -> CDouble -> Ptr CDouble -> Ptr CDouble -> IO ()
+
+multiplyConstFF :: Int -> CDouble -> ForeignPtr CDouble -> IO (ForeignPtr CDouble)
+multiplyConstFF samples gain ina = do
+    oArray <- mallocForeignBufferAligned samples
+    withForeignPtr oArray $ \op -> 
+        withForeignPtr ina $ \inp -> do
+            c_multiplyConstFF (fromIntegral samples) gain inp op
+            return oArray
+
