@@ -299,21 +299,32 @@ main = eitherT putStrLn return $ do
 
     sink <- lift $ pulseAudioSink samples
 
-    let producer = runEffect $ hoist lift str 
-                           >-> hoist lift (P.mapM (makeComplexBuffer samples))
-                           >-> hoist lift filterr 
-                           >-> hoist lift (fmDemod samples)
-                           >-> hoist lift rr 
-                           >-> fork
-                           >-> hoist lift (P.mapM (multiplyConstFF samples 0.2))
-                           >-> hoist lift (P.mapM (doubleToFloat samples))
-                           >-> hoist lift sink 
+    let producer' :: Producer (ForeignPtr CDouble) IO ()
+        producer' = str 
+                >-> (P.mapM (makeComplexBuffer samples))
+                >-> filterr 
+                >-> (fmDemod samples)
+                >-> rr 
 
-    lift $ runEffect $ producer >-> fftReal >-> pt
+        producer :: Producer (ForeignPtr CDouble) (Producer (ForeignPtr CDouble) IO) ()
+        producer = runEffect $ hoist (lift . lift) producer' >-> fork
 
-fork :: Monad m => Pipe a a (Producer a m) r1 
+        audioSink' :: Consumer (ForeignPtr CDouble) IO ()
+        audioSink' = (P.mapM (multiplyConstFF samples 0.2))
+                 >-> (P.mapM (doubleToFloat samples))
+                 >-> sink 
+
+        p :: Producer (ForeignPtr CDouble) IO ()
+        p = runEffect $ producer >-> hoist lift audioSink'
+
+        pipeline :: IO ()
+        pipeline = runEffect $ p >-> fftReal >-> pt
+
+    lift pipeline
+
+fork :: Monad m => Consumer a (Producer a (Producer a m)) r
 fork = forever $ do
     res <- await
-    yield res
     lift $ yield res
+    lift $ lift $ yield res
 
