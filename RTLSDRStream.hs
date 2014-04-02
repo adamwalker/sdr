@@ -38,15 +38,6 @@ sdrStream frequency sampleRate samples = do
 
         async samples dev --mkSdrStream samples dev tm
 
-mkSdrStream :: Int -> RTLSDR -> UTCTime -> Producer (ForeignPtr CUChar) IO ()
-mkSdrStream samples dev tm = do
-    buf  <- lift $ mallocForeignBufferAligned (samples * 2)
-    res' <- lift $ withForeignPtr buf $ \bp -> 
-        readSync dev bp (samples * 2)
-    tm' <- lift getCurrentTime
-    lift $ putStrLn $ "Received packet. TS: " ++ show (diffUTCTime tm' tm)
-    if res'==False then lift $ print "Stream terminated" else yield buf >> mkSdrStream samples dev tm'
-
 async :: Int -> RTLSDR -> IO (Producer (ForeignPtr CUChar) IO ())
 async samples dev = do
     (output, input) <- spawn Unbounded
