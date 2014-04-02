@@ -16,8 +16,9 @@ import RTLSDR
 
 import Buffer
 
-sdrStream :: Word32 -> Word32 -> Int -> EitherT String IO (Producer (ForeignPtr CUChar) IO ())
-sdrStream frequency sampleRate samples = do
+--Streams buffers with 131072 samples
+sdrStream :: Word32 -> Word32 -> EitherT String IO (Producer (ForeignPtr CUChar) IO ())
+sdrStream frequency sampleRate = do
     lift $ putStrLn "Initializing RTLSDR device"
 
     dev' <- lift $ open 0
@@ -34,20 +35,15 @@ sdrStream frequency sampleRate samples = do
 
         resetBuffer dev
 
-        tm <- getCurrentTime
+        (output, input) <- spawn Unbounded
 
-        async samples dev --mkSdrStream samples dev tm
+        forkOS $ void $ readAsync dev 0 0 $ \dat num -> void $ do
+            print num 
+            let numBytes = 262144
+            fp <- mallocForeignBufferAligned numBytes
+            withForeignPtr fp $ \fpp -> moveBytes fpp dat numBytes
+            atomically (send output fp)
 
-async :: Int -> RTLSDR -> IO (Producer (ForeignPtr CUChar) IO ())
-async samples dev = do
-    (output, input) <- spawn Unbounded
-    forkOS $ doAsync dev output
-    return $ fromInput input
+        return $ fromInput input
 
-doAsync dev output = void $ readAsync dev 0 0 $ \dat num -> void $ do
-    print num 
-    let numBytes = 262144
-    fp <- mallocForeignBufferAligned numBytes
-    withForeignPtr fp $ \fpp -> moveBytes fpp dat numBytes
-    atomically (send output fp)
 
