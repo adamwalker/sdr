@@ -10,6 +10,8 @@ import Data.Complex
 import Foreign.Marshal.Utils
 import Foreign.ForeignPtr
 
+import Buffer
+
 import Pipes
 import FFTW
 
@@ -49,17 +51,21 @@ mkFFTWArrayReal samples = do
     memory <- fftwMalloc (fromIntegral $ samples * sizeOf (undefined :: CDouble))
     newForeignPtr_ memory
 
-fftwReal :: Int -> ForeignPtr CDouble -> ForeignPtr (Complex CDouble) -> IO (Pipe (ForeignPtr CDouble) (ForeignPtr (Complex CDouble)) IO ())
-fftwReal samples ina out = do
+fftwReal :: Int -> IO (Pipe (ForeignPtr CDouble) (ForeignPtr (Complex CDouble)) IO ())
+fftwReal samples = do
+    --Allocate in and out buffers that wont be used because there doesnt seem to be a way to create a plan without them
+    ina <- mallocForeignBufferAligned samples
+    out <- mallocForeignBufferAligned samples
+
     plan <- withForeignPtr ina $ \ip -> 
         withForeignPtr out $ \op -> 
             planDFTR2C1d samples ip op fftwEstimate
 
     return $ forever $ do
-        res <- await
-        lift $ withForeignPtr res $ \ip -> 
-            withForeignPtr ina $ \op -> 
-                moveBytes op ip (samples * sizeOf (undefined :: CDouble))
-        lift $ execute plan
+        out <- lift $ mallocForeignBufferAligned samples
+        ina  <- await
+        lift $ withForeignPtr ina $ \ip -> 
+            withForeignPtr out $ \op -> 
+                executeDFTR2C plan ip op
         yield out
 
