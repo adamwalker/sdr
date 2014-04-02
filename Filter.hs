@@ -1,4 +1,3 @@
-{-# LANGUAGE GADTs #-}
 module Filter where
 
 import Control.Monad
