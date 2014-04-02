@@ -297,47 +297,37 @@ main = eitherT putStrLn return $ do
 
     sink <- lift $ pulseAudioSink samples
 
-    let inputSpectrum' :: Producer (ForeignPtr (Complex CDouble)) IO ()
-        inputSpectrum' = str 
-                >-> (P.mapM (makeComplexBuffer samples))
-                >-> filterr 
-
-        inputSpectrum :: Producer (ForeignPtr (Complex CDouble)) (Producer (ForeignPtr (Complex CDouble)) IO) ()
-        inputSpectrum = runEffect $ hoist (lift . lift) inputSpectrum' >-> fork
+    let inputSpectrum :: Producer (ForeignPtr (Complex CDouble)) IO ()
+        inputSpectrum = str >-> (P.mapM (makeComplexBuffer samples)) >-> filterr 
 
         spectrumFFTSink :: Consumer (ForeignPtr (Complex CDouble)) IO () 
         spectrumFFTSink = fft >-> pt2
 
         p1 :: Producer (ForeignPtr (Complex CDouble)) IO () 
-        p1 = runEffect $ inputSpectrum >-> hoist lift spectrumFFTSink
+        p1 = runEffect $ fork inputSpectrum >-> hoist lift spectrumFFTSink
 
-        p2 :: Producer (ForeignPtr CDouble) IO ()
-        p2 = p1 
-         >-> (fmDemod samples)
-         >-> rr 
-
-        p3 :: Producer (ForeignPtr CDouble) (Producer (ForeignPtr CDouble) IO) ()
-        p3 = runEffect $ hoist (lift . lift) p2 >-> fork
+        demodulated :: Producer (ForeignPtr CDouble) IO ()
+        demodulated = p1 >-> (fmDemod samples) >-> rr 
 
         audioSpectrumSink :: Consumer (ForeignPtr CDouble) IO ()
         audioSpectrumSink = fftReal >-> pt
 
-        p4 :: Producer (ForeignPtr CDouble) IO ()
-        p4 = runEffect $ p3 >-> hoist lift audioSpectrumSink
+        p2 :: Producer (ForeignPtr CDouble) IO ()
+        p2 = runEffect $ fork demodulated >-> hoist lift audioSpectrumSink
 
         audioSink :: Consumer (ForeignPtr CDouble) IO ()
-        audioSink = (P.mapM (multiplyConstFF samples 0.2))
-                >-> (P.mapM (doubleToFloat samples))
-                >-> sink 
+        audioSink = P.mapM (multiplyConstFF samples 0.2) >-> P.mapM (doubleToFloat samples) >-> sink 
 
         pipeline :: IO ()
-        pipeline = runEffect $ p4 >-> audioSink
+        pipeline = runEffect $ p2 >-> audioSink
 
     lift pipeline
 
-fork :: Monad m => Consumer a (Producer a (Producer a m)) r
-fork = forever $ do
-    res <- await
-    lift $ yield res
-    lift $ lift $ yield res
+fork :: Monad m => Producer a m r -> Producer a (Producer a m) r
+fork prod = runEffect $ hoist (lift . lift) prod >-> fork' 
+    where 
+    fork' = forever $ do
+        res <- await
+        lift $ yield res
+        lift $ lift $ yield res
 
