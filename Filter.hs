@@ -274,40 +274,46 @@ resampleCrossBufR = resampleCrossBuf c_resampleCrossBufR
 
 quotUp q d = (q + (d - 1)) `quot` d
 
+data Buffer a = Buffer {
+    buffer :: ForeignPtr a,
+    offset :: Int,
+    size   :: Int
+}
+
+newBuffer :: Storable a => Int -> IO (Buffer a)
+newBuffer size = do
+    buf <- mallocForeignBufferAligned size
+    return $ Buffer buf 0 size
+
 resample :: (Storable a) => ResampleSingle a -> ResampleCross a -> Int -> Int -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
 resample single cross interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
-    outBuf <- lift $ mallocForeignBufferAligned blockSizeOut
-
-    simple inBuf 0 blockSizeIn outBuf 0 blockSizeOut 0
+    outBuf <- lift $ newBuffer blockSizeOut
+    simple (Buffer inBuf 0 blockSizeIn) outBuf 0
 
     where
 
-    advanceOutBuf bufOut offsetOut spaceOut count = 
+    advanceOutBuf (Buffer bufOut offsetOut spaceOut) count = 
         if count == spaceOut then do
             yield bufOut
             outBuf' <- lift $ mallocForeignBufferAligned blockSizeOut
-            return (outBuf', 0, blockSizeOut) 
+            return $ Buffer outBuf' 0 blockSizeOut
         else 
-            return (bufOut, offsetOut + count, spaceOut - count) 
+            return $ Buffer bufOut (offsetOut + count) (spaceOut - count) 
 
-    simple bufIn offsetIn spaceIn bufOut offsetOut spaceOut filterOffset = do
-
-        --filterOffset is the offset in the filter that the first input data is multiplied with
-
-        --Check that we have space in the input buffer for at least one output
+    simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) filterOffset = do
+        --Check consistency
         assert (spaceIn * interpolation >= numCoeffs - filterOffset) $ return ()
         assert (offsetIn + spaceIn == blockSizeIn) $ return ()
-
         --available number of samples == interpolation * num_input
         --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
         let count = min (((spaceIn * interpolation - numCoeffs + filterOffset) `quot` decimation) + 1) spaceOut
+        --Run filter
         endOffset <- lift $ single interpolation decimation numCoeffs coeffs filterOffset count offsetIn bufIn offsetOut bufOut
-
+        --Check consistency
         assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
-
-        (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
-
+        --Advance the output buffer
+        bufferOut' <- advanceOutBuf bufferOut count
         --samples no longer needed starting from filterOffset == count * decimation - filterOffset
         --inputs lying in this region                         == (count * decimation - filterOffset) / interpolation (rounding up)
         let usedInput = (count * decimation - filterOffset) `quotUp` interpolation 
@@ -316,37 +322,35 @@ resample single cross interpolation decimation numCoeffs coeffs blockSizeIn bloc
 
         case spaceIn' * interpolation < numCoeffs - endOffset of
             False -> do
-                simple bufIn offsetIn' spaceIn' bufOut' offsetOut' spaceOut' endOffset
+                simple (Buffer bufIn offsetIn' spaceIn') bufferOut' endOffset
             True  -> do
                 next <- await
                 case spaceIn' == 0 of
-                    True ->  simple next 0 blockSizeIn bufOut' offsetOut' spaceOut' endOffset
-                    False -> crossover bufIn offsetIn' spaceIn' next bufOut' offsetOut' spaceOut' endOffset
+                    True ->  simple    (Buffer next 0 blockSizeIn) bufferOut' endOffset
+                    False -> crossover (Buffer bufIn offsetIn' spaceIn') next bufferOut' endOffset
 
-    crossover bufLast offsetLast spaceLast bufNext bufOut offsetOut spaceOut filterOffset = do
-
+    crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) filterOffset = do
+        --Check conssitency
         assert (spaceLast > 0) $ return ()
         assert (spaceLast * interpolation < numCoeffs - filterOffset) $ return ()
-
         assert (offsetLast + spaceLast == blockSizeIn) $ return ()
-
         --outputsComputable is the number of outputs that need to be computed for the last buffer to no longer be needed
         --outputsComputable * decimation == numInput * interpolation + filterOffset + k
         let outputsComputable = (spaceLast * interpolation + filterOffset) `quotUp` decimation
             count = min outputsComputable spaceOut
         assert (count /= 0) $ return ()
-
+        --Run the filter
         endOffset <- lift $ cross interpolation decimation numCoeffs coeffs filterOffset spaceLast count offsetLast bufLast bufNext offsetOut bufOut
-
+        --Check consistency
         assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
-
-        (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
+        --Advance the output buffer
+        bufferOut' <- advanceOutBuf bufferOut count
 
         let inputUsed = (count * decimation - filterOffset) `quotUp` interpolation
 
         case inputUsed >= spaceLast of 
-            True  -> simple bufNext (offsetLast + inputUsed - blockSizeIn) (2 * blockSizeIn - (offsetLast + inputUsed)) bufOut' offsetOut' spaceOut' endOffset
-            False -> crossover bufLast (offsetLast + inputUsed) (spaceLast - inputUsed) bufNext bufOut' offsetOut' spaceOut' endOffset
+            True  -> simple (Buffer bufNext (offsetLast + inputUsed - blockSizeIn) (2 * blockSizeIn - (offsetLast + inputUsed))) bufferOut' endOffset
+            False -> crossover (Buffer bufLast (offsetLast + inputUsed) (spaceLast - inputUsed)) bufNext bufferOut' endOffset
 
 resampleC = resample resampleOneBufC resampleCrossBufC
 resampleR = resample resampleOneBufR resampleCrossBufR
