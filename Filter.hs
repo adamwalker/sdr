@@ -15,13 +15,11 @@ import Data.Complex
 import Foreign.ForeignPtr
 import Foreign.Storable.Complex
 import Foreign.Ptr
+import Control.Exception 
 
 import Buffer
 
 import Pipes
-
-assert msg False x = error $ "Assertion failed: " ++ msg
-assert msg True  x = x
 
 --Filtering
 type FilterSingleC a = CInt -> Ptr a -> CInt -> Ptr a -> Ptr a -> IO ()
@@ -187,7 +185,7 @@ decimate single cross factor numCoeffs coeffs blockSizeIn blockSizeOut = do
 
     simple bufIn offsetIn spaceIn bufOut offsetOut spaceOut = do
 
-        assert "" (spaceIn >= numCoeffs) (return ())
+        assert (spaceIn >= numCoeffs) $ return ()
 
         let count = min (((spaceIn - numCoeffs) `quot` factor) + 1) spaceOut
         lift $ single factor numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
@@ -205,7 +203,7 @@ decimate single cross factor numCoeffs coeffs blockSizeIn blockSizeOut = do
 
     crossover bufLast offsetLast spaceLast bufNext bufOut offsetOut spaceOut = do
 
-        assert "" (spaceLast < numCoeffs) (return ())
+        assert (spaceLast < numCoeffs) $ return ()
 
         let count = min (((spaceLast - 1) `quot` factor) + 1) spaceOut
         lift $ cross factor numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
@@ -298,15 +296,15 @@ resample single cross interpolation decimation numCoeffs coeffs blockSizeIn bloc
         --filterOffset is the offset in the filter that the first input data is multiplied with
 
         --Check that we have space in the input buffer for at least one output
-        assert "1" (spaceIn * interpolation >= numCoeffs - filterOffset) (return ())
-        assert "9" (offsetIn + spaceIn == blockSizeIn) (return ())
+        assert (spaceIn * interpolation >= numCoeffs - filterOffset) $ return ()
+        assert (offsetIn + spaceIn == blockSizeIn) $ return ()
 
         --available number of samples == interpolation * num_input
         --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
         let count = min (((spaceIn * interpolation - numCoeffs + filterOffset) `quot` decimation) + 1) spaceOut
         endOffset <- lift $ single interpolation decimation numCoeffs coeffs filterOffset count offsetIn bufIn offsetOut bufOut
 
-        assert "2" ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) (return ())
+        assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 
@@ -327,20 +325,20 @@ resample single cross interpolation decimation numCoeffs coeffs blockSizeIn bloc
 
     crossover bufLast offsetLast spaceLast bufNext bufOut offsetOut spaceOut filterOffset = do
 
-        assert "6" (spaceLast > 0) (return ())
-        assert "3" (spaceLast * interpolation < numCoeffs - filterOffset) (return ())
+        assert (spaceLast > 0) $ return ()
+        assert (spaceLast * interpolation < numCoeffs - filterOffset) $ return ()
 
-        assert "8" (offsetLast + spaceLast == blockSizeIn) (return ())
+        assert (offsetLast + spaceLast == blockSizeIn) $ return ()
 
         --outputsComputable is the number of outputs that need to be computed for the last buffer to no longer be needed
         --outputsComputable * decimation == numInput * interpolation + filterOffset + k
         let outputsComputable = (spaceLast * interpolation + filterOffset) `quotUp` decimation
             count = min outputsComputable spaceOut
-        assert "7" (count /= 0) (return ())
+        assert (count /= 0) $ return ()
 
         endOffset <- lift $ cross interpolation decimation numCoeffs coeffs filterOffset spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
-        assert "2" ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) (return ())
+        assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
 
         (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
 

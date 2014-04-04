@@ -8,6 +8,8 @@ import Foreign.ForeignPtr
 import Foreign.Marshal.Array
 import Control.Monad
 
+import Graphics.UI.GLFW as G
+
 import Filter 
 import RTLSDRStream
 import Util
@@ -273,6 +275,15 @@ samples = 131072
 decimation = 8
 
 main = eitherT putStrLn return $ do
+
+    lift $ setErrorCallback $ Just $ \error msg -> do
+        print error
+        putStrLn msg
+
+    res <- lift $ G.init
+
+    unless res (left "error initializing glfw")
+
     str     <- sdrStream 91100000 1280000
 
     c       <- lift $ mallocForeignBufferAligned (length coeffs)
