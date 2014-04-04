@@ -4,7 +4,6 @@ import Control.Monad
 import Control.Monad.Trans.Either
 import Data.Bits
 import Data.Word
-
 import Data.Array.MArray
 import Foreign.Storable
 import Foreign.Marshal.Array
@@ -17,9 +16,29 @@ import Foreign.Storable.Complex
 import Foreign.Ptr
 import Control.Exception 
 
+import Pipes
+
 import Buffer
 
-import Pipes
+data Buffer a = Buffer {
+    buffer :: ForeignPtr a,
+    offset :: Int,
+    size   :: Int
+}
+
+newBuffer :: Storable a => Int -> IO (Buffer a)
+newBuffer size = do
+    buf <- mallocForeignBufferAligned size
+    return $ Buffer buf 0 size
+
+advanceOutBuf :: Storable a => Int -> Buffer a -> Int -> Pipe b (ForeignPtr a) IO (Buffer a)
+advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count = 
+    if count == spaceOut then do
+        yield bufOut
+        outBuf' <- lift $ mallocForeignBufferAligned blockSizeOut
+        return $ Buffer outBuf' 0 blockSizeOut
+    else 
+        return $ Buffer bufOut (offsetOut + count) (spaceOut - count) 
 
 --Filtering
 type FilterSingleC a = CInt -> Ptr a -> CInt -> Ptr a -> Ptr a -> IO ()
@@ -73,44 +92,35 @@ filterCrossBufR = filterCrossBuf c_filterCrossBufR
 filterr :: (Storable a) => FilterSingle a -> FilterCross a -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
 filterr single cross numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
-    outBuf <- lift $ mallocForeignBufferAligned blockSizeOut
-
-    simple inBuf 0 blockSizeIn outBuf 0 blockSizeOut 
+    outBuf <- lift $ newBuffer blockSizeOut
+    simple (Buffer inBuf 0 blockSizeIn) outBuf 
 
     where
 
-    advanceOutBuf bufOut offsetOut spaceOut count = 
-        if count == spaceOut then do
-            yield bufOut
-            outBuf' <- lift $ mallocForeignBufferAligned blockSizeOut
-            return (outBuf', 0, blockSizeOut) 
-        else 
-            return (bufOut, offsetOut + count, spaceOut - count) 
-
-    simple bufIn offsetIn spaceIn bufOut offsetOut spaceOut = do
+    simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) = do
         let count = min (spaceIn - numCoeffs + 1) spaceOut
         lift $ single numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
 
-        (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
+        bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
         let spaceIn'  = spaceIn - count
             offsetIn' = offsetIn + count
 
         case spaceIn' < numCoeffs of
-            False -> simple bufIn offsetIn' spaceIn' bufOut' offsetOut' spaceOut'
+            False -> simple (Buffer bufIn offsetIn' spaceIn') bufferOut'
             True  -> do
                 next <- await
-                crossover bufIn offsetIn' spaceIn' next bufOut' offsetOut' spaceOut'
+                crossover (Buffer bufIn offsetIn' spaceIn') next bufferOut'
 
-    crossover bufLast offsetLast spaceLast bufNext bufOut offsetOut spaceOut = do
+    crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
         let count = min (spaceLast - 1) spaceOut
         lift $ cross numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
-        (bufOut', offsetOut', spaceOut') <- advanceOutBuf bufOut offsetOut spaceOut count
+        bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
         case spaceLast - 1 == count of 
-            True  -> simple bufNext 0 blockSizeIn bufOut' offsetOut' spaceOut'
-            False -> crossover bufLast (offsetLast + count) (spaceLast - count) bufNext bufOut' offsetOut' spaceOut'
+            True  -> simple (Buffer bufNext 0 blockSizeIn) bufferOut'
+            False -> crossover (Buffer bufLast (offsetLast + count) (spaceLast - count)) bufNext bufferOut'
 
 filterC = filterr filterOneBufC filterCrossBufC
 filterR = filterr filterOneBufR filterCrossBufR
@@ -273,26 +283,6 @@ resampleOneBufR   = resampleOneBuf   c_resampleOneBufR
 resampleCrossBufR = resampleCrossBuf c_resampleCrossBufR
 
 quotUp q d = (q + (d - 1)) `quot` d
-
-data Buffer a = Buffer {
-    buffer :: ForeignPtr a,
-    offset :: Int,
-    size   :: Int
-}
-
-newBuffer :: Storable a => Int -> IO (Buffer a)
-newBuffer size = do
-    buf <- mallocForeignBufferAligned size
-    return $ Buffer buf 0 size
-
-advanceOutBuf :: Storable a => Int -> Buffer a -> Int -> Pipe b (ForeignPtr a) IO (Buffer a)
-advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count = 
-    if count == spaceOut then do
-        yield bufOut
-        outBuf' <- lift $ mallocForeignBufferAligned blockSizeOut
-        return $ Buffer outBuf' 0 blockSizeOut
-    else 
-        return $ Buffer bufOut (offsetOut + count) (spaceOut - count) 
 
 resample :: (Storable a) => ResampleSingle a -> ResampleCross a -> Int -> Int -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
 resample single cross interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
