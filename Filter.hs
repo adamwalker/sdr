@@ -285,6 +285,15 @@ newBuffer size = do
     buf <- mallocForeignBufferAligned size
     return $ Buffer buf 0 size
 
+advanceOutBuf :: Storable a => Int -> Buffer a -> Int -> Pipe b (ForeignPtr a) IO (Buffer a)
+advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count = 
+    if count == spaceOut then do
+        yield bufOut
+        outBuf' <- lift $ mallocForeignBufferAligned blockSizeOut
+        return $ Buffer outBuf' 0 blockSizeOut
+    else 
+        return $ Buffer bufOut (offsetOut + count) (spaceOut - count) 
+
 resample :: (Storable a) => ResampleSingle a -> ResampleCross a -> Int -> Int -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
 resample single cross interpolation decimation numCoeffs coeffs blockSizeIn blockSizeOut = do
     inBuf  <- await
@@ -292,14 +301,6 @@ resample single cross interpolation decimation numCoeffs coeffs blockSizeIn bloc
     simple (Buffer inBuf 0 blockSizeIn) outBuf 0
 
     where
-
-    advanceOutBuf (Buffer bufOut offsetOut spaceOut) count = 
-        if count == spaceOut then do
-            yield bufOut
-            outBuf' <- lift $ mallocForeignBufferAligned blockSizeOut
-            return $ Buffer outBuf' 0 blockSizeOut
-        else 
-            return $ Buffer bufOut (offsetOut + count) (spaceOut - count) 
 
     simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) filterOffset = do
         --Check consistency
@@ -313,7 +314,7 @@ resample single cross interpolation decimation numCoeffs coeffs blockSizeIn bloc
         --Check consistency
         assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
         --Advance the output buffer
-        bufferOut' <- advanceOutBuf bufferOut count
+        bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
         --samples no longer needed starting from filterOffset == count * decimation - filterOffset
         --inputs lying in this region                         == (count * decimation - filterOffset) / interpolation (rounding up)
         let usedInput = (count * decimation - filterOffset) `quotUp` interpolation 
@@ -344,7 +345,7 @@ resample single cross interpolation decimation numCoeffs coeffs blockSizeIn bloc
         --Check consistency
         assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
         --Advance the output buffer
-        bufferOut' <- advanceOutBuf bufferOut count
+        bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
         let inputUsed = (count * decimation - filterOffset) `quotUp` interpolation
 
