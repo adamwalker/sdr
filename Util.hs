@@ -20,6 +20,14 @@ import qualified Pipes.ByteString as PB
 
 import Buffer
 
+fork :: Monad m => Producer a m r -> Producer a (Producer a m) r
+fork prod = runEffect $ hoist (lift . lift) prod >-> fork' 
+    where 
+    fork' = forever $ do
+        res <- await
+        lift $ yield res
+        lift $ lift $ yield res
+
 printStream :: (Show e, Storable e, m ~ IO, MArray a e m, Ix i) => Consumer (a i e) m ()
 printStream = forever $ do
     res <- await 

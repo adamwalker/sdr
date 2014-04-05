@@ -337,11 +337,3 @@ main = eitherT putStrLn return $ do
 
     lift pipeline
 
-fork :: Monad m => Producer a m r -> Producer a (Producer a m) r
-fork prod = runEffect $ hoist (lift . lift) prod >-> fork' 
-    where 
-    fork' = forever $ do
-        res <- await
-        lift $ yield res
-        lift $ lift $ yield res
-
