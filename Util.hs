@@ -2,9 +2,8 @@
 
 module Util where
 
-import Data.Array.MArray
-import Foreign.Storable
 import Control.Monad
+import Foreign.Storable
 import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.ForeignPtr
@@ -13,6 +12,7 @@ import Foreign.Storable.Complex
 import Data.ByteString.Internal
 import System.IO
 import Data.Time.Clock
+import Foreign.Marshal.Array
 
 import Pipes
 import qualified Pipes.Prelude as P
@@ -28,10 +28,10 @@ fork prod = runEffect $ hoist (lift . lift) prod >-> fork'
         lift $ yield res
         lift $ lift $ yield res
 
-printStream :: (Show e, Storable e, m ~ IO, MArray a e m, Ix i) => Consumer (a i e) m ()
-printStream = forever $ do
+printStream :: (Show e, Storable e) => Int -> Consumer (ForeignPtr e) IO ()
+printStream samples = forever $ do
     res <- await 
-    res <- lift $ getElems res
+    res <- lift $ withForeignPtr res $ peekArray samples
     lift $ print res
 
 devnull :: Monad m => Consumer a m ()
