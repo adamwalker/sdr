@@ -271,7 +271,9 @@ coeffs7 = [
   -2.9163e-02
     ]
 
-samples = 131072
+bufNum = 1
+bufLen = 16384
+samples = fromIntegral (bufNum * bufLen) `quot` 2
 decimation = 8
 
 main = eitherT putStrLn return $ do
@@ -284,7 +286,7 @@ main = eitherT putStrLn return $ do
 
     unless res (left "error initializing glfw")
 
-    str     <- sdrStream 91100000 1280000
+    str     <- sdrStream 91100000 1280000 bufNum bufLen
 
     c       <- lift $ mallocForeignBufferAligned (length coeffs)
     lift $ withForeignPtr c $ \cp -> pokeArray cp coeffs
