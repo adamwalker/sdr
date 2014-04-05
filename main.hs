@@ -329,7 +329,7 @@ main = eitherT putStrLn return $ do
         p2 = runEffect $ fork demodulated >-> hoist lift audioSpectrumSink
 
         audioSink :: Consumer (ForeignPtr CDouble) IO ()
-        audioSink = P.mapM (multiplyConstFF samples 0.2) >-> P.mapM (doubleToFloat samples) >-> sink 
+        audioSink = P.mapM (multiplyConstFF samples 0.2) >-> P.mapM (doubleToFloat samples) >-> rate samples >-> sink 
 
         pipeline :: IO ()
         pipeline = runEffect $ p2 >-> audioSink

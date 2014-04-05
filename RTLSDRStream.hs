@@ -38,7 +38,6 @@ sdrStream frequency sampleRate bufNum bufLen = do
         (output, input) <- spawn Unbounded
 
         forkOS $ void $ readAsync dev bufNum bufLen $ \dat num -> void $ do
-            print num 
             let numBytes = fromIntegral $ bufNum * bufLen
             fp <- mallocForeignBufferAligned numBytes
             withForeignPtr fp $ \fpp -> moveBytes fpp dat numBytes

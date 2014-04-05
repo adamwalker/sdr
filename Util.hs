@@ -12,6 +12,7 @@ import Data.Complex
 import Foreign.Storable.Complex
 import Data.ByteString.Internal
 import System.IO
+import Data.Time.Clock
 
 import Pipes
 import qualified Pipes.Prelude as P
@@ -27,6 +28,23 @@ printStream = forever $ do
 
 devnull :: Monad m => Consumer a m ()
 devnull = forever await
+
+rate :: Int -> Pipe a a IO b
+rate samples = do
+    start <- lift $ getCurrentTime 
+    let rate' buffers = do
+        res <- await
+
+        time <- lift $ getCurrentTime 
+        let diff = diffUTCTime time start 
+            diffSecs :: Double
+            diffSecs = fromRational $ toRational diff
+
+        lift $ print $ buffers * fromIntegral samples / diffSecs
+
+        yield res
+        rate' (buffers + 1)
+    rate' 1
 
 --Conversion of sample bytes to doubles
 foreign import ccall unsafe "convertArray"
