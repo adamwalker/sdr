@@ -275,6 +275,7 @@ bufNum = 1
 bufLen = 16384
 samples = fromIntegral (bufNum * bufLen) `quot` 2
 decimation = 8
+sqd = samples `quot` decimation
 
 main = eitherT putStrLn return $ do
 
@@ -290,19 +291,19 @@ main = eitherT putStrLn return $ do
 
     c       <- lift $ mallocForeignBufferAligned (length coeffs)
     lift $ withForeignPtr c $ \cp -> pokeArray cp coeffs
-    let filterr = decimateC decimation (length coeffs) c samples samples
+    let filterr = decimateC decimation (length coeffs) c samples sqd
 
     fft     <- lift $ fftw (samples `quot` decimation)
     pt2     <- plot (samples `quot` decimation) (1 / fromIntegral (samples `quot` decimation))
 
     c       <- lift $ mallocForeignBufferAligned (length coeffs7)
     lift $ withForeignPtr c $ \cp -> pokeArray cp coeffs7
-    let rr  = resampleR 3 10 (length coeffs7) c samples samples
+    let rr  = resampleR 3 10 (length coeffs7) c sqd sqd
 
     fftReal <- lift $ fftwReal (samples `quot` decimation) 
     pt      <- plot (((samples `quot` decimation) `quot` 2) + 1) (1/100)
 
-    sink <- lift $ pulseAudioSink samples
+    sink <- lift $ pulseAudioSink sqd
 
     --sampling frequency of fm demodulated signal is 160 khz
     --resampling factor is 48/160
@@ -314,13 +315,13 @@ main = eitherT putStrLn return $ do
         inputSpectrum = str >-> (P.mapM (makeComplexBuffer samples)) >-> filterr 
 
         spectrumFFTSink :: Consumer (ForeignPtr (Complex CDouble)) IO () 
-        spectrumFFTSink = fft >-> pt2
+        spectrumFFTSink = fft >-> devnull
 
         p1 :: Producer (ForeignPtr (Complex CDouble)) IO () 
         p1 = runEffect $ fork inputSpectrum >-> hoist lift spectrumFFTSink
 
         demodulated :: Producer (ForeignPtr CDouble) IO ()
-        demodulated = p1 >-> (fmDemod samples) >-> rr 
+        demodulated = p1 >-> (fmDemod sqd) >-> rr 
 
         audioSpectrumSink :: Consumer (ForeignPtr CDouble) IO ()
         audioSpectrumSink = fftReal >-> pt
@@ -329,7 +330,7 @@ main = eitherT putStrLn return $ do
         p2 = runEffect $ fork demodulated >-> hoist lift audioSpectrumSink
 
         audioSink :: Consumer (ForeignPtr CDouble) IO ()
-        audioSink = P.mapM (multiplyConstFF samples 0.2) >-> P.mapM (doubleToFloat samples) >-> rate samples >-> sink 
+        audioSink = P.mapM (multiplyConstFF sqd 0.2) >-> P.mapM (doubleToFloat sqd) >-> rate sqd >-> sink 
 
         pipeline :: IO ()
         pipeline = runEffect $ p2 >-> audioSink
