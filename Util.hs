@@ -25,7 +25,7 @@ printStream = forever $ do
     res <- lift $ getElems res
     lift $ print res
 
-devnull :: (Show e, Storable e, m ~ IO, MArray a e m, Ix i) => Consumer (a i e) m ()
+devnull :: Monad m => Consumer a m ()
 devnull = forever await
 
 --Conversion of sample bytes to doubles
