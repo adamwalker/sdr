@@ -279,6 +279,13 @@ sqd = samples `quot` decimation
 
 main = eitherT putStrLn return $ do
 
+    --sampling frequency of input is 1280 khz
+    --sampling frequency of fm demodulated signal is 160 khz
+    --resampling factor is 48/160
+    --resampling factor is 3/10
+    --audio frequency cutoff is 15khz
+    --which is ~0.1 of sampling frequency
+
     --initialize glfw 
     lift $ setErrorCallback $ Just $ \error msg -> do
         print error
@@ -301,12 +308,6 @@ main = eitherT putStrLn return $ do
     audioSpectrum  <- plot ((sqd `quot` 2) + 1) (1/100)
 
     pulseSink      <- lift $ pulseAudioSink sqd
-
-    --sampling frequency of fm demodulated signal is 160 khz
-    --resampling factor is 48/160
-    --resampling factor is 3/10
-    --audio frequency cutoff is 15khz
-    --which is ~0.1 of sampling frequency
 
     --Build the pipeline
     let inputSpectrum :: Producer (ForeignPtr (Complex CDouble)) IO ()
