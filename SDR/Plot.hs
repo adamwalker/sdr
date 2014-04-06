@@ -1,4 +1,4 @@
-module Plot where
+module SDR.Plot where
 
 import Control.Monad
 import Foreign.C.Types
@@ -6,6 +6,7 @@ import Control.Monad.Trans.Either
 import Data.Complex
 import Foreign.Marshal.Array
 import Foreign.ForeignPtr
+import Foreign.Storable.Complex
 
 import Pipes
 

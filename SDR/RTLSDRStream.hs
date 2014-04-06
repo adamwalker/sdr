@@ -1,4 +1,4 @@
-module RTLSDRStream where
+module SDR.RTLSDRStream where
 
 import Control.Monad
 import Control.Monad.Trans.Either
@@ -14,7 +14,7 @@ import Pipes
 import Pipes.Concurrent 
 import RTLSDR
 
-import Buffer
+import SDR.Buffer
 
 --Streams buffers with 131072 samples
 sdrStream :: Word32 -> Word32 -> Word32 -> Word32 -> EitherT String IO (Producer (ForeignPtr CUChar) IO ())

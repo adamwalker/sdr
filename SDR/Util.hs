@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module Util where
+module SDR.Util where
 
 import Control.Monad
 import Foreign.Storable
@@ -18,7 +18,7 @@ import Pipes
 import qualified Pipes.Prelude as P
 import qualified Pipes.ByteString as PB
 
-import Buffer
+import SDR.Buffer
 
 fork :: Monad m => Producer a m r -> Producer a (Producer a m) r
 fork prod = runEffect $ hoist (lift . lift) prod >-> fork' 
@@ -41,17 +41,17 @@ rate :: Int -> Pipe a a IO b
 rate samples = do
     start <- lift $ getCurrentTime 
     let rate' buffers = do
-        res <- await
+            res <- await
 
-        time <- lift $ getCurrentTime 
-        let diff = diffUTCTime time start 
-            diffSecs :: Double
-            diffSecs = fromRational $ toRational diff
+            time <- lift $ getCurrentTime 
+            let diff = diffUTCTime time start 
+                diffSecs :: Double
+                diffSecs = fromRational $ toRational diff
 
-        lift $ print $ buffers * fromIntegral samples / diffSecs
+            lift $ print $ buffers * fromIntegral samples / diffSecs
 
-        yield res
-        rate' (buffers + 1)
+            yield res
+            rate' (buffers + 1)
     rate' 1
 
 --Conversion of sample bytes to doubles

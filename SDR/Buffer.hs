@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Buffer where
+module SDR.Buffer where
 
 import Foreign.Storable
 import Foreign.ForeignPtr

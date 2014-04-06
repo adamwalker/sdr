@@ -1,4 +1,4 @@
-module FFT where
+module SDR.FFT where
 
 import Control.Monad
 import Data.Bits
@@ -10,10 +10,10 @@ import Data.Complex
 import Foreign.Marshal.Utils
 import Foreign.ForeignPtr
 
-import Buffer
-
 import Pipes
 import FFTW
+
+import SDR.Buffer
 
 mkFFTWArray :: Int -> IO (ForeignPtr (Complex CDouble))
 mkFFTWArray samples = do

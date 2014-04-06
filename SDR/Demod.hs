@@ -1,4 +1,4 @@
-module Demod where
+module SDR.Demod where
 
 import Foreign.Storable
 import Foreign.Ptr
@@ -10,7 +10,7 @@ import Foreign.Marshal.Array
 
 import Pipes
 
-import Buffer
+import SDR.Buffer
 
 foreign import ccall unsafe "fmDemod"
     c_fmDemod :: CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> Ptr CDouble -> IO ()

@@ -1,4 +1,4 @@
-module Pulse where
+module SDR.Pulse where
 
 import Foreign.ForeignPtr
 import Foreign.Marshal.Array

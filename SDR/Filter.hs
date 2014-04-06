@@ -1,4 +1,4 @@
-module Filter where
+module SDR.Filter where
 
 import Control.Monad
 import Control.Monad.Trans.Either
@@ -18,7 +18,7 @@ import Control.Exception
 
 import Pipes
 
-import Buffer
+import SDR.Buffer
 
 data Buffer a = Buffer {
     buffer :: ForeignPtr a,
