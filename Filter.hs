@@ -89,38 +89,44 @@ filterCrossBufC = filterCrossBuf c_filterCrossBufC
 filterOneBufR   = filterOneBuf   c_filterOneBufR
 filterCrossBufR = filterCrossBuf c_filterCrossBufR
 
-filterr :: (Storable a) => FilterSingle a -> FilterCross a -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
-filterr single cross numCoeffs coeffs blockSizeIn blockSizeOut = do
-    inBuf  <- await
-    outBuf <- lift $ newBuffer blockSizeOut
-    simple (Buffer inBuf 0 blockSizeIn) outBuf 
+filterr :: (Storable a) => FilterSingle a -> FilterCross a -> [a] -> Int -> Int -> IO (Pipe (ForeignPtr a) (ForeignPtr a) IO ())
+filterr single cross coeffs blockSizeIn blockSizeOut = do
+    let numCoeffs = length coeffs
+    c <- mallocForeignBufferAligned numCoeffs
+    withForeignPtr c $ \cp -> pokeArray cp coeffs
+    return $ filter' numCoeffs c 
+    where 
+    filter' numCoeffs coeffs = do
+        inBuf  <- await
+        outBuf <- lift $ newBuffer blockSizeOut
+        simple (Buffer inBuf 0 blockSizeIn) outBuf 
 
-    where
+        where
 
-    simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) = do
-        let count = min (spaceIn - numCoeffs + 1) spaceOut
-        lift $ single numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
+        simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) = do
+            let count = min (spaceIn - numCoeffs + 1) spaceOut
+            lift $ single numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
 
-        bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
+            bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
-        let spaceIn'  = spaceIn - count
-            offsetIn' = offsetIn + count
+            let spaceIn'  = spaceIn - count
+                offsetIn' = offsetIn + count
 
-        case spaceIn' < numCoeffs of
-            False -> simple (Buffer bufIn offsetIn' spaceIn') bufferOut'
-            True  -> do
-                next <- await
-                crossover (Buffer bufIn offsetIn' spaceIn') next bufferOut'
+            case spaceIn' < numCoeffs of
+                False -> simple (Buffer bufIn offsetIn' spaceIn') bufferOut'
+                True  -> do
+                    next <- await
+                    crossover (Buffer bufIn offsetIn' spaceIn') next bufferOut'
 
-    crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
-        let count = min (spaceLast - 1) spaceOut
-        lift $ cross numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+        crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
+            let count = min (spaceLast - 1) spaceOut
+            lift $ cross numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
-        bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
+            bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
-        case spaceLast - 1 == count of 
-            True  -> simple (Buffer bufNext 0 blockSizeIn) bufferOut'
-            False -> crossover (Buffer bufLast (offsetLast + count) (spaceLast - count)) bufNext bufferOut'
+            case spaceLast - 1 == count of 
+                True  -> simple (Buffer bufNext 0 blockSizeIn) bufferOut'
+                False -> crossover (Buffer bufLast (offsetLast + count) (spaceLast - count)) bufNext bufferOut'
 
 filterC = filterr filterOneBufC filterCrossBufC
 filterR = filterr filterOneBufR filterCrossBufR
@@ -176,44 +182,50 @@ decimateCrossBufC = decimateCrossBuf c_decimateCrossBufC
 decimateOneBufR   = decimateOneBuf   c_decimateOneBufR
 decimateCrossBufR = decimateCrossBuf c_decimateCrossBufR
 
-decimate :: (Storable a) => DecimateSingle a -> DecimateCross a -> Int -> Int -> ForeignPtr a -> Int -> Int -> Pipe (ForeignPtr a) (ForeignPtr a) IO ()
-decimate single cross factor numCoeffs coeffs blockSizeIn blockSizeOut = do
-    inBuf  <- await
-    outBuf <- lift $ newBuffer blockSizeOut
-    simple (Buffer inBuf 0 blockSizeIn) outBuf
-
+decimate :: (Storable a) => DecimateSingle a -> DecimateCross a -> Int -> [a] -> Int -> Int -> IO (Pipe (ForeignPtr a) (ForeignPtr a) IO ())
+decimate single cross factor coeffs blockSizeIn blockSizeOut = do
+    let numCoeffs = length coeffs
+    c <- mallocForeignBufferAligned numCoeffs
+    withForeignPtr c $ \cp -> pokeArray cp coeffs
+    return $ decimate' numCoeffs c 
     where
+    decimate' numCoeffs coeffs = do
+        inBuf  <- await
+        outBuf <- lift $ newBuffer blockSizeOut
+        simple (Buffer inBuf 0 blockSizeIn) outBuf
 
-    simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) = do
+        where
 
-        assert (spaceIn >= numCoeffs) $ return ()
+        simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) = do
 
-        let count = min (((spaceIn - numCoeffs) `quot` factor) + 1) spaceOut
-        lift $ single factor numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
+            assert (spaceIn >= numCoeffs) $ return ()
 
-        bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
+            let count = min (((spaceIn - numCoeffs) `quot` factor) + 1) spaceOut
+            lift $ single factor numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
 
-        let spaceIn'  = spaceIn - count * factor
-            offsetIn' = offsetIn + count * factor
+            bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
-        case spaceIn' < numCoeffs of
-            False -> simple (Buffer bufIn offsetIn' spaceIn') bufferOut'
-            True  -> do
-                next <- await
-                crossover (Buffer bufIn offsetIn' spaceIn') next bufferOut'
+            let spaceIn'  = spaceIn - count * factor
+                offsetIn' = offsetIn + count * factor
 
-    crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
+            case spaceIn' < numCoeffs of
+                False -> simple (Buffer bufIn offsetIn' spaceIn') bufferOut'
+                True  -> do
+                    next <- await
+                    crossover (Buffer bufIn offsetIn' spaceIn') next bufferOut'
 
-        assert (spaceLast < numCoeffs) $ return ()
+        crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
 
-        let count = min (((spaceLast - 1) `quot` factor) + 1) spaceOut
-        lift $ cross factor numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+            assert (spaceLast < numCoeffs) $ return ()
 
-        bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
+            let count = min (((spaceLast - 1) `quot` factor) + 1) spaceOut
+            lift $ cross factor numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
-        case ((spaceLast - 1) `quot` factor) + 1 == count of 
-            True  -> simple (Buffer bufNext (offsetLast + count * factor - blockSizeIn) (blockSizeIn - (offsetLast + count * factor - blockSizeIn))) bufferOut'
-            False -> crossover (Buffer bufLast (offsetLast + count * factor) (spaceLast - count * factor)) bufNext bufferOut'
+            bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
+
+            case ((spaceLast - 1) `quot` factor) + 1 == count of 
+                True  -> simple (Buffer bufNext (offsetLast + count * factor - blockSizeIn) (blockSizeIn - (offsetLast + count * factor - blockSizeIn))) bufferOut'
+                False -> crossover (Buffer bufLast (offsetLast + count * factor) (spaceLast - count * factor)) bufNext bufferOut'
 
 decimateC = decimate decimateOneBufC decimateCrossBufC
 decimateR = decimate decimateOneBufR decimateCrossBufR

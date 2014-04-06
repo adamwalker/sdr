@@ -289,9 +289,7 @@ main = eitherT putStrLn return $ do
 
     str     <- sdrStream 91100000 1280000 bufNum bufLen
 
-    c       <- lift $ mallocForeignBufferAligned (length coeffs)
-    lift $ withForeignPtr c $ \cp -> pokeArray cp coeffs
-    let filterr = decimateC decimation (length coeffs) c samples sqd
+    filterr <- lift $ decimateC decimation coeffs samples sqd
 
     fft     <- lift $ fftw (samples `quot` decimation)
     pt2     <- plot (samples `quot` decimation) (1 / fromIntegral (samples `quot` decimation))
