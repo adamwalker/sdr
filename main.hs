@@ -19,8 +19,8 @@ import Demod
 import Pulse
 import Buffer
 
-coeffs :: [Complex CDouble]
-coeffs = [
+coeffsRFDecim :: [Complex CDouble]
+coeffsRFDecim = [
 
    0.0329394,
    0.0083235,
@@ -66,8 +66,8 @@ coeffs = [
 
     ]
 
-coeffs7 :: [CDouble]
-coeffs7 = [
+coeffsAudioResampler :: [CDouble]
+coeffsAudioResampler = [
   -2.9163e-02,
   -1.6141e-03,
   -1.6167e-03,
@@ -279,27 +279,28 @@ sqd = samples `quot` decimation
 
 main = eitherT putStrLn return $ do
 
+    --initialize glfw 
     lift $ setErrorCallback $ Just $ \error msg -> do
         print error
         putStrLn msg
 
     res <- lift $ G.init
-
     unless res (left "error initializing glfw")
 
-    str     <- sdrStream 91100000 1280000 bufNum bufLen
+    --Initialize the components that require initialization
+    str            <- sdrStream 91100000 1280000 bufNum bufLen
 
-    filterr <- lift $ decimateC decimation coeffs samples sqd
+    rfDecimator    <- lift $ decimateC decimation coeffsRFDecim samples sqd
 
-    fft     <- lift $ fftw (samples `quot` decimation)
-    pt2     <- plot (samples `quot` decimation) (1 / fromIntegral (samples `quot` decimation))
+    rfFFT          <- lift $ fftw sqd
+    rfSpectrum     <- plot sqd (1 / fromIntegral sqd)
 
-    rr      <- lift $ resampleR 3 10 coeffs7 sqd sqd
+    audioResampler <- lift $ resampleR 3 10 coeffsAudioResampler sqd sqd
 
-    fftReal <- lift $ fftwReal (samples `quot` decimation) 
-    pt      <- plot (((samples `quot` decimation) `quot` 2) + 1) (1/100)
+    audioFFT       <- lift $ fftwReal sqd 
+    audioSpectrum  <- plot ((sqd `quot` 2) + 1) (1/100)
 
-    sink <- lift $ pulseAudioSink sqd
+    pulseSink      <- lift $ pulseAudioSink sqd
 
     --sampling frequency of fm demodulated signal is 160 khz
     --resampling factor is 48/160
@@ -307,29 +308,31 @@ main = eitherT putStrLn return $ do
     --audio frequency cutoff is 15khz
     --which is ~0.1 of sampling frequency
 
+    --Build the pipeline
     let inputSpectrum :: Producer (ForeignPtr (Complex CDouble)) IO ()
-        inputSpectrum = str >-> (P.mapM (makeComplexBuffer samples)) >-> filterr 
+        inputSpectrum = str >-> P.mapM (makeComplexBuffer samples) >-> rfDecimator 
 
         spectrumFFTSink :: Consumer (ForeignPtr (Complex CDouble)) IO () 
-        spectrumFFTSink = fft >-> devnull
+        spectrumFFTSink = rfFFT >-> devnull
 
         p1 :: Producer (ForeignPtr (Complex CDouble)) IO () 
         p1 = runEffect $ fork inputSpectrum >-> hoist lift spectrumFFTSink
 
         demodulated :: Producer (ForeignPtr CDouble) IO ()
-        demodulated = p1 >-> (fmDemod sqd) >-> rr 
+        demodulated = p1 >-> fmDemod sqd >-> audioResampler
 
         audioSpectrumSink :: Consumer (ForeignPtr CDouble) IO ()
-        audioSpectrumSink = fftReal >-> pt
+        audioSpectrumSink = audioFFT >-> audioSpectrum
 
         p2 :: Producer (ForeignPtr CDouble) IO ()
         p2 = runEffect $ fork demodulated >-> hoist lift audioSpectrumSink
 
         audioSink :: Consumer (ForeignPtr CDouble) IO ()
-        audioSink = P.mapM (multiplyConstFF sqd 0.2) >-> P.mapM (doubleToFloat sqd) >-> rate sqd >-> sink 
+        audioSink = P.mapM (multiplyConstFF sqd 0.2) >-> P.mapM (doubleToFloat sqd) >-> rate sqd >-> pulseSink
 
         pipeline :: IO ()
         pipeline = runEffect $ p2 >-> audioSink
 
+    --Run the pipeline
     lift pipeline
 
