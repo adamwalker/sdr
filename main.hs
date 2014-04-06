@@ -296,9 +296,7 @@ main = eitherT putStrLn return $ do
     fft     <- lift $ fftw (samples `quot` decimation)
     pt2     <- plot (samples `quot` decimation) (1 / fromIntegral (samples `quot` decimation))
 
-    c       <- lift $ mallocForeignBufferAligned (length coeffs7)
-    lift $ withForeignPtr c $ \cp -> pokeArray cp coeffs7
-    let rr  = resampleR 3 10 (length coeffs7) c sqd sqd
+    rr      <- lift $ resampleR 3 10 coeffs7 sqd sqd
 
     fftReal <- lift $ fftwReal (samples `quot` decimation) 
     pt      <- plot (((samples `quot` decimation) `quot` 2) + 1) (1/100)
