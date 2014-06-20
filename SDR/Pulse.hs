@@ -28,4 +28,5 @@ doPulse = do
         buf <- await
         lift $ do
             let (fp, offset, length) = VS.unsafeToForeignPtr buf
-            simpleWriteRaw s (PS (castForeignPtr fp) offset (length * 4))
+            simpleWriteRaw s (PS (castForeignPtr fp) (offset * 4) (length * 4))
+

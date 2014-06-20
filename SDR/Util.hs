@@ -76,20 +76,6 @@ makeComplexBufferVect samples input = VG.generate samples convert
     convert idx  = convert' (input VG.! idx) :+ convert' (input VG.! (idx + 1))
     convert' val = (realToFrac val - 128) / 128
 
-foreign import ccall unsafe "doubleToFloat"
-    c_doubleToFloat :: CInt -> Ptr CDouble -> Ptr CFloat -> IO ()
-
-doubleToFloat :: Int -> ForeignPtr CDouble -> IO (ForeignPtr CFloat)
-doubleToFloat samples ina = do
-    oArray <- mallocForeignBufferAligned samples
-    withForeignPtr oArray $ \op -> 
-        withForeignPtr ina $ \inp -> do
-            c_doubleToFloat (fromIntegral samples) inp op
-            return oArray
-
-doubleToFloatVect :: (VG.Vector v1 CDouble, VG.Vector v1 CFloat) => v1 CDouble -> v1 CFloat
-doubleToFloatVect = VG.map realToFrac
-
 toByteString :: Int -> Pipe (ForeignPtr a) ByteString IO ()
 toByteString bytes = P.map $ \dat -> PS (castForeignPtr dat) 0 bytes
 
@@ -101,20 +87,6 @@ toHandle bytes handle = toByteString bytes >-> PB.toHandle handle
 
 fromHandle :: Int -> Handle -> Producer (ForeignPtr a) IO ()
 fromHandle bytes handle = PB.hGet bytes handle >-> fromByteString 
-
-foreign import ccall unsafe "multiplyConstFF"
-    c_multiplyConstFF :: CInt -> CDouble -> Ptr CDouble -> Ptr CDouble -> IO ()
-
-multiplyConstFF :: Int -> CDouble -> ForeignPtr CDouble -> IO (ForeignPtr CDouble)
-multiplyConstFF samples gain ina = do
-    oArray <- mallocForeignBufferAligned samples
-    withForeignPtr oArray $ \op -> 
-        withForeignPtr ina $ \inp -> do
-            c_multiplyConstFF (fromIntegral samples) gain inp op
-            return oArray
-
-multiplyConstVect :: (Num a, VG.Vector v a) => a -> v a -> v a
-multiplyConstVect gain = VG.map (* gain)
 
 mapAccumMV :: (Monad m) => (acc -> x -> m (acc, y)) -> acc -> Stream m x -> Stream m y
 mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
