@@ -28,6 +28,13 @@ hanning size = VG.generate size func
     where
     func idx = 0.5 * (1 - cos((2 * pi * fromIntegral idx) / (fromIntegral size - 1)))
 
+fftFixup :: (VG.Vector v n, Num n) => Int -> v n
+fftFixup size = VG.generate size func
+    where
+    func idx 
+        | even idx = 1
+        | odd  idx = -1
+
 fftw :: (VG.Vector v (Complex CDouble)) => Int -> IO (Pipe (v (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ())
 fftw samples = do
     ina <- mallocForeignBufferAligned samples
