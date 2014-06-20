@@ -10,29 +10,6 @@ void convertArray(int size, uint8_t *in, double *out){
     }
 }
 
-void doubleToFloat(int size, double *in, float *out){
-    int i;
-    for(i=0; i<size; i++){
-        out[i] = (float) in[i];
-    }
-}
-
-void multiplyConstFF(int size, double gain, double *in, double *out){
-    int i;
-    for(i=0; i<size; i++){
-        out[i] = gain * in[i];
-    }
-}
-
-void convertFFT(int samples, double complex *in, double complex *out){
-    int i;
-    double complex sign = 1;
-    for(i=0; i<samples; i++){
-        out[i] = sign * in[i];
-        sign *= -1;
-    }
-}
-
 void fmDemod(int buf_size, double complex *last_sample, double complex *in_buf, double *out_buf){
     int i;
     complex double last = *last_sample;
