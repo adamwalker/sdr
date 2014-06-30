@@ -15,27 +15,32 @@ import Foreign.ForeignPtr
 import Foreign.Storable.Complex
 import Foreign.Ptr
 import Control.Exception 
+import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Generic.Mutable as VGM
+import qualified Data.Vector.Storable as VS
+import qualified Data.Vector.Storable.Mutable as VSM
 
 import Pipes
 
 import SDR.Buffer
 
-data Buffer a = Buffer {
-    buffer :: ForeignPtr a,
+data Buffer v a = Buffer {
+    buffer :: v a,
     offset :: Int,
     size   :: Int
 }
 
-newBuffer :: Storable a => Int -> IO (Buffer a)
+newBuffer :: Storable a => Int -> IO (Buffer VSM.IOVector a)
 newBuffer size = do
-    buf <- mallocForeignBufferAligned size
+    buf <- VGM.new size
     return $ Buffer buf 0 size
 
-advanceOutBuf :: Storable a => Int -> Buffer a -> Int -> Pipe b (ForeignPtr a) IO (Buffer a)
+advanceOutBuf :: Storable a => Int -> Buffer VSM.IOVector a -> Int -> Pipe b (VS.Vector a) IO (Buffer VSM.IOVector a)
 advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count = 
     if count == spaceOut then do
-        yield bufOut
-        outBuf' <- lift $ mallocForeignBufferAligned blockSizeOut
+        bufOutF <- lift $ VS.unsafeFreeze bufOut
+        yield bufOutF
+        outBuf' <- lift $ VGM.new blockSizeOut
         return $ Buffer outBuf' 0 blockSizeOut
     else 
         return $ Buffer bufOut (offsetOut + count) (spaceOut - count) 
@@ -56,14 +61,14 @@ foreign import ccall unsafe "filter_onebuf_r"
 foreign import ccall unsafe "filter_crossbuf_r"
     c_filterCrossBufR :: FilterCrossC CDouble
 
-type FilterSingle a = Int -> ForeignPtr a -> Int -> Int -> ForeignPtr a -> Int -> ForeignPtr a -> IO ()
-type FilterCross  a = Int -> ForeignPtr a -> Int -> Int -> Int -> ForeignPtr a -> ForeignPtr a -> Int -> ForeignPtr a -> IO ()
+type FilterSingle a = Int -> VS.Vector a -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
+type FilterCross  a = Int -> VS.Vector a -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
 
 filterOneBuf :: Storable a => FilterSingleC a -> FilterSingle a
 filterOneBuf cfunc coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
-    withForeignPtr coeffs $ \cp -> 
-    withForeignPtr inBuf  $ \ip -> 
-    withForeignPtr outBuf $ \op -> 
+    VS.unsafeWith  coeffs $ \cp -> 
+    VS.unsafeWith  inBuf  $ \ip -> 
+    VSM.unsafeWith outBuf $ \op -> 
         cfunc (fromIntegral coeffsLength) 
               cp 
               (fromIntegral num) 
@@ -72,10 +77,10 @@ filterOneBuf cfunc coeffsLength coeffs num inOffset inBuf outOffset outBuf =
 
 filterCrossBuf :: Storable a => FilterCrossC a -> FilterCross a
 filterCrossBuf cfunc coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
-    withForeignPtr coeffs  $ \cp -> 
-    withForeignPtr lastBuf $ \lp -> 
-    withForeignPtr nextBuf $ \np -> 
-    withForeignPtr outBuf  $ \op -> 
+    VS.unsafeWith  coeffs  $ \cp -> 
+    VS.unsafeWith  lastBuf $ \lp -> 
+    VS.unsafeWith  nextBuf $ \np -> 
+    VSM.unsafeWith outBuf  $ \op -> 
         cfunc (fromIntegral coeffsLength) 
               cp 
               (fromIntegral numInput) 
@@ -89,12 +94,9 @@ filterCrossBufC = filterCrossBuf c_filterCrossBufC
 filterOneBufR   = filterOneBuf   c_filterOneBufR
 filterCrossBufR = filterCrossBuf c_filterCrossBufR
 
-filterr :: (Storable a) => FilterSingle a -> FilterCross a -> [a] -> Int -> Int -> IO (Pipe (ForeignPtr a) (ForeignPtr a) IO ())
+filterr :: (Storable a) => FilterSingle a -> FilterCross a -> VS.Vector a -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
 filterr single cross coeffs blockSizeIn blockSizeOut = do
-    let numCoeffs = length coeffs
-    c <- mallocForeignBufferAligned numCoeffs
-    withForeignPtr c $ \cp -> pokeArray cp coeffs
-    return $ filter' numCoeffs c 
+    return $ filter' (VG.length coeffs) coeffs
     where 
     filter' numCoeffs coeffs = do
         inBuf  <- await
@@ -147,14 +149,14 @@ foreign import ccall unsafe "decimate_onebuf_r"
 foreign import ccall unsafe "decimate_crossbuf_r"
     c_decimateCrossBufR :: DecimateCrossC CDouble
 
-type DecimateSingle a = Int -> Int -> ForeignPtr a -> Int -> Int -> ForeignPtr a -> Int -> ForeignPtr a -> IO ()
-type DecimateCross  a = Int -> Int -> ForeignPtr a -> Int -> Int -> Int -> ForeignPtr a -> ForeignPtr a -> Int -> ForeignPtr a -> IO ()
+type DecimateSingle a = Int -> Int -> VS.Vector a -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
+type DecimateCross  a = Int -> Int -> VS.Vector a -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
 
 decimateOneBuf :: Storable a => DecimateSingleC a -> DecimateSingle a
 decimateOneBuf cfunc factor coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
-    withForeignPtr coeffs $ \cp -> 
-    withForeignPtr inBuf  $ \ip -> 
-    withForeignPtr outBuf $ \op -> 
+    VS.unsafeWith  coeffs $ \cp -> 
+    VS.unsafeWith  inBuf  $ \ip -> 
+    VSM.unsafeWith outBuf $ \op -> 
         cfunc (fromIntegral factor) 
               (fromIntegral coeffsLength) 
               cp 
@@ -164,10 +166,10 @@ decimateOneBuf cfunc factor coeffsLength coeffs num inOffset inBuf outOffset out
 
 decimateCrossBuf :: Storable a => DecimateCrossC a -> DecimateCross a
 decimateCrossBuf cfunc factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
-    withForeignPtr coeffs  $ \cp -> 
-    withForeignPtr lastBuf $ \lp -> 
-    withForeignPtr nextBuf $ \np -> 
-    withForeignPtr outBuf  $ \op -> 
+    VS.unsafeWith  coeffs  $ \cp -> 
+    VS.unsafeWith  lastBuf $ \lp -> 
+    VS.unsafeWith  nextBuf $ \np -> 
+    VSM.unsafeWith outBuf  $ \op -> 
         cfunc (fromIntegral factor) 
               (fromIntegral coeffsLength) 
               cp 
@@ -182,12 +184,9 @@ decimateCrossBufC = decimateCrossBuf c_decimateCrossBufC
 decimateOneBufR   = decimateOneBuf   c_decimateOneBufR
 decimateCrossBufR = decimateCrossBuf c_decimateCrossBufR
 
-decimate :: (Storable a) => DecimateSingle a -> DecimateCross a -> Int -> [a] -> Int -> Int -> IO (Pipe (ForeignPtr a) (ForeignPtr a) IO ())
+decimate :: (Storable a) => DecimateSingle a -> DecimateCross a -> Int -> VS.Vector a -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
 decimate single cross factor coeffs blockSizeIn blockSizeOut = do
-    let numCoeffs = length coeffs
-    c <- mallocForeignBufferAligned numCoeffs
-    withForeignPtr c $ \cp -> pokeArray cp coeffs
-    return $ decimate' numCoeffs c 
+    return $ decimate' (VG.length coeffs) coeffs
     where
     decimate' numCoeffs coeffs = do
         inBuf  <- await
@@ -246,14 +245,14 @@ foreign import ccall unsafe "resample_onebuf_r"
 foreign import ccall unsafe "resample_crossbuf_r"
     c_resampleCrossBufR :: ResampleCrossC CDouble
 
-type ResampleSingle a = Int -> Int -> Int -> ForeignPtr a -> Int -> Int -> Int -> ForeignPtr a -> Int -> ForeignPtr a -> IO Int
-type ResampleCross  a = Int -> Int -> Int -> ForeignPtr a -> Int -> Int -> Int -> Int -> ForeignPtr a -> ForeignPtr a -> Int -> ForeignPtr a -> IO Int
+type ResampleSingle a = Int -> Int -> Int -> VS.Vector a -> Int -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO Int
+type ResampleCross  a = Int -> Int -> Int -> VS.Vector a -> Int -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO Int
 
 resampleOneBuf :: Storable a => ResampleSingleC a -> ResampleSingle a
 resampleOneBuf cfunc interpolation decimation coeffsLength coeffs filterOffset count inOffset inBuf outOffset outBuf = liftM fromIntegral $ 
-    withForeignPtr coeffs $ \cp -> 
-    withForeignPtr inBuf  $ \ip -> 
-    withForeignPtr outBuf $ \op -> 
+    VS.unsafeWith  coeffs $ \cp -> 
+    VS.unsafeWith  inBuf  $ \ip -> 
+    VSM.unsafeWith outBuf $ \op -> 
         cfunc (fromIntegral interpolation) 
               (fromIntegral decimation) 
               (fromIntegral coeffsLength) 
@@ -265,10 +264,10 @@ resampleOneBuf cfunc interpolation decimation coeffsLength coeffs filterOffset c
 
 resampleCrossBuf :: Storable a => ResampleCrossC a -> ResampleCross a
 resampleCrossBuf cfunc interpolation decimation coeffsLength coeffs filterOffset numInput count lastOffset lastBuf nextBuf outOffset outBuf = liftM fromIntegral $ 
-    withForeignPtr coeffs  $ \cp -> 
-    withForeignPtr lastBuf $ \lp -> 
-    withForeignPtr nextBuf $ \np -> 
-    withForeignPtr outBuf  $ \op -> 
+    VS.unsafeWith  coeffs  $ \cp -> 
+    VS.unsafeWith  lastBuf $ \lp -> 
+    VS.unsafeWith  nextBuf $ \np -> 
+    VSM.unsafeWith outBuf  $ \op -> 
         cfunc (fromIntegral interpolation) 
               (fromIntegral decimation) 
               (fromIntegral coeffsLength) 
@@ -287,12 +286,9 @@ resampleCrossBufR = resampleCrossBuf c_resampleCrossBufR
 
 quotUp q d = (q + (d - 1)) `quot` d
 
-resample :: (Storable a) => ResampleSingle a -> ResampleCross a -> Int -> Int -> [a] -> Int -> Int -> IO (Pipe (ForeignPtr a) (ForeignPtr a) IO ())
+resample :: (Storable a) => ResampleSingle a -> ResampleCross a -> Int -> Int -> VS.Vector a -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
 resample single cross interpolation decimation coeffs blockSizeIn blockSizeOut = do
-    let numCoeffs = length coeffs
-    c <- mallocForeignBufferAligned numCoeffs
-    withForeignPtr c $ \cp -> pokeArray cp coeffs
-    return $ resample' numCoeffs c 
+    return $ resample' (VS.length coeffs) coeffs
     where
     resample' numCoeffs coeffs = do
         inBuf  <- await
