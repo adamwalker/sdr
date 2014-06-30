@@ -89,10 +89,43 @@ filterCrossBuf cfunc coeffsLength coeffs numInput num lastOffset lastBuf nextBuf
               np 
               (advancePtr op outOffset)
 
-filterOneBufC   = filterOneBuf   c_filterOneBufC
-filterCrossBufC = filterCrossBuf c_filterCrossBufC
-filterOneBufR   = filterOneBuf   c_filterOneBufR
-filterCrossBufR = filterCrossBuf c_filterCrossBufR
+filterOneBufC   :: FilterSingle (Complex CDouble)
+filterOneBufC   = filterOne   --filterOneBuf   c_filterOneBufC
+filterCrossBufC :: FilterCross (Complex CDouble)
+filterCrossBufC = filterCross --filterCrossBuf c_filterCrossBufC
+filterOneBufR   :: FilterSingle CDouble
+filterOneBufR   = filterOne   --filterOneBuf   c_filterOneBufR
+filterCrossBufR :: FilterCross CDouble
+filterCrossBufR = filterCross --filterCrossBuf c_filterCrossBufR
+
+{-# SPECIALIZE INLINE filterOne :: Int -> VS.Vector CDouble -> Int -> Int -> VS.Vector CDouble -> Int -> VSM.IOVector CDouble -> IO () #-}
+{-# SPECIALIZE INLINE filterOne :: Int -> VS.Vector (Complex CDouble) -> Int -> Int -> VS.Vector (Complex CDouble) -> Int -> VSM.IOVector (Complex CDouble) -> IO () #-}
+filterOne :: (Num a, Storable a) => Int -> VS.Vector a -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
+filterOne coeffsLength coeffs num inOffset inBuf outOffset outBuf = fill 0
+    where
+    fill i 
+        | i < num = do
+            let dp = dotProd (i + inOffset)
+            VGM.unsafeWrite outBuf (i + outOffset) dp
+            fill (i + 1)
+        | otherwise  = return ()
+    {-# INLINE dotProd #-}
+    dotProd offset = VG.sum $ VG.zipWith (*) coeffs (VG.unsafeSlice offset (VG.length coeffs) inBuf)
+
+{-# SPECIALIZE INLINE filterCross :: Int -> VS.Vector CDouble -> Int -> Int -> Int -> VS.Vector CDouble -> VS.Vector CDouble -> Int -> VSM.IOVector CDouble -> IO () #-}
+{-# SPECIALIZE INLINE filterCross :: Int -> VS.Vector (Complex CDouble) -> Int -> Int -> Int -> VS.Vector (Complex CDouble) -> VS.Vector (Complex CDouble) -> Int -> VSM.IOVector (Complex CDouble) -> IO () #-}
+filterCross :: (Num a, Storable a) => Int -> VS.Vector a -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
+filterCross coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = fill 0
+    where
+    fill i 
+        | i < num = do
+            let dp = dotProd i
+            VGM.unsafeWrite outBuf (i + outOffset) dp
+            fill (i + 1)
+        | otherwise  = return ()
+    {-# INLINE dotProd #-}
+    dotProd i =   VG.sum (VG.zipWith (*) coeffs (VG.unsafeSlice (i + lastOffset) (numInput - i) lastBuf))
+                + VG.sum (VG.zipWith (*) (VG.unsafeSlice i (VG.length coeffs - i) coeffs) nextBuf)
 
 filterr :: (Storable a) => FilterSingle a -> FilterCross a -> VS.Vector a -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
 filterr single cross coeffs blockSizeIn blockSizeOut = do
