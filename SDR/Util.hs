@@ -70,11 +70,14 @@ makeComplexBuffer samples ina = do
             c_convertArray (fromIntegral samples * 2) inp op
             return oArray
 
+{-# SPECIALIZE INLINE makeComplexBufferVect :: Int -> VS.Vector CUChar -> VS.Vector (Complex CDouble) #-}
 makeComplexBufferVect :: (VG.Vector v1 CUChar, VG.Vector v2 (Complex CDouble)) => Int -> v1 CUChar -> v2 (Complex CDouble)
 makeComplexBufferVect samples input = VG.generate samples convert
     where
-    convert idx  = convert' (input VG.! idx) :+ convert' (input VG.! (idx + 1))
-    convert' val = (realToFrac val - 128) / 128
+    {-# INLINE convert #-}
+    convert idx  = convert' (input `VG.unsafeIndex` idx) :+ convert' (input `VG.unsafeIndex` (idx + 1))
+    {-# INLINE convert' #-}
+    convert' val = (fromIntegral val - 128) / 128
 
 toByteString :: Int -> Pipe (ForeignPtr a) ByteString IO ()
 toByteString bytes = P.map $ \dat -> PS (castForeignPtr dat) 0 bytes
