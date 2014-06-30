@@ -34,11 +34,14 @@ fmDemod samples = fmDemod' 0
         yield out
         fmDemod' last
 
+{-# INLINE fmDemodStr #-}
 fmDemodStr :: (RealFloat a) => Complex a -> Stream (Complex a) -> Stream a
 fmDemodStr = mapAccumMV func 
     where
+    {-# INLINE func #-}
     func last sample = return (sample, phase (sample * conjugate last))
 
+{-# INLINE fmDemodVec #-}
 fmDemodVec :: (RealFloat a, Vector v (Complex a), Vector v a) => Complex a -> v (Complex a) -> v a
 fmDemodVec init = unstream . fmDemodStr init . stream
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, FlexibleContexts #-}
+{-# LANGUAGE GADTs, FlexibleContexts, BangPatterns #-}
 
 module SDR.Util where
 
@@ -91,14 +91,16 @@ toHandle bytes handle = toByteString bytes >-> PB.toHandle handle
 fromHandle :: Int -> Handle -> Producer (ForeignPtr a) IO ()
 fromHandle bytes handle = PB.hGet bytes handle >-> fromByteString 
 
+{-# INLINE_STREAM mapAccumMV #-}
 mapAccumMV :: (Monad m) => (acc -> x -> m (acc, y)) -> acc -> Stream m x -> Stream m y
 mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
     where
+    {-# INLINE_INNER step' #-}
     step' (s, acc) = do
         r <- step s
         case r of
             Yield y s' -> do
-                (acc', res) <- func acc y 
+                (!acc', !res) <- func acc y 
                 return $ Yield res (s', acc')
             Skip    s' -> return $ Skip (s', acc)
             Done       -> return $ Done
