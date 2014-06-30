@@ -106,6 +106,33 @@ plotTextureAxes width height samples xResolution = do
 plotWaterfall :: Int -> Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotWaterfall = waterfallWindow
 
+plotWaterfallAxes :: Int -> Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+plotWaterfallAxes windowWidth windowHeight width height colorMap = do
+    res' <- lift $ createWindow windowWidth windowHeight "" Nothing Nothing
+    win <- maybe (left "error creating window") return res'
+    lift $ makeContextCurrent (Just win)
+
+    renderPipe <- lift $ renderWaterfall width height colorMap
+    
+    --render the axes
+    let rm = renderAxes (defaultConfiguration {width = fromIntegral width, height = fromIntegral height})
+    renderAxisFunc <- lift $ renderCairo rm width height
+
+    return $ (<-<) renderPipe $ forever $ do
+        dat <- await
+
+        lift $ do
+            makeContextCurrent (Just win)
+
+            viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
+            renderAxisFunc
+
+            viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
+
+        yield dat
+
+        lift $ swapBuffers win
+
 plotFill :: Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFill width height samples colorMap = do
     graphFunc <- filledLineWindow width height samples colorMap
