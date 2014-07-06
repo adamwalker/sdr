@@ -59,17 +59,6 @@ rate samples = do
     rate' 1
 
 --Conversion of sample bytes to doubles
-foreign import ccall unsafe "convertArray"
-    c_convertArray :: CInt -> Ptr CUChar -> Ptr (Complex CDouble) -> IO ()
-
-makeComplexBuffer :: Int -> ForeignPtr CUChar -> IO (ForeignPtr (Complex CDouble))
-makeComplexBuffer samples ina = do
-    oArray <- mallocForeignBufferAligned samples
-    withForeignPtr oArray $ \op -> 
-        withForeignPtr ina $ \inp -> do
-            c_convertArray (fromIntegral samples * 2) inp op
-            return oArray
-
 {-# SPECIALIZE INLINE makeComplexBufferVect :: Int -> VS.Vector CUChar -> VS.Vector (Complex CDouble) #-}
 makeComplexBufferVect :: (VG.Vector v1 CUChar, VG.Vector v2 (Complex CDouble)) => Int -> v1 CUChar -> v2 (Complex CDouble)
 makeComplexBufferVect samples input = VG.generate samples convert

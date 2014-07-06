@@ -16,24 +16,6 @@ import Pipes
 import SDR.Buffer
 import SDR.Util
 
-foreign import ccall unsafe "fmDemod"
-    c_fmDemod :: CInt -> Ptr (Complex CDouble) -> Ptr (Complex CDouble) -> Ptr CDouble -> IO ()
-
-fmDemod :: Int -> Pipe (ForeignPtr (Complex CDouble)) (ForeignPtr CDouble) IO ()
-fmDemod samples = fmDemod' 0
-    where
-    fmDemod' lastVal = do
-        ina <- await
-        out <- lift $ mallocForeignBufferAligned samples
-        last <- lift $ withForeignPtr ina $ \ip -> do
-            withForeignPtr out $ \op -> 
-                alloca $ \sp -> do
-                    poke sp lastVal
-                    c_fmDemod (fromIntegral samples) sp ip op
-            peek $ advancePtr ip (samples - 1)
-        yield out
-        fmDemod' last
-
 {-# INLINE fmDemodStr #-}
 fmDemodStr :: (RealFloat a) => Complex a -> Stream (Complex a) -> Stream a
 fmDemodStr = mapAccumMV func 

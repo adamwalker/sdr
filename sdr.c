@@ -3,23 +3,6 @@
 #include <complex.h>
 #include <assert.h>
 
-void convertArray(int size, uint8_t *in, double *out){
-    int i;
-    for(i=0; i<size; i++){
-        out[i] = (((double) in[i]) - 128.0) / 128.0;
-    }
-}
-
-void fmDemod(int buf_size, double complex *last_sample, double complex *in_buf, double *out_buf){
-    int i;
-    complex double last = *last_sample;
-    for(i=0; i<buf_size; i++){
-        complex double prod = in_buf[i] * conj(last);
-        last = in_buf[i];
-        out_buf[i] = carg(prod);
-    }
-}
-
 /*
     decimation + r = interpolation * k + r'
     r' is the last r
