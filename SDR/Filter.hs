@@ -20,6 +20,7 @@ import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VSM
+import Control.Monad.Primitive
 
 import Pipes
 
@@ -57,7 +58,7 @@ advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count =
 
 --Filtering
 {-# INLINE filterOne #-}
-filterOne :: (Num a, Mult a b, Storable a, Storable b) => Int -> VS.Vector b -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
+filterOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> Int -> v a -> Int -> vm (PrimState m) a -> m ()
 filterOne coeffsLength coeffs num inOffset inBuf outOffset outBuf = fill 0
     where
     fill i 
@@ -70,7 +71,7 @@ filterOne coeffsLength coeffs num inOffset inBuf outOffset outBuf = fill 0
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeSlice offset (VG.length coeffs) inBuf) coeffs
 
 {-# INLINE filterCross #-}
-filterCross :: (Num a, Mult a b, Storable a, Storable b) => Int -> VS.Vector b -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
+filterCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> Int -> Int -> v a -> v a -> Int -> vm (PrimState m) a -> m ()
 filterCross coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = fill 0
     where
     fill i 
@@ -86,7 +87,7 @@ filterCross coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffse
 {-# SPECIALIZE INLINE filterr :: VS.Vector CDouble -> Int -> Int -> IO (Pipe (VS.Vector CDouble) (VS.Vector CDouble) IO ()) #-}
 {-# SPECIALIZE INLINE filterr :: VS.Vector (Complex CDouble) -> Int -> Int -> IO (Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ()) #-}
 {-# SPECIALIZE INLINE filterr :: VS.Vector CDouble -> Int -> Int -> IO (Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ()) #-}
-filterr :: (Storable a, Storable b, Num a, Mult a b) => VS.Vector b -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
+filterr :: (VG.Vector v a, VG.Vector v b, Storable a, Storable b, Num a, Mult a b) => v b -> Int -> Int -> IO (Pipe (v a) (VS.Vector a) IO ())
 filterr coeffs blockSizeIn blockSizeOut = do
     return $ filter' (VG.length coeffs) coeffs
     where 
@@ -124,7 +125,7 @@ filterr coeffs blockSizeIn blockSizeOut = do
 
 --Decimation
 {-# INLINE decimateOne #-}
-decimateOne :: (Num a, Mult a b, Storable a, Storable b) => Int -> Int -> VS.Vector b -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
+decimateOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> Int -> vm (PrimState m) a -> m ()
 decimateOne factor coeffsLength coeffs num inOffset inBuf outOffset outBuf = fill 0 0
     where 
     fill i j
@@ -137,7 +138,7 @@ decimateOne factor coeffsLength coeffs num inOffset inBuf outOffset outBuf = fil
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeSlice offset (VG.length coeffs) inBuf) coeffs
 
 {-# INLINE decimateCross #-}
-decimateCross :: (Num a, Mult a b, Storable a, Storable b) => Int -> Int -> VS.Vector b -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
+decimateCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> Int -> v a -> v a -> Int -> vm (PrimState m) a -> m ()
 decimateCross factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = fill 0 0
     where
     fill i j
