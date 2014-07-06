@@ -46,71 +46,7 @@ advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count =
         return $ Buffer bufOut (offsetOut + count) (spaceOut - count) 
 
 --Filtering
-type FilterSingleC a = CInt -> Ptr a -> CInt -> Ptr a -> Ptr a -> IO ()
-type FilterCrossC  a = CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> Ptr a -> IO ()
-
-foreign import ccall unsafe "filter_onebuf_c"
-    c_filterOneBufC   :: FilterSingleC (Complex CDouble)
-
-foreign import ccall unsafe "filter_crossbuf_c"
-    c_filterCrossBufC :: FilterCrossC (Complex CDouble)
-
-foreign import ccall unsafe "filter_onebuf_r"
-    c_filterOneBufR   :: FilterSingleC CDouble
-
-foreign import ccall unsafe "filter_crossbuf_r"
-    c_filterCrossBufR :: FilterCrossC CDouble
-
-type FilterSingle a = Int -> VS.Vector a -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
-type FilterCross  a = Int -> VS.Vector a -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
-
-filterOneBuf :: Storable a => FilterSingleC a -> FilterSingle a
-filterOneBuf cfunc coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
-    VS.unsafeWith  coeffs $ \cp -> 
-    VS.unsafeWith  inBuf  $ \ip -> 
-    VSM.unsafeWith outBuf $ \op -> 
-        cfunc (fromIntegral coeffsLength) 
-              cp 
-              (fromIntegral num) 
-              (advancePtr ip inOffset) 
-              (advancePtr op outOffset)
-
-filterCrossBuf :: Storable a => FilterCrossC a -> FilterCross a
-filterCrossBuf cfunc coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
-    VS.unsafeWith  coeffs  $ \cp -> 
-    VS.unsafeWith  lastBuf $ \lp -> 
-    VS.unsafeWith  nextBuf $ \np -> 
-    VSM.unsafeWith outBuf  $ \op -> 
-        cfunc (fromIntegral coeffsLength) 
-              cp 
-              (fromIntegral numInput) 
-              (fromIntegral num) 
-              (advancePtr lp lastOffset) 
-              np 
-              (advancePtr op outOffset)
-
-filterOneBufC   :: FilterSingle (Complex CDouble)
-filterOneBufC   =  filterOne   --filterOneBuf   c_filterOneBufC
-filterCrossBufC :: FilterCross  (Complex CDouble)
-filterCrossBufC =  filterCross --filterCrossBuf c_filterCrossBufC
-filterOneBufR   :: FilterSingle CDouble
-filterOneBufR   =  filterOne   --filterOneBuf   c_filterOneBufR
-filterCrossBufR :: FilterCross  CDouble
-filterCrossBufR =  filterCross --filterCrossBuf c_filterCrossBufR
-
-{-
-filterOneBufC   :: FilterSingle (Complex CDouble)
-filterOneBufC   =  filterOneBuf   c_filterOneBufC
-filterCrossBufC :: FilterCross  (Complex CDouble)
-filterCrossBufC =  filterCrossBuf c_filterCrossBufC
-filterOneBufR   :: FilterSingle CDouble
-filterOneBufR   =  filterOneBuf   c_filterOneBufR
-filterCrossBufR :: FilterCross  CDouble
-filterCrossBufR =  filterCrossBuf c_filterCrossBufR
--}
-
-{-# SPECIALIZE INLINE filterOne :: Int -> VS.Vector CDouble -> Int -> Int -> VS.Vector CDouble -> Int -> VSM.IOVector CDouble -> IO () #-}
-{-# SPECIALIZE INLINE filterOne :: Int -> VS.Vector (Complex CDouble) -> Int -> Int -> VS.Vector (Complex CDouble) -> Int -> VSM.IOVector (Complex CDouble) -> IO () #-}
+{-# INLINE filterOne #-}
 filterOne :: (Num a, Storable a) => Int -> VS.Vector a -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
 filterOne coeffsLength coeffs num inOffset inBuf outOffset outBuf = fill 0
     where
@@ -123,8 +59,7 @@ filterOne coeffsLength coeffs num inOffset inBuf outOffset outBuf = fill 0
     {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith (*) coeffs (VG.unsafeSlice offset (VG.length coeffs) inBuf)
 
-{-# SPECIALIZE INLINE filterCross :: Int -> VS.Vector CDouble -> Int -> Int -> Int -> VS.Vector CDouble -> VS.Vector CDouble -> Int -> VSM.IOVector CDouble -> IO () #-}
-{-# SPECIALIZE INLINE filterCross :: Int -> VS.Vector (Complex CDouble) -> Int -> Int -> Int -> VS.Vector (Complex CDouble) -> VS.Vector (Complex CDouble) -> Int -> VSM.IOVector (Complex CDouble) -> IO () #-}
+{-# INLINE filterCross #-}
 filterCross :: (Num a, Storable a) => Int -> VS.Vector a -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
 filterCross coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = fill 0
     where
@@ -138,8 +73,10 @@ filterCross coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffse
     dotProd i =   VG.sum (VG.zipWith (*) coeffs (VG.unsafeSlice (i + lastOffset) (numInput - i) lastBuf))
                 + VG.sum (VG.zipWith (*) (VG.unsafeSlice i (VG.length coeffs - i) coeffs) nextBuf)
 
-filterr :: (Storable a) => FilterSingle a -> FilterCross a -> VS.Vector a -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
-filterr single cross coeffs blockSizeIn blockSizeOut = do
+{-# SPECIALIZE INLINE filterr :: VS.Vector CDouble -> Int -> Int -> IO (Pipe (VS.Vector CDouble) (VS.Vector CDouble) IO ()) #-}
+{-# SPECIALIZE INLINE filterr :: VS.Vector (Complex CDouble) -> Int -> Int -> IO (Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ()) #-}
+filterr :: (Storable a, Num a) => VS.Vector a -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
+filterr coeffs blockSizeIn blockSizeOut = do
     return $ filter' (VG.length coeffs) coeffs
     where 
     filter' numCoeffs coeffs = do
@@ -151,7 +88,7 @@ filterr single cross coeffs blockSizeIn blockSizeOut = do
 
         simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) = do
             let count = min (spaceIn - numCoeffs + 1) spaceOut
-            lift $ single numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
+            lift $ filterOne numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
 
             bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
@@ -166,16 +103,13 @@ filterr single cross coeffs blockSizeIn blockSizeOut = do
 
         crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
             let count = min (spaceLast - 1) spaceOut
-            lift $ cross numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+            lift $ filterCross numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
             bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
             case spaceLast - 1 == count of 
                 True  -> simple (Buffer bufNext 0 blockSizeIn) bufferOut'
                 False -> crossover (Buffer bufLast (offsetLast + count) (spaceLast - count)) bufNext bufferOut'
-
-filterC = filterr filterOneBufC filterCrossBufC
-filterR = filterr filterOneBufR filterCrossBufR
 
 --Decimation
 type DecimateSingleC a = CInt -> CInt -> Ptr a -> CInt -> Ptr a -> Ptr a -> IO ()
