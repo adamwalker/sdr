@@ -41,15 +41,15 @@ data Buffer v a = Buffer {
     size   :: Int
 }
 
-newBuffer :: Storable a => Int -> IO (Buffer VSM.IOVector a)
+newBuffer :: (PrimMonad m, VGM.MVector vm a) => Int -> m (Buffer (vm (PrimState m)) a)
 newBuffer size = do
     buf <- VGM.new size
     return $ Buffer buf 0 size
 
-advanceOutBuf :: Storable a => Int -> Buffer VSM.IOVector a -> Int -> Pipe b (VS.Vector a) IO (Buffer VSM.IOVector a)
+advanceOutBuf :: (PrimMonad m, VG.Vector v a) => Int -> Buffer (VG.Mutable v (PrimState m)) a -> Int -> Pipe b (v a) m (Buffer (VG.Mutable v (PrimState m)) a)
 advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count = 
     if count == spaceOut then do
-        bufOutF <- lift $ VS.unsafeFreeze bufOut
+        bufOutF <- lift $ VG.unsafeFreeze bufOut
         yield bufOutF
         outBuf' <- lift $ VGM.new blockSizeOut
         return $ Buffer outBuf' 0 blockSizeOut
@@ -87,7 +87,7 @@ filterCross coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffse
 {-# SPECIALIZE INLINE filterr :: VS.Vector CDouble -> Int -> Int -> IO (Pipe (VS.Vector CDouble) (VS.Vector CDouble) IO ()) #-}
 {-# SPECIALIZE INLINE filterr :: VS.Vector (Complex CDouble) -> Int -> Int -> IO (Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ()) #-}
 {-# SPECIALIZE INLINE filterr :: VS.Vector CDouble -> Int -> Int -> IO (Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ()) #-}
-filterr :: (VG.Vector v a, VG.Vector v b, Storable a, Storable b, Num a, Mult a b) => v b -> Int -> Int -> IO (Pipe (v a) (VS.Vector a) IO ())
+filterr :: (PrimMonad m, VG.Vector v a, VG.Vector v b, Num a, Mult a b) => v b -> Int -> Int -> m (Pipe (v a) (v a) m ())
 filterr coeffs blockSizeIn blockSizeOut = do
     return $ filter' (VG.length coeffs) coeffs
     where 
@@ -154,7 +154,7 @@ decimateCross factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf
 {-# SPECIALIZE INLINE decimate :: Int -> VS.Vector CDouble -> Int -> Int -> IO (Pipe (VS.Vector CDouble) (VS.Vector CDouble) IO ()) #-}
 {-# SPECIALIZE INLINE decimate :: Int -> VS.Vector (Complex CDouble) -> Int -> Int -> IO (Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ()) #-}
 {-# SPECIALIZE INLINE decimate :: Int -> VS.Vector CDouble -> Int -> Int -> IO (Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ()) #-}
-decimate :: (Storable a, Storable b, Mult a b, Num a) => Int -> VS.Vector b -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
+decimate :: (PrimMonad m, VG.Vector v a, VG.Vector v b, Mult a b, Num a) => Int -> v b -> Int -> Int -> m (Pipe (v a) (v a) m ())
 decimate factor coeffs blockSizeIn blockSizeOut = do
     return $ decimate' (VG.length coeffs) coeffs
     where
