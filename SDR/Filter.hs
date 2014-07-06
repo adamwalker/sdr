@@ -112,73 +112,7 @@ filterr coeffs blockSizeIn blockSizeOut = do
                 False -> crossover (Buffer bufLast (offsetLast + count) (spaceLast - count)) bufNext bufferOut'
 
 --Decimation
-type DecimateSingleC a = CInt -> CInt -> Ptr a -> CInt -> Ptr a -> Ptr a -> IO ()
-type DecimateCrossC  a = CInt -> CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> Ptr a -> IO ()
-
-foreign import ccall unsafe "decimate_onebuf_c"
-    c_decimateOneBufC   :: DecimateSingleC (Complex CDouble)
-
-foreign import ccall unsafe "decimate_crossbuf_c"
-    c_decimateCrossBufC :: DecimateCrossC (Complex CDouble)
-
-foreign import ccall unsafe "decimate_onebuf_r"
-    c_decimateOneBufR   :: DecimateSingleC CDouble
-
-foreign import ccall unsafe "decimate_crossbuf_r"
-    c_decimateCrossBufR :: DecimateCrossC CDouble
-
-type DecimateSingle a = Int -> Int -> VS.Vector a -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
-type DecimateCross  a = Int -> Int -> VS.Vector a -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
-
-decimateOneBuf :: Storable a => DecimateSingleC a -> DecimateSingle a
-decimateOneBuf cfunc factor coeffsLength coeffs num inOffset inBuf outOffset outBuf = 
-    VS.unsafeWith  coeffs $ \cp -> 
-    VS.unsafeWith  inBuf  $ \ip -> 
-    VSM.unsafeWith outBuf $ \op -> 
-        cfunc (fromIntegral factor) 
-              (fromIntegral coeffsLength) 
-              cp 
-              (fromIntegral num) 
-              (advancePtr ip inOffset) 
-              (advancePtr op outOffset)
-
-decimateCrossBuf :: Storable a => DecimateCrossC a -> DecimateCross a
-decimateCrossBuf cfunc factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = 
-    VS.unsafeWith  coeffs  $ \cp -> 
-    VS.unsafeWith  lastBuf $ \lp -> 
-    VS.unsafeWith  nextBuf $ \np -> 
-    VSM.unsafeWith outBuf  $ \op -> 
-        cfunc (fromIntegral factor) 
-              (fromIntegral coeffsLength) 
-              cp 
-              (fromIntegral numInput) 
-              (fromIntegral num) 
-              (advancePtr lp lastOffset) 
-              np 
-              (advancePtr op outOffset)
-
-{-
-decimateOneBufC   :: DecimateSingle (Complex CDouble)
-decimateOneBufC   =  decimateOneBuf c_decimateOneBufC
-decimateCrossBufC :: DecimateCross  (Complex CDouble)
-decimateCrossBufC =  decimateCrossBuf c_decimateCrossBufC
-decimateOneBufR   :: DecimateSingle CDouble
-decimateOneBufR   =  decimateOneBuf   c_decimateOneBufR
-decimateCrossBufR :: DecimateCross  CDouble
-decimateCrossBufR =  decimateCrossBuf c_decimateCrossBufR
--}
-
-decimateOneBufC   :: DecimateSingle (Complex CDouble)
-decimateOneBufC   =  decimateOne
-decimateCrossBufC :: DecimateCross  (Complex CDouble)
-decimateCrossBufC =  decimateCross
-decimateOneBufR   :: DecimateSingle CDouble
-decimateOneBufR   =  decimateOne
-decimateCrossBufR :: DecimateCross  CDouble
-decimateCrossBufR =  decimateCross
-
-{-# SPECIALIZE INLINE decimateOne :: Int -> Int -> VS.Vector CDouble -> Int -> Int -> VS.Vector CDouble -> Int -> VSM.IOVector CDouble -> IO () #-}
-{-# SPECIALIZE INLINE decimateOne :: Int -> Int -> VS.Vector (Complex CDouble) -> Int -> Int -> VS.Vector (Complex CDouble) -> Int -> VSM.IOVector (Complex CDouble) -> IO () #-}
+{-# INLINE decimateOne #-}
 decimateOne :: (Num a, Storable a) => Int -> Int -> VS.Vector a -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
 decimateOne factor coeffsLength coeffs num inOffset inBuf outOffset outBuf = fill 0 0
     where 
@@ -191,8 +125,7 @@ decimateOne factor coeffsLength coeffs num inOffset inBuf outOffset outBuf = fil
     {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith (*) coeffs (VG.unsafeSlice offset (VG.length coeffs) inBuf)
 
-{-# SPECIALIZE INLINE decimateCross :: Int -> Int -> VS.Vector CDouble -> Int -> Int -> Int -> VS.Vector CDouble -> VS.Vector CDouble -> Int -> VSM.IOVector CDouble -> IO () #-}
-{-# SPECIALIZE INLINE decimateCross :: Int -> Int -> VS.Vector (Complex CDouble) -> Int -> Int -> Int -> VS.Vector (Complex CDouble) -> VS.Vector (Complex CDouble) -> Int -> VSM.IOVector (Complex CDouble) -> IO () #-}
+{-# INLINE decimateCross #-}
 decimateCross :: (Num a, Storable a) => Int -> Int -> VS.Vector a -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
 decimateCross factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = fill 0 0
     where
@@ -206,8 +139,10 @@ decimateCross factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf
     dotProd i =   VG.sum (VG.zipWith (*) coeffs (VG.unsafeSlice (i + lastOffset) (numInput - i) lastBuf))
                 + VG.sum (VG.zipWith (*) (VG.unsafeSlice i (VG.length coeffs - i) coeffs) nextBuf)
 
-decimate :: (Storable a) => DecimateSingle a -> DecimateCross a -> Int -> VS.Vector a -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
-decimate single cross factor coeffs blockSizeIn blockSizeOut = do
+{-# SPECIALIZE INLINE decimate :: Int -> VS.Vector CDouble -> Int -> Int -> IO (Pipe (VS.Vector CDouble) (VS.Vector CDouble) IO ()) #-}
+{-# SPECIALIZE INLINE decimate :: Int -> VS.Vector (Complex CDouble) -> Int -> Int -> IO (Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ()) #-}
+decimate :: (Storable a, Num a) => Int -> VS.Vector a -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
+decimate factor coeffs blockSizeIn blockSizeOut = do
     return $ decimate' (VG.length coeffs) coeffs
     where
     decimate' numCoeffs coeffs = do
@@ -222,7 +157,7 @@ decimate single cross factor coeffs blockSizeIn blockSizeOut = do
             assert (spaceIn >= numCoeffs) $ return ()
 
             let count = min (((spaceIn - numCoeffs) `quot` factor) + 1) spaceOut
-            lift $ single factor numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
+            lift $ decimateOne factor numCoeffs coeffs count offsetIn bufIn offsetOut bufOut
 
             bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
@@ -240,16 +175,13 @@ decimate single cross factor coeffs blockSizeIn blockSizeOut = do
             assert (spaceLast < numCoeffs) $ return ()
 
             let count = min (((spaceLast - 1) `quot` factor) + 1) spaceOut
-            lift $ cross factor numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+            lift $ decimateCross factor numCoeffs coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
 
             bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
             case ((spaceLast - 1) `quot` factor) + 1 == count of 
                 True  -> simple (Buffer bufNext (offsetLast + count * factor - blockSizeIn) (blockSizeIn - (offsetLast + count * factor - blockSizeIn))) bufferOut'
                 False -> crossover (Buffer bufLast (offsetLast + count * factor) (spaceLast - count * factor)) bufNext bufferOut'
-
-decimateC = decimate decimateOneBufC decimateCrossBufC
-decimateR = decimate decimateOneBufR decimateCrossBufR
 
 --Rational resampling
 type ResampleSingleC a = CInt -> CInt -> CInt -> Ptr a -> CInt -> CInt -> Ptr a -> Ptr a -> IO CInt
