@@ -90,13 +90,24 @@ filterCrossBuf cfunc coeffsLength coeffs numInput num lastOffset lastBuf nextBuf
               (advancePtr op outOffset)
 
 filterOneBufC   :: FilterSingle (Complex CDouble)
-filterOneBufC   = filterOne   --filterOneBuf   c_filterOneBufC
-filterCrossBufC :: FilterCross (Complex CDouble)
-filterCrossBufC = filterCross --filterCrossBuf c_filterCrossBufC
+filterOneBufC   =  filterOne   --filterOneBuf   c_filterOneBufC
+filterCrossBufC :: FilterCross  (Complex CDouble)
+filterCrossBufC =  filterCross --filterCrossBuf c_filterCrossBufC
 filterOneBufR   :: FilterSingle CDouble
-filterOneBufR   = filterOne   --filterOneBuf   c_filterOneBufR
-filterCrossBufR :: FilterCross CDouble
-filterCrossBufR = filterCross --filterCrossBuf c_filterCrossBufR
+filterOneBufR   =  filterOne   --filterOneBuf   c_filterOneBufR
+filterCrossBufR :: FilterCross  CDouble
+filterCrossBufR =  filterCross --filterCrossBuf c_filterCrossBufR
+
+{-
+filterOneBufC   :: FilterSingle (Complex CDouble)
+filterOneBufC   =  filterOneBuf   c_filterOneBufC
+filterCrossBufC :: FilterCross  (Complex CDouble)
+filterCrossBufC =  filterCrossBuf c_filterCrossBufC
+filterOneBufR   :: FilterSingle CDouble
+filterOneBufR   =  filterOneBuf   c_filterOneBufR
+filterCrossBufR :: FilterCross  CDouble
+filterCrossBufR =  filterCrossBuf c_filterCrossBufR
+-}
 
 {-# SPECIALIZE INLINE filterOne :: Int -> VS.Vector CDouble -> Int -> Int -> VS.Vector CDouble -> Int -> VSM.IOVector CDouble -> IO () #-}
 {-# SPECIALIZE INLINE filterOne :: Int -> VS.Vector (Complex CDouble) -> Int -> Int -> VS.Vector (Complex CDouble) -> Int -> VSM.IOVector (Complex CDouble) -> IO () #-}
@@ -108,7 +119,7 @@ filterOne coeffsLength coeffs num inOffset inBuf outOffset outBuf = fill 0
             let dp = dotProd (i + inOffset)
             VGM.unsafeWrite outBuf (i + outOffset) dp
             fill (i + 1)
-        | otherwise  = return ()
+        | otherwise = return ()
     {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith (*) coeffs (VG.unsafeSlice offset (VG.length coeffs) inBuf)
 
@@ -212,10 +223,54 @@ decimateCrossBuf cfunc factor coeffsLength coeffs numInput num lastOffset lastBu
               np 
               (advancePtr op outOffset)
 
-decimateOneBufC   = decimateOneBuf   c_decimateOneBufC
-decimateCrossBufC = decimateCrossBuf c_decimateCrossBufC
-decimateOneBufR   = decimateOneBuf   c_decimateOneBufR
-decimateCrossBufR = decimateCrossBuf c_decimateCrossBufR
+{-
+decimateOneBufC   :: DecimateSingle (Complex CDouble)
+decimateOneBufC   =  decimateOneBuf c_decimateOneBufC
+decimateCrossBufC :: DecimateCross  (Complex CDouble)
+decimateCrossBufC =  decimateCrossBuf c_decimateCrossBufC
+decimateOneBufR   :: DecimateSingle CDouble
+decimateOneBufR   =  decimateOneBuf   c_decimateOneBufR
+decimateCrossBufR :: DecimateCross  CDouble
+decimateCrossBufR =  decimateCrossBuf c_decimateCrossBufR
+-}
+
+decimateOneBufC   :: DecimateSingle (Complex CDouble)
+decimateOneBufC   =  decimateOne
+decimateCrossBufC :: DecimateCross  (Complex CDouble)
+decimateCrossBufC =  decimateCross
+decimateOneBufR   :: DecimateSingle CDouble
+decimateOneBufR   =  decimateOne
+decimateCrossBufR :: DecimateCross  CDouble
+decimateCrossBufR =  decimateCross
+
+{-# SPECIALIZE INLINE decimateOne :: Int -> Int -> VS.Vector CDouble -> Int -> Int -> VS.Vector CDouble -> Int -> VSM.IOVector CDouble -> IO () #-}
+{-# SPECIALIZE INLINE decimateOne :: Int -> Int -> VS.Vector (Complex CDouble) -> Int -> Int -> VS.Vector (Complex CDouble) -> Int -> VSM.IOVector (Complex CDouble) -> IO () #-}
+decimateOne :: (Num a, Storable a) => Int -> Int -> VS.Vector a -> Int -> Int -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
+decimateOne factor coeffsLength coeffs num inOffset inBuf outOffset outBuf = fill 0 0
+    where 
+    fill i j
+        | i < num = do
+            let dp = dotProd (j + inOffset)
+            VGM.unsafeWrite outBuf (i + outOffset) dp
+            fill (i + 1) (j + factor)
+        | otherwise = return ()
+    {-# INLINE dotProd #-}
+    dotProd offset = VG.sum $ VG.zipWith (*) coeffs (VG.unsafeSlice offset (VG.length coeffs) inBuf)
+
+{-# SPECIALIZE INLINE decimateCross :: Int -> Int -> VS.Vector CDouble -> Int -> Int -> Int -> VS.Vector CDouble -> VS.Vector CDouble -> Int -> VSM.IOVector CDouble -> IO () #-}
+{-# SPECIALIZE INLINE decimateCross :: Int -> Int -> VS.Vector (Complex CDouble) -> Int -> Int -> Int -> VS.Vector (Complex CDouble) -> VS.Vector (Complex CDouble) -> Int -> VSM.IOVector (Complex CDouble) -> IO () #-}
+decimateCross :: (Num a, Storable a) => Int -> Int -> VS.Vector a -> Int -> Int -> Int -> VS.Vector a -> VS.Vector a -> Int -> VSM.IOVector a -> IO ()
+decimateCross factor coeffsLength coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = fill 0 0
+    where
+    fill i j
+        | i < num = do
+            let dp = dotProd j
+            VGM.unsafeWrite outBuf (i + outOffset) dp
+            fill (i + 1) (j + factor)
+        | otherwise  = return ()
+    {-# INLINE dotProd #-}
+    dotProd i =   VG.sum (VG.zipWith (*) coeffs (VG.unsafeSlice (i + lastOffset) (numInput - i) lastBuf))
+                + VG.sum (VG.zipWith (*) (VG.unsafeSlice i (VG.length coeffs - i) coeffs) nextBuf)
 
 decimate :: (Storable a) => DecimateSingle a -> DecimateCross a -> Int -> VS.Vector a -> Int -> Int -> IO (Pipe (VS.Vector a) (VS.Vector a) IO ())
 decimate single cross factor coeffs blockSizeIn blockSizeOut = do
