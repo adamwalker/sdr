@@ -20,6 +20,8 @@ import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Storable.Mutable as VSM
+import qualified Data.Vector.Fusion.Stream as VFS
+import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 import Control.Monad.Primitive
 
 import Pipes
@@ -244,10 +246,57 @@ resampleCrossBuf cfunc interpolation decimation coeffsLength coeffs filterOffset
               np 
               (advancePtr op outOffset)
 
-resampleOneBufC   = resampleOneBuf   c_resampleOneBufC
-resampleCrossBufC = resampleCrossBuf c_resampleCrossBufC
-resampleOneBufR   = resampleOneBuf   c_resampleOneBufR
-resampleCrossBufR = resampleCrossBuf c_resampleCrossBufR
+resampleOneBufC   :: ResampleSingle (Complex CDouble)
+resampleOneBufC   =  resampleOne --resampleOneBuf   c_resampleOneBufC
+resampleCrossBufC :: ResampleCross (Complex CDouble)
+resampleCrossBufC =  resampleCross --resampleCrossBuf c_resampleCrossBufC
+resampleOneBufR   :: ResampleSingle CDouble
+resampleOneBufR   =  resampleOne --resampleOneBuf   c_resampleOneBufR
+resampleCrossBufR :: ResampleCross CDouble
+resampleCrossBufR =  resampleCross --resampleCrossBuf c_resampleCrossBufR
+
+{-# INLINE_STREAM stride #-}
+stride :: VG.Vector v a => Int -> v a -> v a
+stride str inv = VG.unstream $ VFS.unfoldr func 0
+    where
+    len = VG.length inv
+    {-# INLINE_INNER func #-}
+    func i | i >= len  = Nothing
+           | otherwise = Just (VG.unsafeIndex inv i, i + str)
+
+{-# SPECIALIZE INLINE resampleOne :: ResampleSingle CDouble #-}
+{-# SPECIALIZE INLINE resampleOne :: ResampleSingle (Complex CDouble) #-}
+resampleOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> Int -> v b -> Int -> Int -> Int -> v a -> Int -> vm (PrimState m) a -> m Int
+resampleOne interpolation decimation _ coeffs filterOffset count inOffset inBuf outOffset outBuf = fill 0 filterOffset 0
+    where
+    fill i filterOffset inputOffset
+        | i < count = do
+            let dp = dotProd (inputOffset + inOffset)
+            VGM.unsafeWrite outBuf (i + outOffset) dp
+            let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
+                inputOffset'  = inputOffset + q + 1
+                filterOffset' = interpolation - 1 - r
+            filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
+        | otherwise = return filterOffset
+    {-# INLINE dotProd #-}
+    dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation coeffs)
+
+{-# SPECIALIZE INLINE resampleCross :: ResampleCross CDouble #-}
+{-# SPECIALIZE INLINE resampleCross :: ResampleCross (Complex CDouble) #-}
+resampleCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> Int -> v b -> Int -> Int -> Int -> Int -> v a -> v a -> Int -> vm (PrimState m) a -> m Int
+resampleCross interpolation decimation _ coeffs filterOffset numInput count lastOffset lastBuf nextBuf outOffset outBuf = fill 0 filterOffset 0
+    where
+    fill i filterOffset inputOffset
+        | i < count = do
+            let dp = dotProd inputOffset
+            VGM.unsafeWrite outBuf (i + outOffset) dp
+            let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
+                inputOffset'  = inputOffset + q + 1
+                filterOffset' = interpolation - 1 - r
+            filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
+        | otherwise = return filterOffset
+    {-# INLINE dotProd #-}
+    dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop (i + lastOffset) lastBuf VG.++ nextBuf) (stride interpolation coeffs)
 
 quotUp q d = (q + (d - 1)) `quot` d
 
