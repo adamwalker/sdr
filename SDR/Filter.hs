@@ -68,11 +68,11 @@ filterOne coeffs num inOffset inBuf outOffset outBuf = fill 0
             fill (i + 1)
         | otherwise = return ()
     {-# INLINE dotProd #-}
-    dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeSlice offset (VG.length coeffs) inBuf) coeffs
+    dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 {-# INLINE filterCross #-}
-filterCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> Int -> Int -> v a -> v a -> Int -> vm (PrimState m) a -> m ()
-filterCross coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = fill 0
+filterCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> Int -> v a -> v a -> Int -> vm (PrimState m) a -> m ()
+filterCross coeffs num lastOffset lastBuf nextBuf outOffset outBuf = fill 0
     where
     fill i 
         | i < num = do
@@ -81,8 +81,7 @@ filterCross coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = fi
             fill (i + 1)
         | otherwise  = return ()
     {-# INLINE dotProd #-}
-    dotProd i =   VG.sum (VG.zipWith mult (VG.unsafeSlice (i + lastOffset) (numInput - i) lastBuf) coeffs)
-                + VG.sum (VG.zipWith mult nextBuf (VG.unsafeSlice i (VG.length coeffs - i) coeffs))
+    dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop (i + lastOffset) lastBuf VG.++ nextBuf) coeffs
 
 {-# SPECIALIZE INLINE filterr :: VS.Vector CDouble -> Int -> Int -> IO (Pipe (VS.Vector CDouble) (VS.Vector CDouble) IO ()) #-}
 {-# SPECIALIZE INLINE filterr :: VS.Vector (Complex CDouble) -> Int -> Int -> IO (Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ()) #-}
@@ -115,7 +114,7 @@ filterr coeffs blockSizeIn blockSizeOut = do
 
         crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
             let count = min (spaceLast - 1) spaceOut
-            lift $ filterCross coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+            lift $ filterCross coeffs count offsetLast bufLast bufNext offsetOut bufOut
 
             bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
@@ -135,11 +134,11 @@ decimateOne factor coeffs num inOffset inBuf outOffset outBuf = fill 0 0
             fill (i + 1) (j + factor)
         | otherwise = return ()
     {-# INLINE dotProd #-}
-    dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeSlice offset (VG.length coeffs) inBuf) coeffs
+    dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 {-# INLINE decimateCross #-}
-decimateCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> Int -> Int -> v a -> v a -> Int -> vm (PrimState m) a -> m ()
-decimateCross factor coeffs numInput num lastOffset lastBuf nextBuf outOffset outBuf = fill 0 0
+decimateCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> Int -> v a -> v a -> Int -> vm (PrimState m) a -> m ()
+decimateCross factor coeffs num lastOffset lastBuf nextBuf outOffset outBuf = fill 0 0
     where
     fill i j
         | i < num = do
@@ -148,8 +147,7 @@ decimateCross factor coeffs numInput num lastOffset lastBuf nextBuf outOffset ou
             fill (i + 1) (j + factor)
         | otherwise  = return ()
     {-# INLINE dotProd #-}
-    dotProd i =   VG.sum (VG.zipWith mult (VG.unsafeSlice (i + lastOffset) (numInput - i) lastBuf) coeffs)
-                + VG.sum (VG.zipWith mult nextBuf (VG.unsafeSlice i (VG.length coeffs - i) coeffs))
+    dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop (i + lastOffset) lastBuf VG.++ nextBuf) coeffs
 
 {-# SPECIALIZE INLINE decimate :: Int -> VS.Vector CDouble -> Int -> Int -> IO (Pipe (VS.Vector CDouble) (VS.Vector CDouble) IO ()) #-}
 {-# SPECIALIZE INLINE decimate :: Int -> VS.Vector (Complex CDouble) -> Int -> Int -> IO (Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ()) #-}
@@ -188,7 +186,7 @@ decimate factor coeffs blockSizeIn blockSizeOut = do
             assert (spaceLast < numCoeffs) $ return ()
 
             let count = min (((spaceLast - 1) `quot` factor) + 1) spaceOut
-            lift $ decimateCross factor coeffs spaceLast count offsetLast bufLast bufNext offsetOut bufOut
+            lift $ decimateCross factor coeffs count offsetLast bufLast bufNext offsetOut bufOut
 
             bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
