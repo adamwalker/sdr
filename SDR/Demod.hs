@@ -13,7 +13,6 @@ import Data.Vector.Fusion.Stream
 
 import Pipes
 
-import SDR.Buffer
 import SDR.Util
 
 {-# INLINE fmDemodStr #-}

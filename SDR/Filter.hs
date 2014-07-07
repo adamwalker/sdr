@@ -26,8 +26,6 @@ import Control.Monad.Primitive
 
 import Pipes
 
-import SDR.Buffer
-
 class Mult a b where
     mult :: a -> b -> a
 

@@ -22,8 +22,6 @@ import Pipes
 import qualified Pipes.Prelude as P
 import qualified Pipes.ByteString as PB
 
-import SDR.Buffer
-
 fork :: Monad m => Producer a m r -> Producer a (Producer a m) r
 fork prod = runEffect $ hoist (lift . lift) prod >-> fork' 
     where 
