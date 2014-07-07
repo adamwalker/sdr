@@ -26,6 +26,8 @@ import Control.Monad.Primitive
 
 import Pipes
 
+import SDR.Util
+
 class Mult a b where
     mult :: a -> b -> a
 
@@ -195,15 +197,6 @@ decimate factor coeffs blockSizeIn blockSizeOut = do
                 False -> crossover (Buffer bufLast (offsetLast + count * factor) (spaceLast - count * factor)) bufNext bufferOut'
 
 --Rational resampling
-{-# INLINE_STREAM stride #-}
-stride :: VG.Vector v a => Int -> v a -> v a
-stride str inv = VG.unstream $ VFS.unfoldr func 0
-    where
-    len = VG.length inv
-    {-# INLINE_INNER func #-}
-    func i | i >= len  = Nothing
-           | otherwise = Just (VG.unsafeIndex inv i, i + str)
-
 {-# INLINE resampleOne #-}
 resampleOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> Int -> vm (PrimState m) a -> m Int
 resampleOne interpolation decimation coeffs filterOffset count inBuf outOffset outBuf = fill 0 filterOffset 0

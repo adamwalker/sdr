@@ -16,6 +16,8 @@ import Foreign.Marshal.Array
 import Data.Vector.Generic as VG
 import Data.Vector.Storable as VS
 import Data.Vector.Fusion.Stream.Monadic
+import qualified Data.Vector.Fusion.Stream as VFS
+import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 import Data.Tuple.All
 
 import Pipes
@@ -91,4 +93,13 @@ mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
                 return $ Yield res (s', acc')
             Skip    s' -> return $ Skip (s', acc)
             Done       -> return $ Done
+
+{-# INLINE_STREAM stride #-}
+stride :: VG.Vector v a => Int -> v a -> v a
+stride str inv = VG.unstream $ VFS.unfoldr func 0
+    where
+    len = VG.length inv
+    {-# INLINE_INNER func #-}
+    func i | i >= len  = Nothing
+           | otherwise = Just (VG.unsafeIndex inv i, i + str)
 
