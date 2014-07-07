@@ -9,15 +9,14 @@ import Foreign.C.Types
 import Data.Time.Clock
 import Control.Concurrent hiding (yield)
 import Foreign.Marshal.Utils
+import qualified Data.Vector.Storable as VS
 
 import Pipes
 import Pipes.Concurrent 
 import RTLSDR
 
-import SDR.Buffer
-
 --Streams buffers with 131072 samples
-sdrStream :: Word32 -> Word32 -> Word32 -> Word32 -> EitherT String IO (Producer (ForeignPtr CUChar) IO ())
+sdrStream :: Word32 -> Word32 -> Word32 -> Word32 -> EitherT String IO (Producer (VS.Vector CUChar) IO ())
 sdrStream frequency sampleRate bufNum bufLen = do
     lift $ putStrLn "Initializing RTLSDR device"
 
@@ -39,9 +38,10 @@ sdrStream frequency sampleRate bufNum bufLen = do
 
         forkOS $ void $ readAsync dev bufNum bufLen $ \dat num -> void $ do
             let numBytes = fromIntegral $ bufNum * bufLen
-            fp <- mallocForeignBufferAligned numBytes
+            fp <- mallocForeignPtrArray numBytes
             withForeignPtr fp $ \fpp -> moveBytes fpp dat numBytes
-            atomically (send output fp)
+            let v = VS.unsafeFromForeignPtr0 fp numBytes
+            atomically (send output v)
 
         return $ fromInput input
 
