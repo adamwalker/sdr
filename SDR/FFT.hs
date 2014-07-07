@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
 module SDR.FFT where
 
 import Control.Monad
@@ -21,7 +21,10 @@ import Data.Vector.Fusion.Stream as VFS
 import Pipes
 import FFTW
 
-import SDR.Buffer
+mallocForeignBufferAligned :: forall a. Storable a => Int -> IO (ForeignPtr a)
+mallocForeignBufferAligned elems = do
+    ptr <- fftwMalloc $ fromIntegral $ elems * sizeOf (undefined :: a)
+    newForeignPtr fftwFreePtr ptr
 
 hanning :: (Floating n, VG.Vector v n) => Int -> v n
 hanning size = VG.generate size func
