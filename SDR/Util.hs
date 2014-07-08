@@ -33,8 +33,7 @@ fork prod = runEffect $ hoist (lift . lift) prod >-> fork'
         lift $ lift $ yield res
 
 printStream :: (Show e, Storable e) => Int -> Consumer (ForeignPtr e) IO ()
-printStream samples = forever $ do
-    res <- await 
+printStream samples = for cat $ \res -> do
     res <- lift $ withForeignPtr res $ peekArray samples
     lift $ print res
 

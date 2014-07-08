@@ -47,12 +47,11 @@ fftw samples = do
         withForeignPtr out $ \op -> 
             planDFT1d samples ip op fftwForward fftwEstimate
     
-    return $ forever $ do
+    return $ for cat $ \inv' -> do
         out <- lift $ mallocForeignBufferAligned samples
         ina <- lift $ mallocForeignBufferAligned samples
         let inv = VSM.unsafeFromForeignPtr0 ina samples
 
-        inv' <- await
         lift $ VGM.fill inv $ VFS.mapM return $ VG.stream inv'
 
         let (fp, offset, length) = VSM.unsafeToForeignPtr inv
@@ -73,12 +72,11 @@ fftwReal samples = do
         withForeignPtr out $ \op -> 
             planDFTR2C1d samples ip op fftwEstimate
 
-    return $ forever $ do
+    return $ for cat $ \inv' -> do
         out <- lift $ mallocForeignBufferAligned ((samples `quot` 2) + 1)
         ina <- lift $ mallocForeignBufferAligned samples
         let inv = VSM.unsafeFromForeignPtr0 ina samples
 
-        inv' <- await
         lift $ VGM.fill inv $ VFS.mapM return $ VG.stream inv'
         let (fp, offset, length) = VSM.unsafeToForeignPtr inv
 

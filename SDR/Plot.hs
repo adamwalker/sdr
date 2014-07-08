@@ -22,8 +22,7 @@ plotSimple :: Int -> Int -> Int -> EitherT String IO (Consumer (VS.Vector GLfloa
 plotSimple width height samples = do
     graphFunc <- simpleLineWindow width height samples
     let xCoords = take samples $ iterate (+ (2 / fromIntegral samples)) (-1)
-    return $ forever $ do
-        dat <- await
+    return $ for cat $ \dat -> do
         let (fp, offset, length) = VS.unsafeToForeignPtr dat
         lift $ withForeignPtr fp $ \dp -> do
             e <- peekArray length (advancePtr dp offset)
@@ -43,9 +42,7 @@ plotSimpleAxes width height samples = do
     let rm = renderAxes (defaultConfiguration {width = fromIntegral width, height = fromIntegral height})
     renderAxisFunc <- lift $ renderCairo rm width height
 
-    return $ forever $ do
-        dat <- await
-
+    return $ for cat $ \dat -> 
         lift $ do
             makeContextCurrent (Just win)
 
@@ -65,9 +62,7 @@ plotSimpleAxes width height samples = do
 plotTexture :: Int -> Int -> Int -> Int -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotTexture width height samples xResolution = do
     renderFunc <- textureLineWindow width height samples xResolution
-    return $ forever $ do
-        dat <- await
-        lift $ renderFunc dat
+    return $ for cat (lift . renderFunc)
 
 plotTextureAxes :: Int -> Int -> Int -> Int -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotTextureAxes width height samples xResolution = do
@@ -83,9 +78,7 @@ plotTextureAxes width height samples xResolution = do
     let rm = renderAxes (defaultConfiguration {width = fromIntegral width, height = fromIntegral height})
     renderAxisFunc <- lift $ renderCairo rm width height
 
-    return $ forever $ do
-        dat <- await
-
+    return $ for cat $ \dat -> 
         lift $ do
             makeContextCurrent (Just win)
 
@@ -112,9 +105,7 @@ plotWaterfallAxes windowWidth windowHeight width height colorMap = do
     let rm = renderAxes (defaultConfiguration {width = fromIntegral width, height = fromIntegral height})
     renderAxisFunc <- lift $ renderCairo rm width height
 
-    return $ (<-<) renderPipe $ forever $ do
-        dat <- await
-
+    return $ (<-<) renderPipe $ for cat $ \dat -> do
         lift $ do
             makeContextCurrent (Just win)
 
@@ -124,13 +115,12 @@ plotWaterfallAxes windowWidth windowHeight width height colorMap = do
             viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
 
         yield dat
-
         lift $ swapBuffers win
 
 plotFill :: Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFill width height samples colorMap = do
     graphFunc <- filledLineWindow width height samples colorMap
-    return $ forever $ await >>= lift . graphFunc
+    return $ for cat (lift . graphFunc)
 
 plotFillAxes :: Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFillAxes width height samples colorMap = do
@@ -144,9 +134,7 @@ plotFillAxes width height samples colorMap = do
     let rm = renderAxes (defaultConfiguration {width = fromIntegral width, height = fromIntegral height})
     renderAxisFunc <- lift $ renderCairo rm width height
 
-    return $ forever $ do
-        dat <- await
-
+    return $ for cat $ \dat -> 
         lift $ do
             makeContextCurrent (Just win)
 
