@@ -32,10 +32,8 @@ fork prod = runEffect $ hoist (lift . lift) prod >-> fork'
         lift $ yield res
         lift $ lift $ yield res
 
-printStream :: (Show e, Storable e) => Int -> Consumer (ForeignPtr e) IO ()
-printStream samples = for cat $ \res -> do
-    res <- lift $ withForeignPtr res $ peekArray samples
-    lift $ print res
+printStream :: (Show a, VG.Vector v a) => Int -> Consumer (v a) IO ()
+printStream samples = for cat $ VG.mapM_ (lift . print . show) 
 
 devnull :: Monad m => Consumer a m ()
 devnull = forever await
