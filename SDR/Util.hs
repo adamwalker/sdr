@@ -1,22 +1,19 @@
-{-# LANGUAGE GADTs, FlexibleContexts, BangPatterns #-}
+{-# LANGUAGE FlexibleContexts, BangPatterns, ScopedTypeVariables #-}
 
 module SDR.Util where
 
 import Control.Monad
-import Foreign.Storable
 import Foreign.C.Types
-import Foreign.Ptr
 import Foreign.ForeignPtr
+import Foreign.Storable
 import Data.Complex
-import Foreign.Storable.Complex
 import Data.ByteString.Internal
 import System.IO
 import Data.Time.Clock
-import Foreign.Marshal.Array
-import Data.Vector.Generic as VG
-import Data.Vector.Storable as VS
+import Data.Vector.Generic                         as VG
+import Data.Vector.Storable                        as VS
 import Data.Vector.Fusion.Stream.Monadic
-import qualified Data.Vector.Fusion.Stream as VFS
+import qualified Data.Vector.Fusion.Stream         as VFS
 import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 import Data.Tuple.All
 
@@ -57,7 +54,7 @@ rate samples = do
 
 --Conversion of sample bytes to doubles
 {-# SPECIALIZE INLINE makeComplexBufferVect :: Int -> VS.Vector CUChar -> VS.Vector (Complex CDouble) #-}
-makeComplexBufferVect :: (VG.Vector v1 CUChar, VG.Vector v2 (Complex CDouble)) => Int -> v1 CUChar -> v2 (Complex CDouble)
+makeComplexBufferVect :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a, VG.Vector v2 (Complex b)) => Int -> v1 a -> v2 (Complex b)
 makeComplexBufferVect samples input = VG.generate samples convert
     where
     {-# INLINE convert #-}
@@ -65,17 +62,17 @@ makeComplexBufferVect samples input = VG.generate samples convert
     {-# INLINE convert' #-}
     convert' val = (fromIntegral val - 128) / 128
 
-toByteString :: Int -> Pipe (ForeignPtr a) ByteString IO ()
-toByteString bytes = P.map $ \dat -> PS (castForeignPtr dat) 0 bytes
+toByteString :: forall a. (Storable a) => Pipe (VS.Vector a) ByteString IO ()
+toByteString = P.map $ \dat -> let (fp, o, sz) = VS.unsafeToForeignPtr dat in PS (castForeignPtr fp) o (sz * sizeOf (undefined :: a))
 
-fromByteString :: Pipe ByteString (ForeignPtr a) IO ()
-fromByteString = P.map $ \(PS fp _ _) -> castForeignPtr fp
+fromByteString :: forall a. (Storable a) => Pipe ByteString (VS.Vector a) IO ()
+fromByteString = P.map $ \(PS fp o l) -> unsafeFromForeignPtr (castForeignPtr fp) o (l `quot` sizeOf (undefined :: a))
 
-toHandle :: Int -> Handle -> Consumer (ForeignPtr a) IO ()
-toHandle bytes handle = toByteString bytes >-> PB.toHandle handle 
+toHandle :: (Storable a) => Handle -> Consumer (VS.Vector a) IO ()
+toHandle handle = toByteString >-> PB.toHandle handle 
 
-fromHandle :: Int -> Handle -> Producer (ForeignPtr a) IO ()
-fromHandle bytes handle = PB.hGet bytes handle >-> fromByteString 
+fromHandle :: forall a. (Storable a) => Int -> Handle -> Producer (VS.Vector a) IO ()
+fromHandle samples handle = PB.hGet (samples * sizeOf (undefined :: a)) handle >-> fromByteString 
 
 {-# INLINE_STREAM mapAccumMV #-}
 mapAccumMV :: (Monad m) => (acc -> x -> m (acc, y)) -> acc -> Stream m x -> Stream m y
