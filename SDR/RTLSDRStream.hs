@@ -3,7 +3,6 @@ module SDR.RTLSDRStream where
 import Control.Monad
 import Control.Monad.Trans.Either
 import Data.Word
-import Foreign.Storable
 import Foreign.ForeignPtr
 import Foreign.C.Types
 import Data.Time.Clock

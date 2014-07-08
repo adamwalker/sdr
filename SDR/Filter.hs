@@ -1,27 +1,13 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 module SDR.Filter where
 
-import Control.Monad
-import Control.Monad.Trans.Either
-import Data.Bits
-import Data.Word
-import Data.Array.MArray
-import Foreign.Storable
-import Foreign.Marshal.Array
-import Foreign.Marshal.Alloc
-import Foreign.Marshal.Utils
 import Foreign.C.Types
 import Data.Complex
-import Foreign.ForeignPtr
-import Foreign.Storable.Complex
-import Foreign.Ptr
 import Control.Exception 
-import qualified Data.Vector.Generic as VG
-import qualified Data.Vector.Generic.Mutable as VGM
-import qualified Data.Vector.Storable as VS
+import qualified Data.Vector.Generic          as VG
+import qualified Data.Vector.Generic.Mutable  as VGM
+import qualified Data.Vector.Storable         as VS
 import qualified Data.Vector.Storable.Mutable as VSM
-import qualified Data.Vector.Fusion.Stream as VFS
-import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 import Control.Monad.Primitive
 
 import Pipes

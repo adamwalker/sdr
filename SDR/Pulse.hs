@@ -1,16 +1,13 @@
 module SDR.Pulse where
 
 import Foreign.ForeignPtr
-import Foreign.Marshal.Array
 import Foreign.C.Types
 import Control.Monad
 import Control.Concurrent
 import Data.ByteString.Internal
-
 import Data.Vector.Storable as VS
 
 import Sound.Pulse.Simple
-
 import Pipes
 import Pipes.Concurrent
 

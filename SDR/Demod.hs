@@ -1,13 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module SDR.Demod where
 
-import Foreign.Storable
-import Foreign.Ptr
-import Foreign.ForeignPtr
-import Foreign.C.Types
 import Data.Complex
-import Foreign.Marshal.Alloc
-import Foreign.Marshal.Array
 import Data.Vector.Generic
 import Data.Vector.Fusion.Stream
 

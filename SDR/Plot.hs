@@ -1,15 +1,10 @@
 module SDR.Plot where
 
 import Control.Monad
-import Foreign.C.Types
 import Control.Monad.Trans.Either
-import Data.Complex
 import Foreign.Marshal.Array
 import Foreign.ForeignPtr
-import Foreign.Storable.Complex
-
 import qualified Data.Vector.Storable as VS
-
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW as G
 
@@ -20,7 +15,6 @@ import Graphics.DynamicGraph.SimpleLine
 import Graphics.DynamicGraph.TextureLine
 import Graphics.DynamicGraph.Waterfall  
 import Graphics.DynamicGraph.FillLine   
-
 import Graphics.DynamicGraph.Axis
 import Graphics.DynamicGraph.RenderCairo
 
