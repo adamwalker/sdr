@@ -58,7 +58,7 @@ makeComplexBufferVect :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a
 makeComplexBufferVect samples input = VG.generate samples convert
     where
     {-# INLINE convert #-}
-    convert idx  = convert' (input `VG.unsafeIndex` idx) :+ convert' (input `VG.unsafeIndex` (idx + 1))
+    convert idx  = convert' (input `VG.unsafeIndex` (2 * idx)) :+ convert' (input `VG.unsafeIndex` (2 * idx + 1))
     {-# INLINE convert' #-}
     convert' val = (fromIntegral val - 128) / 128
 
