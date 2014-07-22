@@ -1,4 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 module SDR.Filter where
 
 import Foreign.C.Types
@@ -13,15 +12,6 @@ import Control.Monad.Primitive
 import Pipes
 
 import SDR.Util
-
-class Mult a b where
-    mult :: a -> b -> a
-
-instance (Num a) => Mult a a where
-    mult = (*)
-
-instance (Num a) => Mult (Complex a) a where
-    mult (x :+ y) z = (x * z) :+ (y * z)
 
 data Buffer v a = Buffer {
     buffer :: v a,

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, BangPatterns, ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, BangPatterns, ScopedTypeVariables, MultiParamTypeClasses, FlexibleInstances #-}
 
 module SDR.Util where
 
@@ -96,4 +96,13 @@ stride str inv = VG.unstream $ VFS.unfoldr func 0
     {-# INLINE_INNER func #-}
     func i | i >= len  = Nothing
            | otherwise = Just (VG.unsafeIndex inv i, i + str)
+
+class Mult a b where
+    mult :: a -> b -> a
+
+instance (Num a) => Mult a a where
+    mult = (*)
+
+instance (Num a) => Mult (Complex a) a where
+    mult (x :+ y) z = (x * z) :+ (y * z)
 
