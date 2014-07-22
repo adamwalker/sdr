@@ -11,6 +11,9 @@ import Graphics.UI.GLFW as G
 import Pipes 
 import qualified Pipes.Prelude as P
 
+import Data.Colour.Names
+import Graphics.Rendering.Pango
+
 import Graphics.DynamicGraph.SimpleLine 
 import Graphics.DynamicGraph.TextureLine
 import Graphics.DynamicGraph.Waterfall  
@@ -39,7 +42,7 @@ plotSimpleAxes width height samples = do
     let xCoords = take samples $ iterate (+ (2 / fromIntegral samples)) (-1)
     
     --render the axes
-    let rm = renderAxes (defaultConfiguration {width = fromIntegral width, height = fromIntegral height})
+    let rm = return ()
     renderAxisFunc <- lift $ renderCairo rm width height
 
     return $ for cat $ \dat -> 
@@ -74,8 +77,23 @@ plotTextureAxes width height samples xResolution = do
     --render the graph
     renderFunc <- lift $ renderTextureLine samples xResolution
 
+    --Define the axes
+    let rm = do
+            let bottomMargin = 50
+                topMargin    = 50
+                leftMargin   = 50
+                rightMargin  = 50
+                gridXCoords' = gridXCoords (fromIntegral width) 50 leftMargin rightMargin 100
+                gridYCoords' = gridYCoords (fromIntegral height) 0 topMargin bottomMargin 50 
+            ctx <- liftIO $ cairoCreateContext Nothing
+            blankCanvas white (fromIntegral width) (fromIntegral height)
+            xAxisGrid red 0.5 [] (fromIntegral height - bottomMargin) topMargin gridXCoords'
+            yAxisGrid red 0.5 [3, 1.5] (fromIntegral width - rightMargin) leftMargin gridYCoords'
+            xAxisLabels ctx black ["1", "2", "3"] gridXCoords' (fromIntegral height - bottomMargin)
+            yAxisLabels ctx black ["a", "b", "c"] gridYCoords' bottomMargin
+            drawAxes (fromIntegral width) (fromIntegral height) topMargin bottomMargin leftMargin rightMargin red 1
+
     --render the axes
-    let rm = renderAxes (defaultConfiguration {width = fromIntegral width, height = fromIntegral height})
     renderAxisFunc <- lift $ renderCairo rm width height
 
     return $ for cat $ \dat -> 
@@ -102,7 +120,7 @@ plotWaterfallAxes windowWidth windowHeight width height colorMap = do
     renderPipe <- lift $ renderWaterfall width height colorMap
     
     --render the axes
-    let rm = renderAxes (defaultConfiguration {width = fromIntegral width, height = fromIntegral height})
+    let rm = return ()
     renderAxisFunc <- lift $ renderCairo rm width height
 
     return $ (<-<) renderPipe $ for cat $ \dat -> do
@@ -131,7 +149,7 @@ plotFillAxes width height samples colorMap = do
     renderFunc <- lift $ renderFilledLine samples colorMap
     
     --render the axes
-    let rm = renderAxes (defaultConfiguration {width = fromIntegral width, height = fromIntegral height})
+    let rm = return ()
     renderAxisFunc <- lift $ renderCairo rm width height
 
     return $ for cat $ \dat -> 
