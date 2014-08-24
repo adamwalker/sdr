@@ -7,7 +7,7 @@ Features:
     - Signal processing blocks can be chained together using the pipes library
     - Can filter, decimate and resample
     - FFTs using FFTW
-    - Line and waterfall plots
+    - Line and waterfall plots using OpenGL
     - FM demodulation
     - PulseAudio sound sink
     - rtl-sdr based radio source supported and other sources are easily added
