@@ -109,7 +109,9 @@ plotTextureAxes width height samples xResolution = do
             swapBuffers win
 
 plotWaterfall :: Int -> Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotWaterfall = waterfallWindow
+plotWaterfall windowWidth windowHeight width height colorMap = do
+    renderFunc <- waterfallWindow windowWidth windowHeight width height colorMap
+    return $ for cat (lift . renderFunc)
 
 plotWaterfallAxes :: Int -> Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotWaterfallAxes windowWidth windowHeight width height colorMap = do
