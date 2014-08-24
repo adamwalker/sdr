@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
 module SDR.FFT where
 
-import Control.Monad
+import Control.Monad as CM
 import Data.Bits
 import Foreign.Storable
 import Foreign.Storable.Complex
@@ -17,6 +17,13 @@ import Data.Vector.Generic.Mutable as VGM
 import Data.Vector.Storable as VS
 import Data.Vector.Storable.Mutable as VSM
 import Data.Vector.Fusion.Stream as VFS
+
+import Control.Concurrent hiding (yield)
+import Control.Concurrent.Chan
+import Control.Concurrent.MVar
+
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 import Pipes
 import FFTW
@@ -61,6 +68,55 @@ fftw samples = do
                 executeDFT plan fpp op
 
         yield $ VS.unsafeFromForeignPtr0 out samples
+
+fftwParallel :: (VG.Vector v (Complex CDouble)) => Int -> Int -> IO (Pipe (v (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ())
+fftwParallel threads samples = do
+    --plan the DFT
+    ina <- mallocForeignBufferAligned samples
+    out <- mallocForeignBufferAligned samples
+
+    plan <- withForeignPtr ina $ \ip -> 
+        withForeignPtr out $ \op -> 
+            planDFT1d samples ip op fftwForward fftwEstimate
+
+    --setup the channels and worker threads
+    inChan <- newChan 
+    outMap <- newMVar Map.empty
+
+    CM.replicateM threads $ forkIO $ forever $ do
+        (idx, res) <- readChan inChan
+    
+        out <- mallocForeignBufferAligned samples
+        ina <- mallocForeignBufferAligned samples
+        let inv = VSM.unsafeFromForeignPtr0 ina samples
+
+        VGM.fill inv $ VFS.mapM return $ VG.stream res
+
+        let (fp, offset, length) = VSM.unsafeToForeignPtr inv
+
+        withForeignPtr fp $ \fpp -> 
+            withForeignPtr out $ \op -> 
+                executeDFT plan fpp op
+
+        theMap <- takeMVar outMap
+        putMVar outMap $ Map.insert idx (VS.unsafeFromForeignPtr0 out samples) theMap
+   
+    --build the pipe
+    let pipe nextIn nextOut = do
+            dat <- await
+            lift $ writeChan inChan (nextIn, dat)
+
+            theMap <- lift $ takeMVar outMap
+            case Map.lookup nextOut theMap of
+                Nothing  -> do
+                    lift $ putMVar outMap theMap
+                    pipe (nextIn + 1) nextOut
+                Just dat -> do
+                    lift $ putMVar outMap $ Map.delete nextOut theMap
+                    yield dat
+                    pipe (nextIn + 1) (nextOut + 1)
+
+    return $ pipe 0 0
 
 fftwReal :: (VG.Vector v CDouble) => Int -> IO (Pipe (v CDouble) (VS.Vector (Complex CDouble)) IO ())
 fftwReal samples = do
