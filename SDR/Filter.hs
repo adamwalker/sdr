@@ -36,26 +36,26 @@ advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count =
 
 --Filtering
 {-# INLINE filterOne #-}
-filterOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> Int -> vm (PrimState m) a -> m ()
-filterOne coeffs num inBuf outOffset outBuf = fill 0
+filterOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
+filterOne coeffs num inBuf outBuf = fill 0
     where
     fill i 
         | i < num = do
             let dp = dotProd i
-            VGM.unsafeWrite outBuf (i + outOffset) dp
+            VGM.unsafeWrite outBuf i dp
             fill (i + 1)
         | otherwise = return ()
     {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 {-# INLINE filterCross #-}
-filterCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> v a -> Int -> vm (PrimState m) a -> m ()
-filterCross coeffs num lastBuf nextBuf outOffset outBuf = fill 0
+filterCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> v a -> vm (PrimState m) a -> m ()
+filterCross coeffs num lastBuf nextBuf outBuf = fill 0
     where
     fill i 
         | i < num = do
             let dp = dotProd i
-            VGM.unsafeWrite outBuf (i + outOffset) dp
+            VGM.unsafeWrite outBuf i dp
             fill (i + 1)
         | otherwise  = return ()
     {-# INLINE dotProd #-}
@@ -76,7 +76,7 @@ filterr coeffs blockSizeIn blockSizeOut = filter' (VG.length coeffs) coeffs
 
         simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) = do
             let count = min (spaceIn - numCoeffs + 1) spaceOut
-            lift $ filterOne coeffs count (VG.unsafeDrop offsetIn bufIn) offsetOut bufOut
+            lift $ filterOne coeffs count (VG.unsafeDrop offsetIn bufIn) (VGM.unsafeDrop offsetOut bufOut)
 
             bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
@@ -91,7 +91,7 @@ filterr coeffs blockSizeIn blockSizeOut = filter' (VG.length coeffs) coeffs
 
         crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
             let count = min (spaceLast - 1) spaceOut
-            lift $ filterCross coeffs count (VG.unsafeDrop offsetLast bufLast) bufNext offsetOut bufOut
+            lift $ filterCross coeffs count (VG.unsafeDrop offsetLast bufLast) bufNext (VGM.unsafeDrop offsetOut bufOut)
 
             bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
@@ -101,26 +101,26 @@ filterr coeffs blockSizeIn blockSizeOut = filter' (VG.length coeffs) coeffs
 
 --Decimation
 {-# INLINE decimateOne #-}
-decimateOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> v a -> Int -> vm (PrimState m) a -> m ()
-decimateOne factor coeffs num inBuf outOffset outBuf = fill 0 0
+decimateOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> v a -> vm (PrimState m) a -> m ()
+decimateOne factor coeffs num inBuf outBuf = fill 0 0
     where 
     fill i j
         | i < num = do
             let dp = dotProd j
-            VGM.unsafeWrite outBuf (i + outOffset) dp
+            VGM.unsafeWrite outBuf i dp
             fill (i + 1) (j + factor)
         | otherwise = return ()
     {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 {-# INLINE decimateCross #-}
-decimateCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> v a -> v a -> Int -> vm (PrimState m) a -> m ()
-decimateCross factor coeffs num lastBuf nextBuf outOffset outBuf = fill 0 0
+decimateCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> v a -> v a -> vm (PrimState m) a -> m ()
+decimateCross factor coeffs num lastBuf nextBuf outBuf = fill 0 0
     where
     fill i j
         | i < num = do
             let dp = dotProd j
-            VGM.unsafeWrite outBuf (i + outOffset) dp
+            VGM.unsafeWrite outBuf i dp
             fill (i + 1) (j + factor)
         | otherwise  = return ()
     {-# INLINE dotProd #-}
@@ -144,7 +144,7 @@ decimate factor coeffs blockSizeIn blockSizeOut = decimate' (VG.length coeffs) c
             assert (spaceIn >= numCoeffs) $ return ()
 
             let count = min (((spaceIn - numCoeffs) `quot` factor) + 1) spaceOut
-            lift $ decimateOne factor coeffs count (VG.unsafeDrop offsetIn bufIn) offsetOut bufOut
+            lift $ decimateOne factor coeffs count (VG.unsafeDrop offsetIn bufIn) (VGM.unsafeDrop offsetOut bufOut)
 
             bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
@@ -162,7 +162,7 @@ decimate factor coeffs blockSizeIn blockSizeOut = decimate' (VG.length coeffs) c
             assert (spaceLast < numCoeffs) $ return ()
 
             let count = min (((spaceLast - 1) `quot` factor) + 1) spaceOut
-            lift $ decimateCross factor coeffs count (VG.unsafeDrop offsetLast bufLast) bufNext offsetOut bufOut
+            lift $ decimateCross factor coeffs count (VG.unsafeDrop offsetLast bufLast) bufNext (VGM.unsafeDrop offsetOut bufOut)
 
             bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
@@ -172,13 +172,13 @@ decimate factor coeffs blockSizeIn blockSizeOut = decimate' (VG.length coeffs) c
 
 --Rational resampling
 {-# INLINE resampleOne #-}
-resampleOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> Int -> vm (PrimState m) a -> m Int
-resampleOne interpolation decimation coeffs filterOffset count inBuf outOffset outBuf = fill 0 filterOffset 0
+resampleOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> vm (PrimState m) a -> m Int
+resampleOne interpolation decimation coeffs filterOffset count inBuf outBuf = fill 0 filterOffset 0
     where
     fill i filterOffset inputOffset
         | i < count = do
             let dp = dotProd inputOffset
-            VGM.unsafeWrite outBuf (i + outOffset) dp
+            VGM.unsafeWrite outBuf i dp
             let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
                 inputOffset'  = inputOffset + q + 1
                 filterOffset' = interpolation - 1 - r
@@ -188,13 +188,13 @@ resampleOne interpolation decimation coeffs filterOffset count inBuf outOffset o
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation coeffs)
 
 {-# INLINE resampleCross #-}
-resampleCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> v a -> Int -> vm (PrimState m) a -> m Int
-resampleCross interpolation decimation coeffs filterOffset count lastBuf nextBuf outOffset outBuf = fill 0 filterOffset 0
+resampleCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> v a -> vm (PrimState m) a -> m Int
+resampleCross interpolation decimation coeffs filterOffset count lastBuf nextBuf outBuf = fill 0 filterOffset 0
     where
     fill i filterOffset inputOffset
         | i < count = do
             let dp = dotProd inputOffset
-            VGM.unsafeWrite outBuf (i + outOffset) dp
+            VGM.unsafeWrite outBuf i dp
             let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
                 inputOffset'  = inputOffset + q + 1
                 filterOffset' = interpolation - 1 - r
@@ -226,7 +226,7 @@ resample interpolation decimation coeffs blockSizeIn blockSizeOut = resample' (V
             --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
             let count = min (((spaceIn * interpolation - numCoeffs + filterOffset) `quot` decimation) + 1) spaceOut
             --Run filter
-            endOffset <- lift $ resampleOne interpolation decimation coeffs filterOffset count (VG.unsafeDrop offsetIn bufIn) offsetOut bufOut
+            endOffset <- lift $ resampleOne interpolation decimation coeffs filterOffset count (VG.unsafeDrop offsetIn bufIn) (VGM.unsafeDrop offsetOut bufOut)
             --Check consistency
             assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
             --Advance the output buffer
@@ -257,7 +257,7 @@ resample interpolation decimation coeffs blockSizeIn blockSizeOut = resample' (V
                 count = min outputsComputable spaceOut
             assert (count /= 0) $ return ()
             --Run the filter
-            endOffset <- lift $ resampleCross interpolation decimation coeffs filterOffset count (VG.unsafeDrop offsetLast bufLast) bufNext offsetOut bufOut
+            endOffset <- lift $ resampleCross interpolation decimation coeffs filterOffset count (VG.unsafeDrop offsetLast bufLast) bufNext (VGM.unsafeDrop offsetOut bufOut)
             --Check consistency
             assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
             --Advance the output buffer
