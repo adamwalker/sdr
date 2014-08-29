@@ -11,11 +11,13 @@ import Data.ByteString.Internal
 import System.IO
 import Data.Time.Clock
 import Data.Vector.Generic                         as VG
+import qualified Data.Vector.Generic.Mutable       as VGM
 import Data.Vector.Storable                        as VS
 import Data.Vector.Fusion.Stream.Monadic
 import qualified Data.Vector.Fusion.Stream         as VFS
 import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 import Data.Tuple.All
+import Control.Monad.Primitive
 
 import Pipes
 import qualified Pipes.Prelude as P
@@ -96,6 +98,14 @@ stride str inv = VG.unstream $ VFS.unfoldr func 0
     {-# INLINE_INNER func #-}
     func i | i >= len  = Nothing
            | otherwise = Just (VG.unsafeIndex inv i, i + str)
+
+{-# INLINE fill #-}
+fill :: (PrimMonad m, Functor m, VGM.MVector vm a) => VFS.Stream a -> vm (PrimState m) a -> m ()
+fill str outBuf = void $ VFS.foldM' put 0 str
+    where 
+        put i x = do
+            VGM.unsafeWrite outBuf i x
+            return $ i + 1
 
 class Mult a b where
     mult :: a -> b -> a
