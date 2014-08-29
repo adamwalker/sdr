@@ -34,30 +34,29 @@ advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count =
     else 
         return $ Buffer bufOut (offsetOut + count) (spaceOut - count) 
 
+{-# INLINE fill #-}
+fill :: (PrimMonad m, VGM.MVector vm a) => (Int -> a) -> Int -> vm (PrimState m) a -> m ()
+fill dotProd num outBuf = fill' 0
+    where 
+        fill' i 
+            | i < num = do
+                let dp = dotProd i
+                VGM.unsafeWrite outBuf i dp
+                fill' (i + 1)
+            | otherwise = return ()
+
 --Filtering
 {-# INLINE filterOne #-}
 filterOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
-filterOne coeffs num inBuf outBuf = fill 0
+filterOne coeffs num inBuf outBuf = fill dotProd num outBuf
     where
-    fill i 
-        | i < num = do
-            let dp = dotProd i
-            VGM.unsafeWrite outBuf i dp
-            fill (i + 1)
-        | otherwise = return ()
     {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 {-# INLINE filterCross #-}
 filterCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> v a -> vm (PrimState m) a -> m ()
-filterCross coeffs num lastBuf nextBuf outBuf = fill 0
+filterCross coeffs num lastBuf nextBuf outBuf = fill dotProd num outBuf
     where
-    fill i 
-        | i < num = do
-            let dp = dotProd i
-            VGM.unsafeWrite outBuf i dp
-            fill (i + 1)
-        | otherwise  = return ()
     {-# INLINE dotProd #-}
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) coeffs
 
