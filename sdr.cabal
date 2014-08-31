@@ -19,7 +19,7 @@ library
   exposed-modules:     SDR.Pulse, SDR.RTLSDRStream, SDR.Util, SDR.Plot, SDR.Filter, SDR.Demod, SDR.FFT
   -- other-modules:       
   other-extensions:    ScopedTypeVariables, GADTs
-  build-depends:       base >=4.6 && <4.8, fftw >=0.1 && <0.2, bytestring >=0.10 && <0.11, pulse-simple >=0.1 && <0.2, pipes >=4.1 && <4.2, pipes-concurrency >=2.0 && <2.1, either >=4.1 && <4.2, time >=1.4 && <1.5, rtlsdr >=0.1 && <0.2, storable-complex >=0.2 && <0.3, pipes-bytestring >=2.0 && <2.1, dynamic-graph >=0.1 && <0.2, array >=0.4 && <0.6, vector ==0.10.*, tuple ==0.2.*, OpenGL, GLFW-b, primitive, colour, pango, containers
+  build-depends:       base >=4.6 && <4.8, fftw >=0.1 && <0.2, bytestring >=0.10 && <0.11, pulse-simple >=0.1 && <0.2, pipes >=4.1 && <4.2, pipes-concurrency >=2.0 && <2.1, either >=4.1 && <4.2, time >=1.4 && <1.5, rtlsdr >=0.1 && <0.2, storable-complex >=0.2 && <0.3, pipes-bytestring >=2.0 && <2.1, dynamic-graph >=0.1 && <0.2, array >=0.4 && <0.6, vector ==0.10.*, tuple ==0.2.*, OpenGL, GLFW-b, primitive, colour, pango, containers, cairo
   -- hs-source-dirs:      
   default-language:    Haskell2010
   ghc-options:         -O2
