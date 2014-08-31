@@ -55,11 +55,16 @@ plotTextureAxes width height samples xResolution rm = do
             makeContextCurrent (Just win)
             clear [ColorBuffer]
 
-            viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
-            renderAxisFunc
+            blend $= Disabled
 
             viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
             renderFunc dat
+
+            blend $= Enabled
+            blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
+
+            viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
+            renderAxisFunc
 
             swapBuffers win
 
@@ -123,11 +128,14 @@ plotFillAxes width height samples colorMap rm = do
             makeContextCurrent (Just win)
             clear [ColorBuffer]
 
-            viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
-            renderAxisFunc
-
             viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
             renderFunc dat
+
+            blend $= Enabled
+            blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
+
+            viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
+            renderAxisFunc
 
             swapBuffers win
 
@@ -135,17 +143,30 @@ plotFillAxes width height samples colorMap rm = do
 
 zeroAxes :: Int -> Int -> Double -> Double -> Render ()
 zeroAxes width height bandwidth interval = do
+    blankCanvasAlpha black 0 (fromIntegral width) (fromIntegral height) 
     let xSeparation = (interval / bandwidth) * (fromIntegral width - 100)
+        ySeparation = 0.2 * (fromIntegral height - 100)
+        xCoords     = takeWhile (< (fromIntegral width  - 50)) $ iterate (+ xSeparation) 50
+        yCoords     = takeWhile (> 50) $ iterate (\x -> x - ySeparation) (fromIntegral height - 50)
     ctx <- liftIO $ cairoCreateContext Nothing
-    xAxisLabels ctx white (map show (take 5 $ iterate (+ interval) 0)) (iterate (+ xSeparation) 50) (fromIntegral height - 50)
+    xAxisLabels ctx white (map (\n -> show n ++ " KHz" ) (takeWhile (< bandwidth) $ iterate (+ interval) 0)) xCoords (fromIntegral height - 50)
+    drawAxes (fromIntegral width) (fromIntegral height) 50 50 50 50 white 2
+    xAxisGrid gray 1 [] 50 (fromIntegral height - 50) xCoords
+    yAxisGrid gray 1 [4, 2] 50 (fromIntegral width - 50)  yCoords
 
 centeredAxes :: Int -> Int -> Double -> Double -> Double -> Render ()
 centeredAxes width height cFreq bandwidth interval = do
+    blankCanvasAlpha black 0 (fromIntegral width) (fromIntegral height) 
     let xSeparation = (interval / bandwidth) * (fromIntegral width - 100)
         firstXLabel = fromIntegral (ceiling ((cFreq - (bandwidth / 2)) / interval)) * interval
         fract x     = x - fromIntegral (floor x)
         xOffset     = fract ((cFreq - (bandwidth / 2)) / interval) * xSeparation
-
+        ySeparation = 0.2 * (fromIntegral height - 100)
+        xCoords     = takeWhile (< (fromIntegral width - 50)) $ iterate (+ xSeparation) (50 + xOffset)
+        yCoords     = takeWhile (> 50) $ iterate (\x -> x - ySeparation) (fromIntegral height - 50)
     ctx <- liftIO $ cairoCreateContext Nothing
-    xAxisLabels ctx white (map show (take 5 $ iterate (+ interval) firstXLabel)) (iterate (+ xSeparation) (50 + xOffset)) (fromIntegral height - 50)
+    xAxisLabels ctx white (map (\n -> show n ++ " MHZ") (takeWhile (< (cFreq + bandwidth / 2)) $ iterate (+ interval) firstXLabel)) xCoords (fromIntegral height - 50)
+    drawAxes (fromIntegral width) (fromIntegral height) 50 50 50 50 white 2
+    xAxisGrid gray 1 [] 50 (fromIntegral height - 50) xCoords
+    yAxisGrid gray 1 [4, 2] 50 (fromIntegral width - 50)  yCoords
 
