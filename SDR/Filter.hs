@@ -177,14 +177,14 @@ resampleOne interpolation decimation coeffs filterOffset count inBuf outBuf = fi
     where
     fill i filterOffset inputOffset
         | i < count = do
-            let dp = dotProd inputOffset
+            let dp = dotProd filterOffset inputOffset
             VGM.unsafeWrite outBuf i dp
             let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
                 inputOffset'  = inputOffset + q + 1
                 filterOffset' = interpolation - 1 - r
             filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
         | otherwise = return filterOffset
-    dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation coeffs)
+    dotProd filterOffset offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation (VG.unsafeDrop filterOffset coeffs))
 
 {-# INLINE resampleCross #-}
 resampleCross :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> v a -> vm (PrimState m) a -> m Int
@@ -192,14 +192,14 @@ resampleCross interpolation decimation coeffs filterOffset count lastBuf nextBuf
     where
     fill i filterOffset inputOffset
         | i < count = do
-            let dp = dotProd inputOffset
+            let dp = dotProd filterOffset inputOffset
             VGM.unsafeWrite outBuf i dp
             let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
                 inputOffset'  = inputOffset + q + 1
                 filterOffset' = interpolation - 1 - r
             filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
         | otherwise = return filterOffset
-    dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) (stride interpolation coeffs)
+    dotProd filterOffset i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) (stride interpolation (VG.unsafeDrop filterOffset coeffs))
 
 quotUp q d = (q + (d - 1)) `quot` d
 
