@@ -170,6 +170,33 @@ decimate factor coeffs blockSizeIn blockSizeOut = decimate' (VG.length coeffs) c
                 True  -> simple (Buffer bufNext (offsetLast + count * factor - blockSizeIn) (blockSizeIn - (offsetLast + count * factor - blockSizeIn))) bufferOut'
                 False -> crossover (Buffer bufLast (offsetLast + count * factor) (spaceLast - count * factor)) bufNext bufferOut'
 
+{-
+
+Input upsampled by 3:    |**|**|**|**|**|**|**|**|**|**|**|
+Output downsampled by 7: |******|******|******|******|*****
+
+                  Consider here ^
+                  Next output is here  ^
+
+Filter offset is 2
+
+filterOffset + k*interpolation = decimation + filterOffset'
+where
+    k > 0
+    0 <= filterOffset, filterOffset' < interpolation
+
+k*interpolation - filterOffset' = decimation - filterOffset
+k*interpolation - filterOffset' - 1 = decimation - filterOffset - 1
+
+(k-1) * interpolation + (interpolation - filterOffset' - 1) = decimation - filterOffset - 1
+
+k             = (decimation - filterOffset - 1) / interpolation + 1
+filterOffset' = interpolation - 1 - (decimation - filterOffset - 1) % interpolation
+
+Only works if decimation > interpolation
+
+-}
+
 --Rational resampling
 {-# INLINE resampleOne #-}
 resampleOne :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> vm (PrimState m) a -> m Int
