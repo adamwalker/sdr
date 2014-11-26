@@ -42,14 +42,12 @@ advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count =
 filterOne :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
 filterOne coeffs num inBuf outBuf = fill (VFSM.generate num dotProd) outBuf
     where
-    {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 {-# INLINE filterCross #-}
 filterCross :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> v a -> vm (PrimState m) a -> m ()
 filterCross coeffs num lastBuf nextBuf outBuf = fill (VFSM.generate num dotProd) outBuf
     where
-    {-# INLINE dotProd #-}
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) coeffs
 
 {-# INLINE filterr #-}
@@ -94,7 +92,6 @@ decimateOne :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vecto
 decimateOne factor coeffs num inBuf outBuf = fill x outBuf
     where 
     x = VFSM.map dotProd (VFSM.iterateN num (+ factor) 0)
-    {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 {-# INLINE decimateCross #-}
@@ -102,7 +99,6 @@ decimateCross :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vec
 decimateCross factor coeffs num lastBuf nextBuf outBuf = fill x outBuf
     where
     x = VFSM.map dotProd (VFSM.iterateN num (+ factor) 0)
-    {-# INLINE dotProd #-}
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) coeffs
 
 {-# INLINE decimate #-}
@@ -188,7 +184,6 @@ resampleOne interpolation decimation coeffs filterOffset count inBuf outBuf = fi
                 filterOffset' = interpolation - 1 - r
             filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
         | otherwise = return filterOffset
-    {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation coeffs)
 
 {-# INLINE resampleCross #-}
@@ -204,7 +199,6 @@ resampleCross interpolation decimation coeffs filterOffset count lastBuf nextBuf
                 filterOffset' = interpolation - 1 - r
             filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
         | otherwise = return filterOffset
-    {-# INLINE dotProd #-}
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) (stride interpolation coeffs)
 
 quotUp q d = (q + (d - 1)) `quot` d
