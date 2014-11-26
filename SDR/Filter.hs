@@ -52,9 +52,7 @@ filterCross coeffs num lastBuf nextBuf outBuf = fill (VFSM.generate num dotProd)
     {-# INLINE dotProd #-}
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) coeffs
 
-{-# SPECIALIZE INLINE filterr :: VS.Vector CDouble -> Int -> Int -> Pipe (VS.Vector CDouble) (VS.Vector CDouble) IO () #-}
-{-# SPECIALIZE INLINE filterr :: VS.Vector (Complex CDouble) -> Int -> Int -> Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO () #-}
-{-# SPECIALIZE INLINE filterr :: VS.Vector CDouble -> Int -> Int -> Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO () #-}
+{-# INLINE filterr #-}
 filterr :: (PrimMonad m, Functor m, VG.Vector v a, VG.Vector v b, Num a, Mult a b) => v b -> Int -> Int -> Pipe (v a) (v a) m ()
 filterr coeffs blockSizeIn blockSizeOut = filter' (VG.length coeffs) coeffs
     where 
@@ -107,9 +105,7 @@ decimateCross factor coeffs num lastBuf nextBuf outBuf = fill x outBuf
     {-# INLINE dotProd #-}
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) coeffs
 
-{-# SPECIALIZE INLINE decimate :: Int -> VS.Vector CDouble -> Int -> Int -> Pipe (VS.Vector CDouble) (VS.Vector CDouble) IO () #-}
-{-# SPECIALIZE INLINE decimate :: Int -> VS.Vector (Complex CDouble) -> Int -> Int -> Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO () #-}
-{-# SPECIALIZE INLINE decimate :: Int -> VS.Vector CDouble -> Int -> Int -> Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO () #-}
+{-# INLINE decimate #-}
 decimate :: (PrimMonad m, Functor m, VG.Vector v a, VG.Vector v b, Mult a b, Num a) => Int -> v b -> Int -> Int -> Pipe (v a) (v a) m ()
 decimate factor coeffs blockSizeIn blockSizeOut = decimate' (VG.length coeffs) coeffs
     where
@@ -213,9 +209,7 @@ resampleCross interpolation decimation coeffs filterOffset count lastBuf nextBuf
 
 quotUp q d = (q + (d - 1)) `quot` d
 
-{-# SPECIALIZE INLINE resample :: Int -> Int -> VS.Vector CDouble -> Int -> Int -> Pipe (VS.Vector CDouble) (VS.Vector CDouble) IO () #-}
-{-# SPECIALIZE INLINE resample :: Int -> Int -> VS.Vector (Complex CDouble) -> Int -> Int -> Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO () #-}
-{-# SPECIALIZE INLINE resample :: Int -> Int -> VS.Vector CDouble -> Int -> Int -> Pipe (VS.Vector (Complex CDouble)) (VS.Vector (Complex CDouble)) IO () #-}
+{-# INLINE resample #-}
 resample :: (PrimMonad m, VG.Vector v a, VG.Vector v b, Mult a b, Num a) => Int -> Int -> v b -> Int -> Int -> Pipe (v a) (v a) m ()
 resample interpolation decimation coeffs blockSizeIn blockSizeOut = resample' (VG.length coeffs) coeffs
     where
