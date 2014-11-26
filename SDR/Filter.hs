@@ -3,11 +3,12 @@ module SDR.Filter where
 import Foreign.C.Types
 import Data.Complex
 import Control.Exception 
-import qualified Data.Vector.Generic          as VG
-import qualified Data.Vector.Generic.Mutable  as VGM
-import qualified Data.Vector.Storable         as VS
-import qualified Data.Vector.Storable.Mutable as VSM
-import qualified Data.Vector.Fusion.Stream    as VFS
+import qualified Data.Vector.Generic               as VG
+import qualified Data.Vector.Generic.Mutable       as VGM
+import qualified Data.Vector.Storable              as VS
+import qualified Data.Vector.Storable.Mutable      as VSM
+import qualified Data.Vector.Fusion.Stream         as VFS
+import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 import Control.Monad.Primitive
 import Control.Monad
 
@@ -39,14 +40,14 @@ advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count =
 --Filtering
 {-# INLINE filterOne #-}
 filterOne :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
-filterOne coeffs num inBuf outBuf = fill (VFS.generate num dotProd) outBuf
+filterOne coeffs num inBuf outBuf = fill (VFSM.generate num dotProd) outBuf
     where
     {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 {-# INLINE filterCross #-}
 filterCross :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> v a -> vm (PrimState m) a -> m ()
-filterCross coeffs num lastBuf nextBuf outBuf = fill (VFS.generate num dotProd) outBuf
+filterCross coeffs num lastBuf nextBuf outBuf = fill (VFSM.generate num dotProd) outBuf
     where
     {-# INLINE dotProd #-}
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) coeffs
@@ -94,7 +95,7 @@ filterr coeffs blockSizeIn blockSizeOut = filter' (VG.length coeffs) coeffs
 decimateOne :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> v a -> vm (PrimState m) a -> m ()
 decimateOne factor coeffs num inBuf outBuf = fill x outBuf
     where 
-    x = VFS.map dotProd (VFS.iterateN num (+ factor) 0)
+    x = VFSM.map dotProd (VFSM.iterateN num (+ factor) 0)
     {-# INLINE dotProd #-}
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
@@ -102,7 +103,7 @@ decimateOne factor coeffs num inBuf outBuf = fill x outBuf
 decimateCross :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> v a -> v a -> vm (PrimState m) a -> m ()
 decimateCross factor coeffs num lastBuf nextBuf outBuf = fill x outBuf
     where
-    x = VFS.map dotProd (VFS.iterateN num (+ factor) 0)
+    x = VFSM.map dotProd (VFSM.iterateN num (+ factor) 0)
     {-# INLINE dotProd #-}
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) coeffs
 

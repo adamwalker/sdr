@@ -100,8 +100,8 @@ stride str inv = VG.unstream $ VFS.unfoldr func 0
            | otherwise = Just (VG.unsafeIndex inv i, i + str)
 
 {-# INLINE fill #-}
-fill :: (PrimMonad m, Functor m, VGM.MVector vm a) => VFS.Stream a -> vm (PrimState m) a -> m ()
-fill str outBuf = void $ VFS.foldM' put 0 str
+fill :: (PrimMonad m, Functor m, VGM.MVector vm a) => VFS.MStream m a -> vm (PrimState m) a -> m ()
+fill str outBuf = void $ VFSM.foldM' put 0 str
     where 
         put i x = do
             VGM.unsafeWrite outBuf i x
