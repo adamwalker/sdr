@@ -7,7 +7,8 @@ import Foreign.C.Types
 import Foreign.ForeignPtr
 import Foreign.Storable
 import Data.Complex
-import Data.ByteString.Internal
+import Data.ByteString.Internal 
+import Data.ByteString as BS
 import System.IO
 import Data.Time.Clock
 import Data.Vector.Generic                         as VG
@@ -18,10 +19,13 @@ import qualified Data.Vector.Fusion.Stream         as VFS
 import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 import Data.Tuple.All
 import Control.Monad.Primitive
+import Control.Applicative
 
 import Pipes
 import qualified Pipes.Prelude as P
 import qualified Pipes.ByteString as PB
+import Data.Serialize hiding (Done)
+import qualified Data.Serialize as S
 
 fork :: Monad m => Producer a m r -> Producer a (Producer a m) r
 fork prod = runEffect $ hoist (lift . lift) prod >-> fork' 
@@ -63,6 +67,28 @@ makeComplexBufferVect samples input = VG.generate samples convert
     convert idx  = convert' (input `VG.unsafeIndex` (2 * idx)) :+ convert' (input `VG.unsafeIndex` (2 * idx + 1))
     {-# INLINE convert' #-}
     convert' val = (fromIntegral val - 128) / 128
+
+floatVecToByteString    :: VG.Vector v Float  => v Float -> ByteString
+floatVecToByteString vect = runPut $ VG.mapM_ putFloat32le vect
+
+doubleVecToByteString   :: VG.Vector v Double => v Double -> ByteString
+doubleVecToByteString vect = runPut $ VG.mapM_ putFloat64le vect
+
+floatVecFromByteString  :: VG.Vector v Float  => ByteString -> v Float
+floatVecFromByteString bs = VG.unfoldrN (BS.length bs `div` 4) go bs
+    where
+    go bs = case runGetPartial getFloat32le bs of
+                Fail _ _    -> Nothing
+                Partial _   -> error "floatVecFromByteString: Partial"
+                S.Done r b  -> Just (r, b)
+
+doubleVecFromByteString  :: VG.Vector v Double  => ByteString -> v Double
+doubleVecFromByteString bs = VG.unfoldrN (BS.length bs `div` 8) go bs
+    where
+    go bs = case runGetPartial getFloat64le bs of
+                Fail _ _    -> Nothing
+                Partial _   -> error "doubleVecFromByteString"
+                S.Done r b  -> Just (r, b)
 
 toByteString :: forall a. (Storable a) => Pipe (VS.Vector a) ByteString IO ()
 toByteString = P.map $ \dat -> let (fp, o, sz) = VS.unsafeToForeignPtr dat in PS (castForeignPtr fp) o (sz * sizeOf (undefined :: a))
