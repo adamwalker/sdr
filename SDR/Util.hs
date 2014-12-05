@@ -109,11 +109,9 @@ toHandle handle = toByteString >-> PB.toHandle handle
 fromHandle :: forall a. (Storable a) => Int -> Handle -> Producer (VS.Vector a) IO ()
 fromHandle samples handle = PB.hGet (samples * sizeOf (undefined :: a)) handle >-> fromByteString 
 
-{-# INLINE_STREAM mapAccumMV #-}
 mapAccumMV :: (Monad m) => (acc -> x -> m (acc, y)) -> acc -> Stream m x -> Stream m y
 mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
     where
-    {-# INLINE_INNER step' #-}
     step' (s, acc) = do
         r <- step s
         case r of
@@ -123,12 +121,10 @@ mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
             Skip    s' -> return $ Skip (s', acc)
             Done       -> return $ Done
 
-{-# INLINE_STREAM stride #-}
 stride :: VG.Vector v a => Int -> v a -> v a
 stride str inv = VG.unstream $ VFS.unfoldr func 0
     where
     len = VG.length inv
-    {-# INLINE_INNER func #-}
     func i | i >= len  = Nothing
            | otherwise = Just (VG.unsafeIndex inv i, i + str)
 
