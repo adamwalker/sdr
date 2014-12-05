@@ -142,9 +142,9 @@ stride str inv = VG.unstream $ VFS.unfoldr func 0
 fill :: (PrimMonad m, Functor m, VGM.MVector vm a) => VFS.MStream m a -> vm (PrimState m) a -> m ()
 fill str outBuf = void $ VFSM.foldM' put 0 str
     where 
-        put i x = do
-            VGM.unsafeWrite outBuf i x
-            return $ i + 1
+    put i x = do
+        VGM.unsafeWrite outBuf i x
+        return $ i + 1
 
 class Mult a b where
     mult :: a -> b -> a
