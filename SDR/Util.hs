@@ -43,6 +43,7 @@ printStream samples = for cat $ VG.mapM_ (lift . print)
 devnull :: Monad m => Consumer a m ()
 devnull = forever await
 
+-- | Passthrough pipe that prints the sample rate
 rate :: Int -> Pipe a a IO b
 rate samples = do
     start <- lift $ getCurrentTime 
@@ -60,6 +61,9 @@ rate samples = do
             rate' (buffers + 1)
     rate' 1
 
+{-| Create a vector of complex samples from a vector of interleaved
+    I Q components.
+-}
 {-# INLINE makeComplexBufferVect #-}
 makeComplexBufferVect :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a, VG.Vector v2 (Complex b)) => Int -> v1 a -> v2 (Complex b)
 makeComplexBufferVect samples input = VG.generate samples convert
