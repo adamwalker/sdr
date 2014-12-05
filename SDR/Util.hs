@@ -129,6 +129,7 @@ mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
 {-| Create a vector from another vector containing only the elements that
     occur every stride elements in the source vector.
 -}
+{-# INLINE stride #-}
 stride :: VG.Vector v a => Int -> v a -> v a
 stride str inv = VG.unstream $ VFS.unfoldr func 0
     where
