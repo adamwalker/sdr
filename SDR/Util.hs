@@ -35,9 +35,11 @@ fork prod = runEffect $ hoist (lift . lift) prod >-> fork'
         lift $ yield res
         lift $ lift $ yield res
 
+-- | A consumer that prints everything to stdout
 printStream :: (Show a, VG.Vector v a) => Int -> Consumer (v a) IO ()
-printStream samples = for cat $ VG.mapM_ (lift . print . show) 
+printStream samples = for cat $ VG.mapM_ (lift . print) 
 
+-- | A consumer that discards everything
 devnull :: Monad m => Consumer a m ()
 devnull = forever await
 
@@ -58,7 +60,6 @@ rate samples = do
             rate' (buffers + 1)
     rate' 1
 
---Conversion of sample bytes to doubles
 {-# SPECIALIZE INLINE makeComplexBufferVect :: Int -> VS.Vector CUChar -> VS.Vector (Complex CDouble) #-}
 makeComplexBufferVect :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a, VG.Vector v2 (Complex b)) => Int -> v1 a -> v2 (Complex b)
 makeComplexBufferVect samples input = VG.generate samples convert
@@ -109,6 +110,10 @@ toHandle handle = toByteString >-> PB.toHandle handle
 fromHandle :: forall a. (Storable a) => Int -> Handle -> Producer (VS.Vector a) IO ()
 fromHandle samples handle = PB.hGet (samples * sizeOf (undefined :: a)) handle >-> fromByteString 
 
+{-| Like mapAccumL but monadic and over vectors. Doesn't return the
+    accumulator at the end because it doesn't seem to be possible to do
+    this with the Stream datatype, making this function pretty useless.
+-}
 mapAccumMV :: (Monad m) => (acc -> x -> m (acc, y)) -> acc -> Stream m x -> Stream m y
 mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
     where
@@ -121,6 +126,9 @@ mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
             Skip    s' -> return $ Skip (s', acc)
             Done       -> return $ Done
 
+{-| Create a vector from another vector containing only the elements that
+    occur every stride elements in the source vector.
+-}
 stride :: VG.Vector v a => Int -> v a -> v a
 stride str inv = VG.unstream $ VFS.unfoldr func 0
     where
@@ -128,6 +136,7 @@ stride str inv = VG.unstream $ VFS.unfoldr func 0
     func i | i >= len  = Nothing
            | otherwise = Just (VG.unsafeIndex inv i, i + str)
 
+-- | Fill a mutable vector from a monadic stream
 {-# INLINE fill #-}
 fill :: (PrimMonad m, Functor m, VGM.MVector vm a) => VFS.MStream m a -> vm (PrimState m) a -> m ()
 fill str outBuf = void $ VFSM.foldM' put 0 str
