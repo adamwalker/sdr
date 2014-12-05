@@ -21,7 +21,7 @@ pulseAudioSink = do
 
 doPulse :: IO (Consumer (VS.Vector CFloat) IO ())
 doPulse = do
-    s <- simpleNew Nothing "example" Play Nothing "this is an example application" (SampleSpec (F32 LittleEndian) 48000 1) Nothing Nothing
+    s <- simpleNew Nothing "Haskell SDR" Play Nothing "Software Defined Radio library" (SampleSpec (F32 LittleEndian) 48000 1) Nothing Nothing
     return $ for cat $ \buf -> 
         lift $ do
             let (fp, offset, length) = VS.unsafeToForeignPtr buf
