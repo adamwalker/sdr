@@ -68,6 +68,10 @@ makeComplexBufferVect samples input = VG.generate samples convert
     {-# INLINE convert' #-}
     convert' val = (fromIntegral val - 128) / 128
 
+{-| Slow functions for serializing/deserializing vectors to/from
+    bytestrings. There must be a better way to do this that doesn't involve
+    copying.
+-}
 floatVecToByteString    :: VG.Vector v Float  => v Float -> ByteString
 floatVecToByteString vect = runPut $ VG.mapM_ putFloat32le vect
 
@@ -90,6 +94,9 @@ doubleVecFromByteString bs = VG.unfoldrN (BS.length bs `div` 8) go bs
                 Partial _   -> error "doubleVecFromByteString"
                 S.Done r b  -> Just (r, b)
 
+{-| Fast functions for serializing/deserializing storable vectors to/from
+    bytestrings.
+-}
 toByteString :: forall a. (Storable a) => Pipe (VS.Vector a) ByteString IO ()
 toByteString = P.map $ \dat -> let (fp, o, sz) = VS.unsafeToForeignPtr dat in PS (castForeignPtr fp) o (sz * sizeOf (undefined :: a))
 
