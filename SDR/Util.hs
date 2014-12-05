@@ -60,7 +60,7 @@ rate samples = do
             rate' (buffers + 1)
     rate' 1
 
-{-# SPECIALIZE INLINE makeComplexBufferVect :: Int -> VS.Vector CUChar -> VS.Vector (Complex CDouble) #-}
+{-# INLINE makeComplexBufferVect #-}
 makeComplexBufferVect :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a, VG.Vector v2 (Complex b)) => Int -> v1 a -> v2 (Complex b)
 makeComplexBufferVect samples input = VG.generate samples convert
     where
@@ -146,6 +146,7 @@ fill str outBuf = void $ VFSM.foldM' put 0 str
         VGM.unsafeWrite outBuf i x
         return $ i + 1
 
+-- | A class for things that can be multiplied by a scalar.
 class Mult a b where
     mult :: a -> b -> a
 
