@@ -46,11 +46,11 @@ devnull = forever await
 -- | Passthrough pipe that prints the sample rate
 rate :: Int -> Pipe a a IO b
 rate samples = do
-    start <- lift $ getCurrentTime 
+    start <- lift getCurrentTime 
     let rate' buffers = do
             res <- await
 
-            time <- lift $ getCurrentTime 
+            time <- lift getCurrentTime 
             let diff = diffUTCTime time start 
                 diffSecs :: Double
                 diffSecs = fromRational $ toRational diff
@@ -128,7 +128,7 @@ mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
                 (!acc', !res) <- func acc y 
                 return $ Yield res (s', acc')
             Skip    s' -> return $ Skip (s', acc)
-            Done       -> return $ Done
+            Done       -> return Done
 
 {-| Create a vector from another vector containing only the elements that
     occur every stride elements in the source vector.

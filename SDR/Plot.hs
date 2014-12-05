@@ -35,7 +35,7 @@ plotTexture width height samples xResolution = do
 
 plotTextureAxes :: Int -> Int -> Int -> Int -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotTextureAxes width height samples xResolution rm = do
-    mv <- lift $ newEmptyMVar 
+    mv <- lift newEmptyMVar 
 
     lift $ forkOS $ void $ runEitherT $ do
         --create a window
@@ -78,7 +78,7 @@ plotWaterfall windowWidth windowHeight width height colorMap = do
 --TODO: doesnt work
 plotWaterfallAxes :: Int -> Int -> Int -> Int -> [GLfloat] -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotWaterfallAxes windowWidth windowHeight width height colorMap rm = do
-    mv <- lift $ newEmptyMVar
+    mv <- lift newEmptyMVar
 
     lift $ forkOS $ void $ runEitherT $ do
         res' <- lift $ createWindow windowWidth windowHeight "" Nothing Nothing
@@ -94,7 +94,7 @@ plotWaterfallAxes windowWidth windowHeight width height colorMap rm = do
                 lift $ makeContextCurrent (Just win)
 
                 lift $ viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
-                lift $ renderAxisFunc
+                lift renderAxisFunc
 
                 lift $ viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
 
@@ -111,7 +111,7 @@ plotFill width height samples colorMap = do
 
 plotFillAxes :: Int -> Int -> Int -> [GLfloat] -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFillAxes width height samples colorMap rm = do
-    mv <- lift $ newEmptyMVar 
+    mv <- lift newEmptyMVar 
 
     lift $ forkOS $ void $ runEitherT $ do
         res' <- lift $ createWindow width height "" Nothing Nothing
