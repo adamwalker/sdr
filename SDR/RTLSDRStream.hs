@@ -14,7 +14,7 @@ import Pipes
 import Pipes.Concurrent 
 import RTLSDR
 
---Streams buffers with 131072 samples
+-- | Returns a producer that streams data from a Realtek RTL2832U based device
 sdrStream :: Word32 -> Word32 -> Word32 -> Word32 -> EitherT String IO (Producer (VS.Vector CUChar) IO ())
 sdrStream frequency sampleRate bufNum bufLen = do
     lift $ putStrLn "Initializing RTLSDR device"

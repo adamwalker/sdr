@@ -11,6 +11,7 @@ import Sound.Pulse.Simple
 import Pipes
 import Pipes.Concurrent
 
+-- | Returns a consumer that sends all incoming data to pulseaudio.
 pulseAudioSink :: IO (Consumer (VS.Vector CFloat) IO ())
 pulseAudioSink = do
     (output, input) <- spawn Unbounded
