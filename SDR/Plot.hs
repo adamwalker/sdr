@@ -29,9 +29,7 @@ replaceMVar mv val = do
     putMVar mv val
 
 plotTexture :: Int -> Int -> Int -> Int -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotTexture width height samples xResolution = do
-    renderFunc <- textureLineWindow width height samples xResolution
-    return $ for cat (lift . renderFunc)
+plotTexture = textureLineWindow
 
 plotTextureAxes :: Int -> Int -> Int -> Int -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotTextureAxes width height samples xResolution rm = do
@@ -103,9 +101,7 @@ plotWaterfallAxes windowWidth windowHeight width height colorMap rm = do
     return $ for cat (lift . replaceMVar mv)
 
 plotFill :: Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotFill width height samples colorMap = do
-    graphFunc <- filledLineWindow width height samples colorMap
-    return $ for cat (lift . graphFunc)
+plotFill = filledLineWindow 
 
 plotFillAxes :: Int -> Int -> Int -> [GLfloat] -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFillAxes width height samples colorMap rm = do
