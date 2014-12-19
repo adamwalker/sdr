@@ -71,9 +71,7 @@ plotTextureAxes width height samples xResolution rm = do
     return $ for cat (lift . replaceMVar mv)
 
 plotWaterfall :: Int -> Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotWaterfall windowWidth windowHeight width height colorMap = do
-    renderFunc <- waterfallWindow windowWidth windowHeight width height colorMap
-    return $ for cat (lift . renderFunc)
+plotWaterfall = waterfallWindow
 
 --TODO: doesnt work
 plotWaterfallAxes :: Int -> Int -> Int -> Int -> [GLfloat] -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
