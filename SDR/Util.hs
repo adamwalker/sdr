@@ -11,12 +11,12 @@ import Data.ByteString.Internal
 import Data.ByteString as BS
 import System.IO
 import Data.Time.Clock
-import Data.Vector.Generic                         as VG
+import Data.Vector.Generic                         as VG   hiding ((++))
 import qualified Data.Vector.Generic.Mutable       as VGM
-import Data.Vector.Storable                        as VS
-import Data.Vector.Fusion.Stream.Monadic
-import qualified Data.Vector.Fusion.Stream         as VFS
-import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
+import Data.Vector.Storable                        as VS   hiding ((++))
+import Data.Vector.Fusion.Stream.Monadic                   hiding ((++))
+import qualified Data.Vector.Fusion.Stream         as VFS  hiding ((++))
+import qualified Data.Vector.Fusion.Stream.Monadic as VFSM hiding ((++))
 import Data.Tuple.All
 import Control.Monad.Primitive
 import Control.Applicative
@@ -26,6 +26,7 @@ import qualified Pipes.Prelude as P
 import qualified Pipes.ByteString as PB
 import Data.Serialize hiding (Done)
 import qualified Data.Serialize as S
+import Options.Applicative
 
 fork :: Monad m => Producer a m r -> Producer a (Producer a m) r
 fork prod = runEffect $ hoist (lift . lift) prod >-> fork' 
@@ -159,4 +160,14 @@ instance (Num a) => Mult a a where
 
 instance (Num a) => Mult (Complex a) a where
     mult (x :+ y) z = (x * z) :+ (y * z)
+
+parseSize :: ReadM Integer
+parseSize = eitherReader $ \arg -> case reads arg of
+    [(r, suffix)] -> case suffix of 
+        []  -> return r
+        "K" -> return $ r * 1000 
+        "M" -> return $ r * 1000000
+        "G" -> return $ r * 1000000000
+        x   -> Left  $ "Cannot parse suffix: `" ++ x ++ "'"
+    _             -> Left $ "Cannot parse value: `" ++ arg ++ "'"
 
