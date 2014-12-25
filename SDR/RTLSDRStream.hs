@@ -1,4 +1,6 @@
-module SDR.RTLSDRStream where
+module SDR.RTLSDRStream (
+    sdrStream
+    ) where
 
 import Control.Monad
 import Control.Monad.Trans.Either

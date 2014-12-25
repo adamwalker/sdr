@@ -1,5 +1,11 @@
 {-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
-module SDR.FFT where
+module SDR.FFT (
+    hanning,
+    fftFixup,
+    fftw,
+    fftwParallel,
+    fftwReal
+    ) where
 
 import Control.Monad as CM
 import Data.Bits

@@ -1,5 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
-module SDR.Demod where
+module SDR.Demod (
+    fmDemodStr,
+    fmDemodVec
+    ) where
 
 import Data.Complex
 import Data.Vector.Generic

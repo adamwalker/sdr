@@ -1,4 +1,7 @@
-module SDR.Pulse where
+module SDR.Pulse (
+    pulseAudioSink,
+    doPulse
+    ) where
 
 import Foreign.ForeignPtr
 import Foreign.C.Types

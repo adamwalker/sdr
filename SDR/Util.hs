@@ -1,6 +1,26 @@
 {-# LANGUAGE FlexibleContexts, BangPatterns, ScopedTypeVariables, MultiParamTypeClasses, FlexibleInstances #-}
 
-module SDR.Util where
+module SDR.Util (
+    fork, 
+    printStream,
+    devnull,
+    rate,
+    makeComplexBufferVect,
+    floatVecToByteString,
+    doubleVecToByteString,
+    floatVecFromByteString,
+    doubleVecFromByteString,
+    toByteString,
+    fromByteString,
+    toHandle,
+    fromHandle,
+    mapAccumMV,
+    stride,
+    fill,
+    Mult,
+    mult,
+    parseSize
+    ) where
 
 import Control.Monad
 import Foreign.C.Types

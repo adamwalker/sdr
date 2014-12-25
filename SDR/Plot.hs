@@ -1,4 +1,13 @@
-module SDR.Plot where
+module SDR.Plot (
+    plotTexture,
+    plotTextureAxes,
+    plotWaterfall,
+    plotWaterfallAxes,
+    plotFill,
+    plotFillAxes,
+    zeroAxes,
+    centeredAxes
+    ) where
 
 import Control.Monad
 import Control.Monad.Trans.Either

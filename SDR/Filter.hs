@@ -1,4 +1,8 @@
-module SDR.Filter where
+module SDR.Filter (
+    filterr,
+    decimate,
+    resample
+    ) where
 
 import Foreign.C.Types
 import Data.Complex
