@@ -13,4 +13,4 @@ Features:
 * PulseAudio sound sink
 * rtl-sdr based radio source supported and other sources are easily added
 
-See https://github.com/adamwalker/sdr-demo for a demo FM receiver
+See https://github.com/adamwalker/sdr-demo for a demo FM receiver and https://github.com/adamwalker/sdr-apps for a collection of simple apps built on the library.
