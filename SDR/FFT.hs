@@ -58,7 +58,7 @@ fftw samples = do
 
     plan <- withForeignPtr ina $ \ip -> 
         withForeignPtr out $ \op -> 
-            planDFT1d samples ip op fftwForward fftwEstimate
+            planDFT1d samples ip op Forward fftwEstimate
     
     return $ for cat $ \inv' -> do
         out <- lift $ mallocForeignBufferAligned samples
@@ -83,7 +83,7 @@ fftwParallel threads samples = do
 
     plan <- withForeignPtr ina $ \ip -> 
         withForeignPtr out $ \op -> 
-            planDFT1d samples ip op fftwForward fftwEstimate
+            planDFT1d samples ip op Forward fftwEstimate
 
     --setup the channels and worker threads
     inChan <- newChan 
