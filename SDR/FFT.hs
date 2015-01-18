@@ -32,7 +32,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Pipes
-import FFTW
+import Numeric.FFTW
 
 mallocForeignBufferAligned :: forall a. Storable a => Int -> IO (ForeignPtr a)
 mallocForeignBufferAligned elems = do
