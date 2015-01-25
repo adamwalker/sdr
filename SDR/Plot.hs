@@ -1,6 +1,6 @@
 module SDR.Plot (
-    plotTexture,
-    plotTextureAxes,
+    plotLine,
+    plotLineAxes,
     plotWaterfall,
     plotWaterfallAxes,
     plotFill,
@@ -26,22 +26,23 @@ import qualified Pipes.Prelude as P
 import Data.Colour.Names
 import Graphics.Rendering.Pango
 
-import Graphics.DynamicGraph.TextureLine
+import Graphics.DynamicGraph.Line
 import Graphics.DynamicGraph.Waterfall  
 import Graphics.DynamicGraph.FillLine   
 import Graphics.DynamicGraph.Axis
 import Graphics.DynamicGraph.RenderCairo
+import Graphics.DynamicGraph.Window
 
 replaceMVar :: MVar a -> a -> IO ()
 replaceMVar mv val = do
     tryTakeMVar mv
     putMVar mv val
 
-plotTexture :: Int -> Int -> Int -> Int -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotTexture = textureLineWindow
+plotLine :: Int -> Int -> Int -> Int -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+plotLine width height samples resolution = window width height $ fmap (for cat . (lift . )) $ renderLine samples resolution
 
-plotTextureAxes :: Int -> Int -> Int -> Int -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotTextureAxes width height samples xResolution rm = do
+plotLineAxes :: Int -> Int -> Int -> Int -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+plotLineAxes width height samples xResolution rm = do
     mv <- lift newEmptyMVar 
 
     lift $ forkOS $ void $ runEitherT $ do
@@ -51,7 +52,7 @@ plotTextureAxes width height samples xResolution rm = do
         lift $ makeContextCurrent (Just win)
         
         --render the graph
-        renderFunc <- lift $ renderTextureLine samples xResolution
+        renderFunc <- lift $ renderLine samples xResolution
 
         --render the axes
         renderAxisFunc <- lift $ renderCairo rm width height
@@ -78,7 +79,7 @@ plotTextureAxes width height samples xResolution rm = do
     return $ for cat (lift . replaceMVar mv)
 
 plotWaterfall :: Int -> Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotWaterfall = waterfallWindow
+plotWaterfall width height x y z = window width height $ renderWaterfall x y z
 
 --TODO: doesnt work
 plotWaterfallAxes :: Int -> Int -> Int -> Int -> [GLfloat] -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
@@ -110,7 +111,7 @@ plotWaterfallAxes windowWidth windowHeight width height colorMap rm = do
     return $ for cat (lift . replaceMVar mv)
 
 plotFill :: Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotFill = filledLineWindow 
+plotFill width height samples colorMap = window width height $ fmap (for cat . (lift . )) $ renderFilledLine samples colorMap
 
 plotFillAxes :: Int -> Int -> Int -> [GLfloat] -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFillAxes width height samples colorMap rm = do
