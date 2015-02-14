@@ -33,6 +33,8 @@ fill str outBuf = void $ VFSM.foldM' put 0 str
 
 -- | The functions to be benchmarked
 
+-- | Filters
+
 filterHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
 filterHighLevel coeffs num inBuf outBuf = fill (VFSM.generate num dotProd) outBuf
     where
@@ -94,6 +96,44 @@ filterCAVX num coeffs inBuf outBuf =
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 filterAVX_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
+-- | Decimation
+
+decimateHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> v a -> vm (PrimState m) a -> m ()
+decimateHighLevel num factor coeffs inBuf outBuf = fill x outBuf
+    where 
+    x = VFSM.map dotProd (VFSM.iterateN num (+ factor) 0)
+    dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
+
+foreign import ccall unsafe "decimateC"
+    decimateC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateC :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+decimateC num factor coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                decimateC_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
+foreign import ccall unsafe "decimateSSE"
+    decimateSSE_c :: CInt -> CInt -> Int -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateCSSE :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+decimateCSSE num factor coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                decimateSSE_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
+foreign import ccall unsafe "decimateAVX"
+    decimateAVX_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateCAVX :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+decimateCAVX num factor coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                decimateAVX_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
 test = do
     --Setup
     let size      =  8192
@@ -131,9 +171,10 @@ test = do
 theBench :: IO ()
 theBench = do
     --Setup
-    let size      =  16384
-        numCoeffs =  100
-        num       =  size - numCoeffs + 1
+    let size       =  16384
+        numCoeffs  =  100
+        num        =  size - numCoeffs + 1
+        decimation =  4
 
         coeffs    :: VS.Vector Float
         coeffs    =  VG.fromList $ take numCoeffs [0 ..]
@@ -144,13 +185,19 @@ theBench = do
 
     --Benchmarks
     defaultMain [
-            bgroup "bench" [
+            bgroup "filter" [
                 bench "highLevel"   $ nfIO $ filterHighLevel   coeffs num inBuf outBuf,
                 bench "imperative1" $ nfIO $ filterImperative1 coeffs num inBuf outBuf,
                 bench "imperative2" $ nfIO $ filterImperative2 coeffs num inBuf outBuf,
                 bench "c"           $ nfIO $ filterC           num coeffs inBuf outBuf,
                 bench "cSSE"        $ nfIO $ filterCSSE        num coeffs inBuf outBuf,
                 bench "cSSE"        $ nfIO $ filterCAVX        num coeffs inBuf outBuf
+            ],
+            bgroup "decimation" [
+                bench "highLevel"   $ nfIO $ decimateHighLevel (num `quot` decimation) decimation coeffs inBuf outBuf,
+                bench "c"           $ nfIO $ decimateC         (num `quot` decimation) decimation coeffs inBuf outBuf,
+                bench "c"           $ nfIO $ decimateCSSE      (num `quot` decimation) decimation coeffs inBuf outBuf,
+                bench "c"           $ nfIO $ decimateCAVX      (num `quot` decimation) decimation coeffs inBuf outBuf
             ]
         ]
 
