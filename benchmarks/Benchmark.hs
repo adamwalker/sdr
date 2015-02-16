@@ -176,10 +176,10 @@ decimateCSSERC :: DecimateRC
 decimateCSSERC = decimateFFIC decimateSSERC_c
 
 foreign import ccall unsafe "decimateAVXRR"
-    decimateAVX_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+    decimateAVXRR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
 decimateCAVXRR :: DecimateRR
-decimateCAVXRR = decimateFFIR decimateAVX_c
+decimateCAVXRR = decimateFFIR decimateAVXRR_c
 
 foreign import ccall unsafe "decimateAVXRC"
     decimateAVXRC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
@@ -260,10 +260,8 @@ theBench = do
         duplicate = concat . map func 
             where func x = [x, x]
 
-        inBufComplex2 :: VS.Vector (Complex Float)
-        inBufComplex2 =  VG.fromList $ duplicate $ take size $ do
-            i <- [0..]
-            return $ i :+ i
+        coeffs2 :: VS.Vector Float
+        coeffs2 =  VG.fromList $ duplicate $ take numCoeffs [0 ..]
 
     outBuf        :: VS.MVector RealWorld Float <- VGM.new size
     outBufComplex :: VS.MVector RealWorld (Complex Float) <- VGM.new size
@@ -281,8 +279,8 @@ theBench = do
             bgroup "filterComplex" [
                 bench "highLevel"   $ nfIO $ filterHighLevel   num coeffs inBufComplex outBufComplex,
                 bench "c"           $ nfIO $ filterCRC         num coeffs inBufComplex outBufComplex,
-                bench "cSSE"        $ nfIO $ filterCSSERC      num coeffs inBufComplex2 outBufComplex,
-                bench "cAVX"        $ nfIO $ filterCAVXRC      num coeffs inBufComplex2 outBufComplex
+                bench "cSSE"        $ nfIO $ filterCSSERC      num coeffs2 inBufComplex outBufComplex,
+                bench "cAVX"        $ nfIO $ filterCAVXRC      num coeffs2 inBufComplex outBufComplex
             ],
             bgroup "decimateReal" [
                 bench "highLevel"   $ nfIO $ decimateHighLevel (num `quot` decimation) decimation coeffs inBuf outBuf,
@@ -293,8 +291,8 @@ theBench = do
             bgroup "decimateComplex" [
                 bench "highLevel"   $ nfIO $ decimateHighLevel (num `quot` decimation) decimation coeffs inBufComplex outBufComplex,
                 bench "c"           $ nfIO $ decimateCRC       (num `quot` decimation) decimation coeffs inBufComplex outBufComplex,
-                bench "cSSE"        $ nfIO $ decimateCSSERC      (num `quot` decimation) decimation coeffs inBufComplex2 outBufComplex,
-                bench "cAVX"        $ nfIO $ decimateCAVXRC      (num `quot` decimation) decimation coeffs inBufComplex2 outBufComplex
+                bench "cSSE"        $ nfIO $ decimateCSSERC    (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex,
+                bench "cAVX"        $ nfIO $ decimateCAVXRC    (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex
             ],
             bgroup "conversion" [
                 bench "c"           $ nfIO $ convertC          numConv inBufConv outBuf
