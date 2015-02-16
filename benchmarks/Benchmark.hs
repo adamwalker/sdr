@@ -208,8 +208,8 @@ decimateCAVXRC :: DecimateRC
 decimateCAVXRC = decimateFFIC decimateAVXRC_c
 
 -- | Rational downsampling
-resampleHighLevel :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> Int -> v b -> Int -> v a -> vm (PrimState m) a -> m Int
-resampleHighLevel count interpolation decimation coeffs filterOffset inBuf outBuf = fill 0 filterOffset 0
+resampleHighLevel :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> Int -> Int -> v b -> v a -> vm (PrimState m) a -> m Int
+resampleHighLevel count interpolation decimation filterOffset coeffs inBuf outBuf = fill 0 filterOffset 0
     where
     fill i filterOffset inputOffset
         | i < count = do
@@ -221,6 +221,16 @@ resampleHighLevel count interpolation decimation coeffs filterOffset inBuf outBu
             filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
         | otherwise = return filterOffset
     dotProd filterOffset offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation (VG.unsafeDrop filterOffset coeffs))
+
+foreign import ccall unsafe "resample"
+    resample_c :: CInt -> CInt -> CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+resampleC :: Int -> Int -> Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+resampleC num interpolation decimation offset coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                resample_c (fromIntegral num) (fromIntegral $ VG.length coeffs) (fromIntegral interpolation) (fromIntegral decimation) (fromIntegral offset) cPtr iPtr oPtr
 
 -- | Conversion
 
@@ -366,10 +376,11 @@ theBench = do
             ],
             bgroup "resample" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ resampleHighLevel num interpolation decimation coeffs 0 inBuf outBuf
+                    bench "highLevel"   $ nfIO $ resampleHighLevel num interpolation decimation 0 coeffs inBuf outBuf,
+                    bench "c"           $ nfIO $ resampleC         num interpolation decimation 0 coeffs inBuf outBuf
                 ],
                 bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ resampleHighLevel num interpolation decimation coeffs 0 inBufComplex outBufComplex
+                    bench "highLevel"   $ nfIO $ resampleHighLevel num interpolation decimation 0 coeffs inBufComplex outBufComplex
                 ]
             ],
             bgroup "conversion" [

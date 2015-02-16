@@ -296,6 +296,32 @@ void decimateAVXRC(int num, int factor, int numCoeffs, float *coeffs, float *inB
     }
 }
 
+/*
+ * Rational downsampling
+ */
+
+void resample(int buf_size, int coeff_size, int interpolation, int decimation, int filter_offset, float *coeffs, float *in_buf, float *out_buf){
+    int j, k, l;
+    int input_offset = 0;
+    for(k=0; k<buf_size; k++) {
+        float accum = 0;
+
+        for(l=0, j=filter_offset; j<coeff_size; l++, j+=interpolation) {
+            accum += in_buf[input_offset + l] * coeffs[j];
+        }
+
+        int filter_offset_new = interpolation - 1 - (decimation - filter_offset - 1) % interpolation;
+        input_offset += (decimation - filter_offset - 1) / interpolation + 1;
+        filter_offset = filter_offset_new;
+
+        out_buf[k] = accum;
+    }
+}
+
+/*
+ * Conversion
+ */
+
 void convertC(int num, uint8_t *in, float *out){
     int i;
     for(i=0; i<num; i++){
@@ -313,6 +339,10 @@ void convertSSE(int num, uint8_t *in, float *out){
     }
 }
 */
+
+/*
+ * Scaling
+ */
 
 void scale(int num, float factor, float *buf){
     int i;
