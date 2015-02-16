@@ -35,6 +35,14 @@ fill str outBuf = void $ VFSM.foldM' put 0 str
     put i x = do
         VGM.unsafeWrite outBuf i x
         return $ i + 1
+       
+{-# INLINE stride #-}
+stride :: VG.Vector v a => Int -> v a -> v a
+stride str inv = VG.unstream $ VFS.unfoldr func 0
+    where
+    len = VG.length inv
+    func i | i >= len  = Nothing
+           | otherwise = Just (VG.unsafeIndex inv i, i + str)
 
 -- | The functions to be benchmarked
 
@@ -187,6 +195,21 @@ foreign import ccall unsafe "decimateAVXRC"
 decimateCAVXRC :: DecimateRC
 decimateCAVXRC = decimateFFIC decimateAVXRC_c
 
+-- | Rational downsampling
+resampleHighLevel :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> Int -> v b -> Int -> v a -> vm (PrimState m) a -> m Int
+resampleHighLevel count interpolation decimation coeffs filterOffset inBuf outBuf = fill 0 filterOffset 0
+    where
+    fill i filterOffset inputOffset
+        | i < count = do
+            let dp = dotProd filterOffset inputOffset
+            VGM.unsafeWrite outBuf i dp
+            let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
+                inputOffset'  = inputOffset + q + 1
+                filterOffset' = interpolation - 1 - r
+            filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
+        | otherwise = return filterOffset
+    dotProd filterOffset offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation (VG.unsafeDrop filterOffset coeffs))
+
 -- | Conversion
 
 foreign import ccall unsafe "convertC"
@@ -242,6 +265,7 @@ theBench = do
         numCoeffs  =  128
         num        =  size - numCoeffs + 1
         decimation =  4
+        interpolation = 3
 
         coeffs    :: VS.Vector Float
         coeffs    =  VG.fromList $ take numCoeffs [0 ..]
@@ -293,6 +317,12 @@ theBench = do
                 bench "c"           $ nfIO $ decimateCRC       (num `quot` decimation) decimation coeffs inBufComplex outBufComplex,
                 bench "cSSE"        $ nfIO $ decimateCSSERC    (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex,
                 bench "cAVX"        $ nfIO $ decimateCAVXRC    (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex
+            ],
+            bgroup "resampleReal" [
+                bench "highLevel"   $ nfIO $ resampleHighLevel num interpolation decimation coeffs 0 inBuf outBuf
+            ],
+            bgroup "resampleComplex" [
+                bench "highLevel"   $ nfIO $ resampleHighLevel num interpolation decimation coeffs 0 inBufComplex outBufComplex
             ],
             bgroup "conversion" [
                 bench "c"           $ nfIO $ convertC          numConv inBufConv outBuf
