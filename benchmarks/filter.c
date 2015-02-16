@@ -313,3 +313,27 @@ void convertSSE(int num, uint8_t *in, float *out){
     }
 }
 */
+
+void scale(int num, float factor, float *buf){
+    int i;
+    for(i=0; i<num; i++){
+        buf[i] *= factor;
+    }
+}
+
+void scaleSSE(int num, float factor, float *buf){
+    int i;
+    __m128 fac = _mm_set1_ps(factor);
+    for(i=0; i<num; i+=4){
+        _mm_store_ps(buf + i, _mm_mul_ps(fac, _mm_loadu_ps(buf + i)));
+    }
+}
+
+void scaleAVX(int num, float factor, float *buf){
+    int i;
+    __m256 fac = _mm256_set1_ps(factor);
+    for(i=0; i<num; i+=8){
+        _mm256_storeu_ps(buf + i, _mm256_mul_ps(fac, _mm256_loadu_ps(buf + i)));
+    }
+}
+
