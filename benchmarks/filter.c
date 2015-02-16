@@ -1,7 +1,11 @@
 #include <stdio.h>
+#include <stdint.h>
 #include <x86intrin.h>
 
-void filterC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+/*
+ * Filtering
+ */
+void filterRR(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j;
     for(i=0; i<num; i++){
         float accum = 0;
@@ -13,7 +17,22 @@ void filterC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf)
     }
 }
 
-void filterSSE(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+void filterRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j;
+    for(i=0; i<num; i+=2){
+        float real = 0;
+        float imag = 0;
+        float *startPtr = inBuf + i;
+        for(j=0; j<numCoeffs; j++){
+            real += startPtr[j] * coeffs[j];
+            imag += startPtr[j+1] * coeffs[j];
+        }
+        outBuf[i] = real;
+        outBuf[i+1] = imag;
+    }
+}
+
+void filterSSERR(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j;
     for(i=0; i<num; i++){
         __m128 accum = _mm_setzero_ps();
@@ -34,7 +53,7 @@ void filterSSE(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBu
     }
 }
 
-void filterAVX(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+void filterAVXRR(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j;
     for(i=0; i<num; i++){
         __m256 accum = _mm256_setzero_ps();
@@ -63,7 +82,10 @@ void filterAVX(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBu
     }
 }
 
-void decimateC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+/*
+ * Decimation
+ */
+void decimateRR(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j, k;
     for(i=0, k=0; i<num; i++, k+=factor){
         float accum = 0;
@@ -75,7 +97,22 @@ void decimateC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, 
     }
 }
 
-void decimateSSE(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+void decimateRC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j, k;
+    for(i=0, k=0; i<num; i+=2, k+=factor*2){
+        float real = 0;
+        float imag = 0;
+        float *startPtr = inBuf + k;
+        for(j=0; j<numCoeffs; j++){
+            real += startPtr[j] * coeffs[j];
+            imag += startPtr[j+1] * coeffs[j];
+        }
+        outBuf[i] = real;
+        outBuf[i+1] = imag;
+    }
+}
+
+void decimateSSERR(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j, k;
     for(i=0, k=0; i<num; i++, k+=factor){
         __m128 accum = _mm_setzero_ps();
@@ -96,7 +133,7 @@ void decimateSSE(int num, int factor, int numCoeffs, float *coeffs, float *inBuf
     }
 }
 
-void decimateAVX(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+void decimateAVXRR(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j, k;
     for(i=0, k=0; i<num; i++, k+=factor){
         __m256 accum = _mm256_setzero_ps();
@@ -125,3 +162,20 @@ void decimateAVX(int num, int factor, int numCoeffs, float *coeffs, float *inBuf
     }
 }
 
+void convertC(int num, uint8_t *in, float *out){
+    int i;
+    for(i=0; i<num; i++){
+        out[i] = (float) in[i];
+    }
+}
+
+/*
+void convertSSE(int num, uint8_t *in, float *out){
+    int i;
+    for(i=0; i<num; i+=4){
+        //__m64  dat   = _mm64_loadu_ps(in + i);
+        __m128 cvted = _mm_cvtpu8_ps(dat);
+        _mm_storeu_ps(out + i, cvted);
+    }
+}
+*/

@@ -5,6 +5,7 @@ import           Control.Monad
 import           Foreign.C.Types
 import           Foreign.Ptr
 import           Unsafe.Coerce
+import           Data.Complex
 
 import qualified Data.Vector.Generic               as VG
 import qualified Data.Vector.Generic.Mutable       as VGM
@@ -13,6 +14,7 @@ import qualified Data.Vector.Storable.Mutable      as VSM
 import qualified Data.Vector.Fusion.Stream         as VFS
 import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 
+import           Foreign.Storable.Complex
 import           Criterion.Main
 
 -- | A class for things that can be multiplied by a scalar.
@@ -21,6 +23,9 @@ class Mult a b where
 
 instance (Num a) => Mult a a where
     mult = (*)
+
+instance (Num a) => Mult (Complex a) a where
+    mult (x :+ y) z = (x * z) :+ (y * z)
 
 -- | Fill a mutable vector from a monadic stream
 {-# INLINE fill #-}
@@ -35,13 +40,13 @@ fill str outBuf = void $ VFSM.foldM' put 0 str
 
 -- | Filters
 
-filterHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
-filterHighLevel coeffs num inBuf outBuf = fill (VFSM.generate num dotProd) outBuf
+filterHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> v a -> vm (PrimState m) a -> m ()
+filterHighLevel num coeffs inBuf outBuf = fill (VFSM.generate num dotProd) outBuf
     where
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
-filterImperative1 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
-filterImperative1 coeffs num inBuf outBuf = go 0
+filterImperative1 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> v a -> vm (PrimState m) a -> m ()
+filterImperative1 num coeffs inBuf outBuf = go 0
     where
     go offset 
         | offset < num = do
@@ -51,8 +56,8 @@ filterImperative1 coeffs num inBuf outBuf = go 0
         | otherwise    = return ()
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
-filterImperative2 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
-filterImperative2 coeffs num inBuf outBuf = go 0
+filterImperative2 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> v a -> vm (PrimState m) a -> m ()
+filterImperative2 num coeffs inBuf outBuf = go 0
     where
     go offset 
         | offset < num = do
@@ -66,35 +71,46 @@ filterImperative2 coeffs num inBuf outBuf = go 0
             | j < VG.length coeffs = go (VG.unsafeIndex buf j `mult` VG.unsafeIndex coeffs j  + accum) (j + 1)
             | otherwise            = accum
 
-foreign import ccall unsafe "filterC"
-    filterC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+foreign import ccall unsafe "filterRR"
+    filterRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-filterC :: Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-filterC num coeffs inBuf outBuf = 
+filterCRR :: Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+filterCRR num coeffs inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                filterC_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+                filterRR_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
-foreign import ccall unsafe "filterSSE"
+foreign import ccall unsafe "filterRC"
+    filterRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCRC :: Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
+filterCRC num coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                filterRC_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
+foreign import ccall unsafe "filterSSERR"
     filterSSE_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-filterCSSE :: Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-filterCSSE num coeffs inBuf outBuf = 
+filterCSSERR :: Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+filterCSSERR num coeffs inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 filterSSE_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
-foreign import ccall unsafe "filterAVX"
+foreign import ccall unsafe "filterAVXRR"
     filterAVX_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-filterCAVX :: Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-filterCAVX num coeffs inBuf outBuf = 
+filterCAVXRR :: Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+filterCAVXRR num coeffs inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 filterAVX_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
 
 -- | Decimation
 
@@ -104,35 +120,59 @@ decimateHighLevel num factor coeffs inBuf outBuf = fill x outBuf
     x = VFSM.map dotProd (VFSM.iterateN num (+ factor) 0)
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
-foreign import ccall unsafe "decimateC"
+foreign import ccall unsafe "decimateRR"
     decimateC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-decimateC :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-decimateC num factor coeffs inBuf outBuf = 
+decimateCRR :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+decimateCRR num factor coeffs inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 decimateC_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
-foreign import ccall unsafe "decimateSSE"
+foreign import ccall unsafe "decimateRC"
+    decimateCRC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateCRC :: Int -> Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
+decimateCRC num factor coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                decimateCRC_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
+foreign import ccall unsafe "decimateSSERR"
     decimateSSE_c :: CInt -> CInt -> Int -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-decimateCSSE :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-decimateCSSE num factor coeffs inBuf outBuf = 
+decimateCSSERR :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+decimateCSSERR num factor coeffs inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 decimateSSE_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
-foreign import ccall unsafe "decimateAVX"
+foreign import ccall unsafe "decimateAVXRR"
     decimateAVX_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-decimateCAVX :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-decimateCAVX num factor coeffs inBuf outBuf = 
+decimateCAVXRR :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+decimateCAVXRR num factor coeffs inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 decimateAVX_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
+-- | Conversion
+
+foreign import ccall unsafe "convertC"
+    convertC_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
+
+convertC :: Int -> VS.Vector CUChar -> VS.MVector RealWorld Float -> IO ()
+convertC num inBuf outBuf = 
+    VS.unsafeWith inBuf $ \iPtr -> 
+        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            convertC_c (fromIntegral num) iPtr oPtr
+
+convertHighLevel :: VS.Vector CUChar -> VS.Vector Float 
+convertHighLevel = VG.map fromIntegral
 
 test = do
     --Setup
@@ -152,12 +192,12 @@ test = do
     outBuf4       :: VS.MVector RealWorld Float <- VGM.new size
     outBuf5       :: VS.MVector RealWorld Float <- VGM.new size
 
-    filterHighLevel   coeffs num inBuf outBuf0
-    filterImperative1 coeffs num inBuf outBuf1
-    filterImperative2 coeffs num inBuf outBuf2
-    filterC           num coeffs inBuf outBuf3
-    filterCSSE        num coeffs inBuf outBuf4
-    filterCAVX        num coeffs inBuf outBuf5
+    filterHighLevel   num coeffs inBuf outBuf0
+    filterImperative1 num coeffs inBuf outBuf1
+    filterImperative2 num coeffs inBuf outBuf2
+    filterCRR         num coeffs inBuf outBuf3
+    filterCSSERR      num coeffs inBuf outBuf4
+    filterCAVXRR      num coeffs inBuf outBuf5
 
     out0 :: VS.Vector Float <- VG.freeze outBuf0
     out1 :: VS.Vector Float <- VG.freeze outBuf1
@@ -180,24 +220,45 @@ theBench = do
         coeffs    =  VG.fromList $ take numCoeffs [0 ..]
         inBuf     :: VS.Vector Float
         inBuf     =  VG.fromList $ take size [0 ..]
+        inBufComplex :: VS.Vector (Complex Float)
+        inBufComplex =  VG.fromList $ take size $ do
+            i <- [0..]
+            return $ i :+ i
+
+        numConv   = 16386
+        inBufConv :: VS.Vector CUChar
+        inBufConv = VG.fromList $ take size $ concat $ repeat [0 .. 255]
 
     outBuf        :: VS.MVector RealWorld Float <- VGM.new size
+    outBufComplex :: VS.MVector RealWorld (Complex Float) <- VGM.new size
 
     --Benchmarks
     defaultMain [
-            bgroup "filter" [
-                bench "highLevel"   $ nfIO $ filterHighLevel   coeffs num inBuf outBuf,
-                bench "imperative1" $ nfIO $ filterImperative1 coeffs num inBuf outBuf,
-                bench "imperative2" $ nfIO $ filterImperative2 coeffs num inBuf outBuf,
-                bench "c"           $ nfIO $ filterC           num coeffs inBuf outBuf,
-                bench "cSSE"        $ nfIO $ filterCSSE        num coeffs inBuf outBuf,
-                bench "cSSE"        $ nfIO $ filterCAVX        num coeffs inBuf outBuf
+            bgroup "filterReal" [
+                bench "highLevel"   $ nfIO $ filterHighLevel   num coeffs inBuf outBuf,
+                bench "imperative1" $ nfIO $ filterImperative1 num coeffs inBuf outBuf,
+                bench "imperative2" $ nfIO $ filterImperative2 num coeffs inBuf outBuf,
+                bench "c"           $ nfIO $ filterCRR         num coeffs inBuf outBuf,
+                bench "cSSE"        $ nfIO $ filterCSSERR      num coeffs inBuf outBuf,
+                bench "cAVX"        $ nfIO $ filterCAVXRR      num coeffs inBuf outBuf
             ],
-            bgroup "decimation" [
+            bgroup "filterComplex" [
+                bench "highLevel"   $ nfIO $ filterHighLevel   num coeffs inBufComplex outBufComplex,
+                bench "c"           $ nfIO $ filterCRC         num coeffs inBufComplex outBufComplex
+            ],
+            bgroup "decimateReal" [
                 bench "highLevel"   $ nfIO $ decimateHighLevel (num `quot` decimation) decimation coeffs inBuf outBuf,
-                bench "c"           $ nfIO $ decimateC         (num `quot` decimation) decimation coeffs inBuf outBuf,
-                bench "c"           $ nfIO $ decimateCSSE      (num `quot` decimation) decimation coeffs inBuf outBuf,
-                bench "c"           $ nfIO $ decimateCAVX      (num `quot` decimation) decimation coeffs inBuf outBuf
+                bench "c"           $ nfIO $ decimateCRR       (num `quot` decimation) decimation coeffs inBuf outBuf,
+                bench "cSSE"        $ nfIO $ decimateCSSERR    (num `quot` decimation) decimation coeffs inBuf outBuf,
+                bench "cAVX"        $ nfIO $ decimateCAVXRR    (num `quot` decimation) decimation coeffs inBuf outBuf
+            ],
+            bgroup "decimateComplex" [
+                bench "highLevel"   $ nfIO $ decimateHighLevel (num `quot` decimation) decimation coeffs inBufComplex outBufComplex,
+                bench "c"           $ nfIO $ decimateCRC       (num `quot` decimation) decimation coeffs inBufComplex outBufComplex
+            ],
+            bgroup "conversion" [
+                bench "c"           $ nfIO $ convertC          numConv inBufConv outBuf
+                --bench "c"           $ nfIO $ convertHighLevel  inBufConv
             ]
         ]
 
