@@ -115,6 +115,12 @@ foreign import ccall unsafe "filterSSERR"
 filterCSSERR :: FilterRR
 filterCSSERR = filterFFIR filterSSERR_c
 
+foreign import ccall unsafe "filterSSESymmetricRR"
+    filterSSESymmetricRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCSSESymmetricRR :: FilterRR
+filterCSSESymmetricRR = filterFFIR filterSSESymmetricRR_c
+
 foreign import ccall unsafe "filterSSERC"
     filterSSERC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
@@ -126,6 +132,12 @@ foreign import ccall unsafe "filterAVXRR"
 
 filterCAVXRR :: FilterRR
 filterCAVXRR = filterFFIR filterAVXRR_c
+
+foreign import ccall unsafe "filterAVXSymmetricRR"
+    filterAVXSymmetricRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCAVXSymmetricRR :: FilterRR
+filterCAVXSymmetricRR = filterFFIR filterAVXSymmetricRR_c
 
 foreign import ccall unsafe "filterAVXRC"
     filterAVXRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
@@ -266,9 +278,12 @@ theBench = do
         num        =  size - numCoeffs + 1
         decimation =  4
         interpolation = 3
+        numCoeffsDiv2  =  64
 
         coeffs    :: VS.Vector Float
         coeffs    =  VG.fromList $ take numCoeffs [0 ..]
+        coeffsSym    :: VS.Vector Float
+        coeffsSym    =  VG.fromList $ take numCoeffsDiv2 [0 ..]
         inBuf     :: VS.Vector Float
         inBuf     =  VG.fromList $ take size [0 ..]
         inBufComplex :: VS.Vector (Complex Float)
@@ -294,12 +309,14 @@ theBench = do
     defaultMain [
             bgroup "filter" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ filterHighLevel   num coeffs inBuf outBuf,
-                    bench "imperative1" $ nfIO $ filterImperative1 num coeffs inBuf outBuf,
-                    bench "imperative2" $ nfIO $ filterImperative2 num coeffs inBuf outBuf,
-                    bench "c"           $ nfIO $ filterCRR         num coeffs inBuf outBuf,
-                    bench "cSSE"        $ nfIO $ filterCSSERR      num coeffs inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ filterCAVXRR      num coeffs inBuf outBuf
+                    bench "highLevel"   $ nfIO $ filterHighLevel        num coeffs inBuf outBuf,
+                    bench "imperative1" $ nfIO $ filterImperative1      num coeffs inBuf outBuf,
+                    bench "imperative2" $ nfIO $ filterImperative2      num coeffs inBuf outBuf,
+                    bench "c"           $ nfIO $ filterCRR              num coeffs inBuf outBuf,
+                    bench "cSSE"        $ nfIO $ filterCSSERR           num coeffs inBuf outBuf,
+                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRR  num coeffsSym inBuf outBuf,
+                    bench "cAVX"        $ nfIO $ filterCAVXRR           num coeffs inBuf outBuf,
+                    bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR  num coeffsSym inBuf outBuf
                 ],
                 bgroup "complex" [
                     bench "highLevel"   $ nfIO $ filterHighLevel   num coeffs inBufComplex outBufComplex,

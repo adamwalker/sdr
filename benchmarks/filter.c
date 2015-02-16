@@ -53,6 +53,29 @@ void filterSSERR(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
     }
 }
 
+void filterSSESymmetricRR(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j;
+    for(i=0; i<num; i++){
+        __m128 accum = _mm_setzero_ps();
+
+        float *startPtr = inBuf + i;
+        float *endPtr = inBuf + i + numCoeffs - 4;
+        for(j=0; j<numCoeffs; j+=4){
+
+            //Load the needed vectors
+            __m128 coeff = _mm_loadu_ps(coeffs   + j);
+            __m128 val1  = _mm_loadu_ps(startPtr + j);
+            __m128 val2  = _mm_loadr_ps(endPtr   - j);
+
+            //Multiply and acumulate
+            accum = _mm_add_ps(accum, _mm_mul_ps(coeff, _mm_add_ps(val1, val2)));
+        }
+        accum = _mm_hadd_ps(accum, accum);
+        accum = _mm_hadd_ps(accum, accum);
+        _mm_store_ss(outBuf + i, accum);
+    }
+}
+
 void filterSSERC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j;
     for(i=0; i<num*2; i+=2){
@@ -70,6 +93,37 @@ void filterSSERC(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
         }
         outBuf[i]   = _mm_extract_epi32(accum, 0) + _mm_extract_epi32(accum, 2);
         outBuf[i+1] = _mm_extract_epi32(accum, 1) + _mm_extract_epi32(accum, 3);
+    }
+}
+
+void filterAVXSymmetricRR(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j;
+    for(i=0; i<num; i++){
+        __m256 accum = _mm256_setzero_ps();
+
+        float *startPtr = inBuf + i;
+        float *endPtr   = inBuf + i + numCoeffs - 8;
+        for(j=0; j<numCoeffs; j+=8){
+
+            //Load the needed vectors
+            __m256 coeff = _mm256_loadu_ps(coeffs   + j);
+            __m256 val1  = _mm256_loadu_ps(startPtr + j);
+            __m256 val2  = _mm256_loadu_ps(endPtr   - j);
+
+            //Multiply and acumulate
+            accum = _mm256_add_ps(accum, _mm256_mul_ps(coeff, _mm256_add_ps(val1, val2)));
+        }
+
+        __m128 res1 = _mm256_extractf128_ps(accum, 0);
+        __m128 res2 = _mm256_extractf128_ps(accum, 1);
+
+        res1 = _mm_hadd_ps(res1, res1);
+        res1 = _mm_hadd_ps(res1, res1);
+
+        res2 = _mm_hadd_ps(res2, res2);
+        res2 = _mm_hadd_ps(res2, res2);
+
+        _mm_store_ss(outBuf + i, _mm_add_ss(res1, res2));
     }
 }
 
