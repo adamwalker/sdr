@@ -71,65 +71,59 @@ filterImperative2 num coeffs inBuf outBuf = go 0
             | j < VG.length coeffs = go (VG.unsafeIndex buf j `mult` VG.unsafeIndex coeffs j  + accum) (j + 1)
             | otherwise            = accum
 
-foreign import ccall unsafe "filterRR"
-    filterRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+type FilterCRR = CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+type FilterRR  = Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+type FilterRC  = Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
 
-filterCRR :: Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-filterCRR num coeffs inBuf outBuf = 
+filterFFIR :: FilterCRR -> FilterRR 
+filterFFIR func num coeffs inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                filterRR_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+                func (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
+filterFFIC :: FilterCRR -> FilterRC 
+filterFFIC func num coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                func (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
+foreign import ccall unsafe "filterRR"
+    filterRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCRR :: FilterRR
+filterCRR = filterFFIR filterRR_c 
 
 foreign import ccall unsafe "filterRC"
     filterRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-filterCRC :: Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
-filterCRC num coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                filterRC_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+filterCRC :: FilterRC
+filterCRC = filterFFIC filterRC_c
 
 foreign import ccall unsafe "filterSSERR"
-    filterSSE_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+    filterSSERR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-filterCSSERR :: Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-filterCSSERR num coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                filterSSE_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+filterCSSERR :: FilterRR
+filterCSSERR = filterFFIR filterSSERR_c
 
 foreign import ccall unsafe "filterSSERC"
     filterSSERC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-filterCSSERC :: Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
-filterCSSERC num coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                filterSSERC_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+filterCSSERC :: FilterRC
+filterCSSERC = filterFFIC filterSSERC_c
 
 foreign import ccall unsafe "filterAVXRR"
-    filterAVX_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+    filterAVXRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-filterCAVXRR :: Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-filterCAVXRR num coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                filterAVX_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+filterCAVXRR :: FilterRR
+filterCAVXRR = filterFFIR filterAVXRR_c
 
 foreign import ccall unsafe "filterAVXRC"
     filterAVXRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-filterCAVXRC :: Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
-filterCAVXRC num coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                filterAVXRC_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+filterCAVXRC :: FilterRC
+filterCAVXRC = filterFFIC filterAVXRC_c
 
 -- | Decimation
 
@@ -139,65 +133,59 @@ decimateHighLevel num factor coeffs inBuf outBuf = fill x outBuf
     x = VFSM.map dotProd (VFSM.iterateN num (+ factor) 0)
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
-foreign import ccall unsafe "decimateRR"
-    decimateC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+type DecimateCRR = CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+type DecimateRR  = Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+type DecimateRC  = Int -> Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
 
-decimateCRR :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-decimateCRR num factor coeffs inBuf outBuf = 
+decimateFFIR :: DecimateCRR -> DecimateRR 
+decimateFFIR func num factor coeffs inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                decimateC_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+                func (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
+decimateFFIC :: DecimateCRR -> DecimateRC 
+decimateFFIC func num factor coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                func (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
+foreign import ccall unsafe "decimateRR"
+    decimateCRR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateCRR :: DecimateRR
+decimateCRR = decimateFFIR decimateCRR_c
 
 foreign import ccall unsafe "decimateRC"
     decimateCRC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-decimateCRC :: Int -> Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
-decimateCRC num factor coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                decimateCRC_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+decimateCRC :: DecimateRC
+decimateCRC = decimateFFIC decimateCRC_c
 
 foreign import ccall unsafe "decimateSSERR"
-    decimateSSE_c :: CInt -> CInt -> Int -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+    decimateSSERR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-decimateCSSERR :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-decimateCSSERR num factor coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                decimateSSE_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+decimateCSSERR :: DecimateRR
+decimateCSSERR = decimateFFIR decimateSSERR_c
 
 foreign import ccall unsafe "decimateSSERC"
-    decimateSSERC_c :: CInt -> CInt -> Int -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+    decimateSSERC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-decimateCSSERC :: Int -> Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
-decimateCSSERC num factor coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                decimateSSERC_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+decimateCSSERC :: DecimateRC
+decimateCSSERC = decimateFFIC decimateSSERC_c
 
 foreign import ccall unsafe "decimateAVXRR"
     decimateAVX_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-decimateCAVXRR :: Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-decimateCAVXRR num factor coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                decimateAVX_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+decimateCAVXRR :: DecimateRR
+decimateCAVXRR = decimateFFIR decimateAVX_c
 
 foreign import ccall unsafe "decimateAVXRC"
     decimateAVXRC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-decimateCAVXRC :: Int -> Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
-decimateCAVXRC num factor coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                decimateAVXRC_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+decimateCAVXRC :: DecimateRC
+decimateCAVXRC = decimateFFIC decimateAVXRC_c
 
 -- | Conversion
 
