@@ -19,7 +19,7 @@ void filterRR(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf
 
 void filterRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j;
-    for(i=0; i<num; i+=2){
+    for(i=0; i<num*2; i+=2){
         float real = 0;
         float imag = 0;
         float *startPtr = inBuf + i;
@@ -53,6 +53,26 @@ void filterSSERR(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
     }
 }
 
+void filterSSERC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j;
+    for(i=0; i<num*2; i+=2){
+        __m128 accum = _mm_setzero_ps();
+
+        float *startPtr = inBuf + i;
+        for(j=0; j<numCoeffs; j+=4){
+
+            //Load the needed vectors
+            __m128 coeff = _mm_loadu_ps(coeffs + j);
+            __m128 val   = _mm_loadu_ps(startPtr + j);
+
+            //Multiply and acumulate
+            accum = _mm_add_ps(accum, _mm_mul_ps(coeff, val));
+        }
+        outBuf[i]   = _mm_extract_epi32(accum, 0) + _mm_extract_epi32(accum, 2);
+        outBuf[i+1] = _mm_extract_epi32(accum, 1) + _mm_extract_epi32(accum, 3);
+    }
+}
+
 void filterAVXRR(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j;
     for(i=0; i<num; i++){
@@ -82,6 +102,26 @@ void filterAVXRR(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
     }
 }
 
+void filterAVXRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j;
+    for(i=0; i<num*2; i+=2){
+        __m256 accum = _mm256_setzero_ps();
+
+        float *startPtr = inBuf + i;
+        for(j=0; j<numCoeffs; j+=8){
+
+            //Load the needed vectors
+            __m256 coeff = _mm256_loadu_ps(coeffs + j);
+            __m256 val   = _mm256_loadu_ps(startPtr + j);
+
+            //Multiply and acumulate
+            accum = _mm256_add_ps(accum, _mm256_mul_ps(coeff, val));
+        }
+        outBuf[i]   = _mm256_extract_epi32(accum, 0) + _mm256_extract_epi32(accum, 2) + _mm256_extract_epi32(accum, 4) + _mm256_extract_epi32(accum, 6);
+        outBuf[i+1] = _mm256_extract_epi32(accum, 1) + _mm256_extract_epi32(accum, 3) + _mm256_extract_epi32(accum, 5) + _mm256_extract_epi32(accum, 7);
+    }
+}
+
 /*
  * Decimation
  */
@@ -99,7 +139,7 @@ void decimateRR(int num, int factor, int numCoeffs, float *coeffs, float *inBuf,
 
 void decimateRC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j, k;
-    for(i=0, k=0; i<num; i+=2, k+=factor*2){
+    for(i=0, k=0; i<num*2; i+=2, k+=factor*2){
         float real = 0;
         float imag = 0;
         float *startPtr = inBuf + k;
@@ -133,6 +173,26 @@ void decimateSSERR(int num, int factor, int numCoeffs, float *coeffs, float *inB
     }
 }
 
+void decimateSSERC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j, k;
+    for(i=0, k=0; i<num*2; i+=2, k+=factor){
+        __m128 accum = _mm_setzero_ps();
+
+        float *startPtr = inBuf + k;
+        for(j=0; j<numCoeffs; j+=4){
+
+            //Load the needed vectors
+            __m128 coeff = _mm_loadu_ps(coeffs + j);
+            __m128 val   = _mm_loadu_ps(startPtr + j);
+
+            //Multiply and acumulate
+            accum = _mm_add_ps(accum, _mm_mul_ps(coeff, val));
+        }
+        outBuf[i]   = _mm_extract_epi32(accum, 0) + _mm_extract_epi32(accum, 2);
+        outBuf[i+1] = _mm_extract_epi32(accum, 1) + _mm_extract_epi32(accum, 3);
+    }
+}
+
 void decimateAVXRR(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j, k;
     for(i=0, k=0; i<num; i++, k+=factor){
@@ -159,6 +219,26 @@ void decimateAVXRR(int num, int factor, int numCoeffs, float *coeffs, float *inB
         res2 = _mm_hadd_ps(res2, res2);
 
         _mm_store_ss(outBuf + i, _mm_add_ss(res1, res2));
+    }
+}
+
+void decimateAVXRC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j, k;
+    for(i=0, k=0; i<num*2; i+=2, k+=factor){
+        __m256 accum = _mm256_setzero_ps();
+
+        float *startPtr = inBuf + k;
+        for(j=0; j<numCoeffs; j+=8){
+
+            //Load the needed vectors
+            __m256 coeff = _mm256_loadu_ps(coeffs + j);
+            __m256 val   = _mm256_loadu_ps(startPtr + j);
+
+            //Multiply and acumulate
+            accum = _mm256_add_ps(accum, _mm256_mul_ps(coeff, val));
+        }
+        outBuf[i]   = _mm256_extract_epi32(accum, 0) + _mm256_extract_epi32(accum, 2) + _mm256_extract_epi32(accum, 4) + _mm256_extract_epi32(accum, 6);
+        outBuf[i+1] = _mm256_extract_epi32(accum, 1) + _mm256_extract_epi32(accum, 3) + _mm256_extract_epi32(accum, 5) + _mm256_extract_epi32(accum, 7);
     }
 }
 

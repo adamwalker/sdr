@@ -101,6 +101,16 @@ filterCSSERR num coeffs inBuf outBuf =
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 filterSSE_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
+foreign import ccall unsafe "filterSSERC"
+    filterSSERC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCSSERC :: Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
+filterCSSERC num coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                filterSSERC_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
 foreign import ccall unsafe "filterAVXRR"
     filterAVX_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
@@ -111,6 +121,15 @@ filterCAVXRR num coeffs inBuf outBuf =
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 filterAVX_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
+foreign import ccall unsafe "filterAVXRC"
+    filterAVXRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCAVXRC :: Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
+filterCAVXRC num coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                filterAVXRC_c (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
 -- | Decimation
 
@@ -150,6 +169,16 @@ decimateCSSERR num factor coeffs inBuf outBuf =
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 decimateSSE_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
+foreign import ccall unsafe "decimateSSERC"
+    decimateSSERC_c :: CInt -> CInt -> Int -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateCSSERC :: Int -> Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
+decimateCSSERC num factor coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                decimateSSERC_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
 foreign import ccall unsafe "decimateAVXRR"
     decimateAVX_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
@@ -159,6 +188,16 @@ decimateCAVXRR num factor coeffs inBuf outBuf =
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 decimateAVX_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
+
+foreign import ccall unsafe "decimateAVXRC"
+    decimateAVXRC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateCAVXRC :: Int -> Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
+decimateCAVXRC num factor coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                decimateAVXRC_c (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
 -- | Conversion
 
@@ -212,7 +251,7 @@ theBench :: IO ()
 theBench = do
     --Setup
     let size       =  16384
-        numCoeffs  =  100
+        numCoeffs  =  128
         num        =  size - numCoeffs + 1
         decimation =  4
 
@@ -229,6 +268,15 @@ theBench = do
         inBufConv :: VS.Vector CUChar
         inBufConv = VG.fromList $ take size $ concat $ repeat [0 .. 255]
 
+        duplicate :: [a] -> [a]
+        duplicate = concat . map func 
+            where func x = [x, x]
+
+        inBufComplex2 :: VS.Vector (Complex Float)
+        inBufComplex2 =  VG.fromList $ duplicate $ take size $ do
+            i <- [0..]
+            return $ i :+ i
+
     outBuf        :: VS.MVector RealWorld Float <- VGM.new size
     outBufComplex :: VS.MVector RealWorld (Complex Float) <- VGM.new size
 
@@ -244,7 +292,9 @@ theBench = do
             ],
             bgroup "filterComplex" [
                 bench "highLevel"   $ nfIO $ filterHighLevel   num coeffs inBufComplex outBufComplex,
-                bench "c"           $ nfIO $ filterCRC         num coeffs inBufComplex outBufComplex
+                bench "c"           $ nfIO $ filterCRC         num coeffs inBufComplex outBufComplex,
+                bench "cSSE"        $ nfIO $ filterCSSERC      num coeffs inBufComplex2 outBufComplex,
+                bench "cAVX"        $ nfIO $ filterCAVXRC      num coeffs inBufComplex2 outBufComplex
             ],
             bgroup "decimateReal" [
                 bench "highLevel"   $ nfIO $ decimateHighLevel (num `quot` decimation) decimation coeffs inBuf outBuf,
@@ -254,7 +304,9 @@ theBench = do
             ],
             bgroup "decimateComplex" [
                 bench "highLevel"   $ nfIO $ decimateHighLevel (num `quot` decimation) decimation coeffs inBufComplex outBufComplex,
-                bench "c"           $ nfIO $ decimateCRC       (num `quot` decimation) decimation coeffs inBufComplex outBufComplex
+                bench "c"           $ nfIO $ decimateCRC       (num `quot` decimation) decimation coeffs inBufComplex outBufComplex,
+                bench "cSSE"        $ nfIO $ decimateCSSERC      (num `quot` decimation) decimation coeffs inBufComplex2 outBufComplex,
+                bench "cAVX"        $ nfIO $ decimateCAVXRC      (num `quot` decimation) decimation coeffs inBufComplex2 outBufComplex
             ],
             bgroup "conversion" [
                 bench "c"           $ nfIO $ convertC          numConv inBufConv outBuf
