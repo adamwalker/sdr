@@ -59,7 +59,7 @@ void filterSSESymmetricRR(int num, int numCoeffs, float *coeffs, float *inBuf, f
         __m128 accum = _mm_setzero_ps();
 
         float *startPtr = inBuf + i;
-        float *endPtr = inBuf + i + numCoeffs - 4;
+        float *endPtr = inBuf + i + numCoeffs * 2 - 4;
         for(j=0; j<numCoeffs; j+=4){
 
             //Load the needed vectors
@@ -102,7 +102,7 @@ void filterAVXSymmetricRR(int num, int numCoeffs, float *coeffs, float *inBuf, f
         __m256 accum = _mm256_setzero_ps();
 
         float *startPtr = inBuf + i;
-        float *endPtr   = inBuf + i + numCoeffs - 8;
+        float *endPtr   = inBuf + i + numCoeffs * 2 - 8;
         for(j=0; j<numCoeffs; j+=8){
 
             //Load the needed vectors

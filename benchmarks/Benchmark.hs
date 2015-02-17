@@ -16,6 +16,8 @@ import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 
 import           Foreign.Storable.Complex
 import           Criterion.Main
+import           Test.QuickCheck
+import           Test.QuickCheck.Monadic
 
 -- | A class for things that can be multiplied by a scalar.
 class Mult a b where
@@ -394,4 +396,40 @@ theBench = do
             ]
         ]
 
-main = theBench
+theTest = quickCheck prop
+    where
+    sizes     = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
+    numCoeffs = elements [16, 32, 64, 128, 256, 512]
+    prop      = forAll sizes $ \size -> 
+                    forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
+                        forAll numCoeffs $ \numCoeffs -> 
+                            forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                                doIt size numCoeffs coeffs inBuf
+    doIt :: Int -> Int -> [Float] -> [Float] -> Property
+    doIt size numCoeffs coeffs inBuf = monadicIO $ do
+        let vCoeffsHalf = VS.fromList coeffs
+            vCoeffs     = VS.fromList $ coeffs ++ reverse coeffs
+            vInput      = VS.fromList inBuf
+            num         = size - numCoeffs*2 + 1
+
+        r1 <- run $ getResult num $ filterHighLevel       num vCoeffs     vInput
+        r2 <- run $ getResult num $ filterImperative1     num vCoeffs     vInput
+        r3 <- run $ getResult num $ filterImperative2     num vCoeffs     vInput
+        r4 <- run $ getResult num $ filterCRR             num vCoeffs     vInput
+        r5 <- run $ getResult num $ filterCSSERR          num vCoeffs     vInput
+        r6 <- run $ getResult num $ filterCAVXRR          num vCoeffs     vInput
+        r7 <- run $ getResult num $ filterCSSESymmetricRR num vCoeffsHalf vInput
+        r8 <- run $ getResult num $ filterCAVXSymmetricRR num vCoeffsHalf vInput
+
+        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7]
+    getResult :: Int -> (VS.MVector RealWorld Float -> IO ()) -> IO [Float]
+    getResult size func = do
+        outBuf :: VS.MVector RealWorld Float <- VGM.new size
+        func outBuf
+        out    :: VS.Vector Float            <- VG.freeze outBuf
+        return $ VG.toList out
+    eqDelta x y = and $ map (uncurry eqDelta') $ zip x y
+        where
+        eqDelta' x y = abs (x - y) < 0.01
+
+main = theTest
