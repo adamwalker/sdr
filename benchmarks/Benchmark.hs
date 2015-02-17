@@ -362,17 +362,17 @@ theBench = do
             ]
         ]
 
-theTest = quickCheck prop
+theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal]
     where
-    sizes     = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
-    numCoeffs = elements [16, 32, 64, 128, 256, 512]
-    prop      = forAll sizes $ \size -> 
-                    forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
-                        forAll numCoeffs $ \numCoeffs -> 
-                            forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
-                                doIt size numCoeffs coeffs inBuf
-    doIt :: Int -> Int -> [Float] -> [Float] -> Property
-    doIt size numCoeffs coeffs inBuf = monadicIO $ do
+    sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
+    numCoeffs       = elements [16, 32, 64, 128, 256, 512]
+    propFiltersReal = forAll sizes $ \size -> 
+                          forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
+                              forAll numCoeffs $ \numCoeffs -> 
+                                  forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                                      testFiltersReal size numCoeffs coeffs inBuf
+    testFiltersReal :: Int -> Int -> [Float] -> [Float] -> Property
+    testFiltersReal size numCoeffs coeffs inBuf = monadicIO $ do
         let vCoeffsHalf = VS.fromList coeffs
             vCoeffs     = VS.fromList $ coeffs ++ reverse coeffs
             vInput      = VS.fromList inBuf
@@ -388,14 +388,17 @@ theTest = quickCheck prop
         r8 <- run $ getResult num $ filterCAVXSymmetricRR num vCoeffsHalf vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7]
-    getResult :: Int -> (VS.MVector RealWorld Float -> IO ()) -> IO [Float]
+    getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO ()) -> IO [a]
     getResult size func = do
-        outBuf :: VS.MVector RealWorld Float <- VGM.new size
+        outBuf <- VGM.new size
         func outBuf
-        out    :: VS.Vector Float            <- VG.freeze outBuf
+        out :: VS.Vector a <- VG.freeze outBuf
         return $ VG.toList out
     eqDelta x y = and $ map (uncurry eqDelta') $ zip x y
         where
         eqDelta' x y = abs (x - y) < 0.01
+    eqDeltaC x y = and $ map (uncurry eqDelta') $ zip x y
+        where
+        eqDelta' x y = magnitude (x - y) < 0.01
 
 main = theTest
