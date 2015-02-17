@@ -273,40 +273,6 @@ scaleCAVX num factor buf =
     VS.unsafeWith (unsafeCoerce buf) $ \bPtr -> 
         scaleAVX_c (fromIntegral num) (unsafeCoerce factor) bPtr
 
-test = do
-    --Setup
-    let size      =  8192
-        numCoeffs =  100
-        num       =  size - numCoeffs + 1
-
-        coeffs    :: VS.Vector Float
-        coeffs    =  VG.fromList $ take numCoeffs [0 ..]
-        inBuf     :: VS.Vector Float
-        inBuf     =  VG.fromList $ take size [0 ..]
-
-    outBuf0       :: VS.MVector RealWorld Float <- VGM.new size
-    outBuf1       :: VS.MVector RealWorld Float <- VGM.new size
-    outBuf2       :: VS.MVector RealWorld Float <- VGM.new size
-    outBuf3       :: VS.MVector RealWorld Float <- VGM.new size
-    outBuf4       :: VS.MVector RealWorld Float <- VGM.new size
-    outBuf5       :: VS.MVector RealWorld Float <- VGM.new size
-
-    filterHighLevel   num coeffs inBuf outBuf0
-    filterImperative1 num coeffs inBuf outBuf1
-    filterImperative2 num coeffs inBuf outBuf2
-    filterCRR         num coeffs inBuf outBuf3
-    filterCSSERR      num coeffs inBuf outBuf4
-    filterCAVXRR      num coeffs inBuf outBuf5
-
-    out0 :: VS.Vector Float <- VG.freeze outBuf0
-    out1 :: VS.Vector Float <- VG.freeze outBuf1
-    out2 :: VS.Vector Float <- VG.freeze outBuf2
-    out3 :: VS.Vector Float <- VG.freeze outBuf3
-    out4 :: VS.Vector Float <- VG.freeze outBuf4
-    out5 :: VS.Vector Float <- VG.freeze outBuf5
-
-    print $ zip (VG.toList out0) (VG.toList out5)
-
 theBench :: IO ()
 theBench = do
     --Setup
@@ -378,15 +344,15 @@ theBench = do
             ],
             bgroup "resample" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ resampleHighLevel num interpolation decimation 0 coeffs inBuf outBuf,
-                    bench "c"           $ nfIO $ resampleC         num interpolation decimation 0 coeffs inBuf outBuf
+                    bench "highLevel"   $ nfIO $ resampleHighLevel      num interpolation decimation 0 coeffs inBuf outBuf,
+                    bench "c"           $ nfIO $ resampleC              num interpolation decimation 0 coeffs inBuf outBuf
                 ],
                 bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ resampleHighLevel num interpolation decimation 0 coeffs inBufComplex outBufComplex
+                    bench "highLevel"   $ nfIO $ resampleHighLevel      num interpolation decimation 0 coeffs inBufComplex outBufComplex
                 ]
             ],
             bgroup "conversion" [
-                bench "c"               $ nfIO $ convertC          numConv inBufConv outBuf
+                bench "c"               $ nfIO $ convertC numConv inBufConv outBuf
                 --bench "c"               $ nfIO $ convertHighLevel  inBufConv
             ],
             bgroup "scaling" [
