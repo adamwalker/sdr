@@ -383,7 +383,7 @@ theBench = do
             ]
         ]
 
-theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Real Decimators" propDecimationReal]
+theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [16, 32, 64, 128, 256, 512]
@@ -410,6 +410,27 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r8 <- run $ getResult num $ filterCAVXSymmetricRR num vCoeffsHalf vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7]
+    propFiltersComplex = forAll sizes $ \size -> 
+                             forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
+                                 forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
+                                     forAll numCoeffs $ \numCoeffs -> 
+                                         forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                                             testFiltersComplex size numCoeffs coeffs $ zipWith (:+) inBufR inBufI
+    testFiltersComplex :: Int -> Int -> [Float] -> [Complex Float] -> Property
+    testFiltersComplex size numCoeffs coeffs inBuf = monadicIO $ do
+        let vCoeffsHalf = VS.fromList coeffs
+            vCoeffs     = VS.fromList $ coeffs ++ reverse coeffs
+            vInput      = VS.fromList inBuf
+            num         = size - numCoeffs*2 + 1
+            vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
+
+        r1 <- run $ getResult num $ filterHighLevel       num vCoeffs     vInput
+        r2 <- run $ getResult num $ filterCRC             num vCoeffs     vInput
+        r3 <- run $ getResult num $ filterCSSERC          num vCoeffs2    vInput
+        r4 <- run $ getResult num $ filterCSSERC2         num vCoeffs     vInput
+        r5 <- run $ getResult num $ filterCAVXRC          num vCoeffs2    vInput
+
+        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4]
     propDecimationReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                                  forAll numCoeffs $ \numCoeffs -> 
@@ -443,5 +464,8 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
     eqDeltaC x y = and $ map (uncurry eqDelta') $ zip x y
         where
         eqDelta' x y = magnitude (x - y) < 0.01
+    duplicate :: [a] -> [a]
+    duplicate = concat . map func 
+        where func x = [x, x]
 
 main = theBench
