@@ -135,6 +135,12 @@ foreign import ccall unsafe "filterSSERC2"
 filterCSSERC2 :: FilterRC
 filterCSSERC2 = filterFFIC filterSSERC2_c
 
+foreign import ccall unsafe "filterSSESymmetricRC"
+    filterSSESymmetricRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCSSESymmetricRC :: FilterRC
+filterCSSESymmetricRC = filterFFIC filterSSESymmetricRC_c
+
 foreign import ccall unsafe "filterAVXRR"
     filterAVXRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
@@ -386,7 +392,7 @@ theBench = do
 theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
-    numCoeffs       = elements [16, 32, 64, 128, 256, 512]
+    numCoeffs       = elements [32, 64, 128, 256, 512]
     factors         = elements [1, 2, 3, 4, 7, 9, 12, 15, 21]
     propFiltersReal = forAll sizes $ \size -> 
                           forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
@@ -428,7 +434,8 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r2 <- run $ getResult num $ filterCRC             num vCoeffs     vInput
         r3 <- run $ getResult num $ filterCSSERC          num vCoeffs2    vInput
         r4 <- run $ getResult num $ filterCSSERC2         num vCoeffs     vInput
-        r5 <- run $ getResult num $ filterCAVXRC          num vCoeffs2    vInput
+        r5 <- run $ getResult num $ filterCSSESymmetricRC num vCoeffsHalf vInput
+        r6 <- run $ getResult num $ filterCAVXRC          num vCoeffs2    vInput
 
         assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4]
     propDecimationReal = forAll sizes $ \size -> 
@@ -468,4 +475,4 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
     duplicate = concat . map func 
         where func x = [x, x]
 
-main = theBench
+main = theTest

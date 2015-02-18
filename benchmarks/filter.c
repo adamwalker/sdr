@@ -101,6 +101,41 @@ void filterSSESymmetricRR(int num, int numCoeffs, float *coeffs, float *inBuf, f
     }
 }
 
+void filterSSESymmetricRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j;
+    for(i=0; i<num*2; i+=2){
+        __m128 accum1 = _mm_setzero_ps();
+        __m128 accum2 = _mm_setzero_ps();
+
+        float *startPtr = inBuf + i;
+        float *endPtr = inBuf + i + numCoeffs * 2 - 4;
+        for(j=0; j<numCoeffs; j+=4){
+
+            //Load the needed vectors
+            __m128 coeff = _mm_loadu_ps(coeffs   + j);
+            __m128 coeff1 = _mm_shuffle_ps(coeff, coeff, 0x50);
+            __m128 coeff2 = _mm_shuffle_ps(coeff, coeff, 0xfa);
+
+            __m128 val1  = _mm_loadu_ps(startPtr + 2*j);
+            __m128 val2  = _mm_loadu_ps(startPtr + 2*j + 4);
+            __m128 val3  = _mm_loadu_ps(endPtr   - 2*j - 4);
+            val3         = _mm_shuffle_ps(val3, val3, _MM_SHUFFLE(1, 0, 3, 2));
+            __m128 val4  = _mm_loadu_ps(endPtr   - 2*j);
+            val4         = _mm_shuffle_ps(val4, val4, _MM_SHUFFLE(1, 0, 3, 2));
+
+            //Multiply and acumulate
+            accum1 = _mm_add_ps(accum1, _mm_mul_ps(coeff1, _mm_add_ps(val1, val4)));
+            accum2 = _mm_add_ps(accum2, _mm_mul_ps(coeff2, _mm_add_ps(val2, val3)));
+        }
+        __m128 accum = _mm_add_ps(accum1, accum2);
+        accum = _mm_shuffle_ps(accum, accum, 0b11011000);
+        accum = _mm_hadd_ps(accum, accum);
+        _mm_store_ss(outBuf + i, accum);
+        accum = _mm_shuffle_ps(accum, accum, 0b00000001);
+        _mm_store_ss(outBuf + i + 1, accum);
+    }
+}
+
 void filterAVXSymmetricRR(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j;
     for(i=0; i<num; i++){
