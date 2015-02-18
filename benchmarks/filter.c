@@ -175,6 +175,30 @@ void filterSSERC(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
     }
 }
 
+void filterSSERC2(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j;
+    for(i=0; i<num*2; i+=2){
+        __m128 accum = _mm_setzero_ps();
+
+        float *startPtr = inBuf + i;
+        for(j=0; j<numCoeffs; j+=4){
+
+            //Load the needed vectors
+            __m128 coeff  = _mm_loadu_ps(coeffs + j);
+            __m128 coeff1 = _mm_shuffle_ps(coeff, coeff, 0x50);
+            __m128 coeff2 = _mm_shuffle_ps(coeff, coeff, 0xfa);
+            __m128 val1   = _mm_loadu_ps(startPtr + 2 * j);
+            __m128 val2   = _mm_loadu_ps(startPtr + 2 * j + 4);
+
+            //Multiply and acumulate
+            __m128 accum1 = _mm_add_ps(accum, _mm_mul_ps(coeff1, val1));
+            accum         = _mm_add_ps(accum1, _mm_mul_ps(coeff2, val2));
+        }
+        outBuf[i]   = _mm_extract_epi32(accum, 0) + _mm_extract_epi32(accum, 2);
+        outBuf[i+1] = _mm_extract_epi32(accum, 1) + _mm_extract_epi32(accum, 3);
+    }
+}
+
 void filterAVXRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j;
     for(i=0; i<num*2; i+=2){

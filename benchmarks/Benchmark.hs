@@ -129,6 +129,12 @@ foreign import ccall unsafe "filterSSERC"
 filterCSSERC :: FilterRC
 filterCSSERC = filterFFIC filterSSERC_c
 
+foreign import ccall unsafe "filterSSERC2"
+    filterSSERC2_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCSSERC2 :: FilterRC
+filterCSSERC2 = filterFFIC filterSSERC2_c
+
 foreign import ccall unsafe "filterAVXRR"
     filterAVXRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
@@ -334,9 +340,10 @@ theBench = do
                     bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR  num coeffsSym inBuf outBuf
                 ],
                 bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ filterHighLevel        num coeffs inBufComplex outBufComplex,
-                    bench "c"           $ nfIO $ filterCRC              num coeffs inBufComplex outBufComplex,
+                    bench "highLevel"   $ nfIO $ filterHighLevel        num coeffs  inBufComplex outBufComplex,
+                    bench "c"           $ nfIO $ filterCRC              num coeffs  inBufComplex outBufComplex,
                     bench "cSSE"        $ nfIO $ filterCSSERC           num coeffs2 inBufComplex outBufComplex,
+                    bench "cSSE2"       $ nfIO $ filterCSSERC2          num coeffs  inBufComplex outBufComplex,
                     bench "cAVX"        $ nfIO $ filterCAVXRC           num coeffs2 inBufComplex outBufComplex
                 ]
             ],
@@ -437,4 +444,4 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         where
         eqDelta' x y = magnitude (x - y) < 0.01
 
-main = theTest
+main = theBench
