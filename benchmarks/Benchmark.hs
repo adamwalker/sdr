@@ -209,6 +209,18 @@ foreign import ccall unsafe "decimateAVXRC"
 decimateCAVXRC :: DecimateRC
 decimateCAVXRC = decimateFFIC decimateAVXRC_c
 
+foreign import ccall unsafe "decimateSSESymmetricRR"
+    decimateSSESymmetricRR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateCSSESymmetricRR :: DecimateRR
+decimateCSSESymmetricRR = decimateFFIR decimateSSESymmetricRR_c
+
+foreign import ccall unsafe "decimateAVXSymmetricRR"
+    decimateAVXSymmetricRR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateCAVXSymmetricRR :: DecimateRR
+decimateCAVXSymmetricRR = decimateFFIR decimateAVXSymmetricRR_c
+
 -- | Rational downsampling
 resampleHighLevel :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> Int -> Int -> v b -> v a -> vm (PrimState m) a -> m Int
 resampleHighLevel count interpolation decimation filterOffset coeffs inBuf outBuf = fill 0 filterOffset 0
@@ -330,10 +342,12 @@ theBench = do
             ],
             bgroup "decimate" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ decimateHighLevel      (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    bench "c"           $ nfIO $ decimateCRR            (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    bench "cSSE"        $ nfIO $ decimateCSSERR         (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ decimateCAVXRR         (num `quot` decimation) decimation coeffs inBuf outBuf
+                    bench "highLevel"   $ nfIO $ decimateHighLevel        (num `quot` decimation) decimation coeffs inBuf outBuf,
+                    bench "c"           $ nfIO $ decimateCRR              (num `quot` decimation) decimation coeffs inBuf outBuf,
+                    bench "cSSE"        $ nfIO $ decimateCSSERR           (num `quot` decimation) decimation coeffs inBuf outBuf,
+                    bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf,
+                    bench "cAVX"        $ nfIO $ decimateCAVXRR           (num `quot` decimation) decimation coeffs inBuf outBuf,
+                    bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf
                 ],
                 bgroup "complex" [
                     bench "highLevel"   $ nfIO $ decimateHighLevel      (num `quot` decimation) decimation coeffs inBufComplex outBufComplex,
@@ -362,10 +376,11 @@ theBench = do
             ]
         ]
 
-theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal]
+theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Real Decimators" propDecimationReal]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [16, 32, 64, 128, 256, 512]
+    factors         = elements [1, 2, 3, 4, 7, 9, 12, 15, 21]
     propFiltersReal = forAll sizes $ \size -> 
                           forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                               forAll numCoeffs $ \numCoeffs -> 
@@ -388,6 +403,27 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal]
         r8 <- run $ getResult num $ filterCAVXSymmetricRR num vCoeffsHalf vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7]
+    propDecimationReal = forAll sizes $ \size -> 
+                             forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
+                                 forAll numCoeffs $ \numCoeffs -> 
+                                     forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                                        forAll factors $ \factor -> 
+                                             testDecimationReal size numCoeffs factor coeffs inBuf
+    testDecimationReal :: Int -> Int -> Int -> [Float] -> [Float] -> Property
+    testDecimationReal size numCoeffs factor coeffs inBuf = monadicIO $ do
+        let vCoeffsHalf = VS.fromList coeffs
+            vCoeffs     = VS.fromList $ coeffs ++ reverse coeffs
+            vInput      = VS.fromList inBuf
+            num         = (size - numCoeffs*2 + 1) `quot` factor
+
+        r1 <- run $ getResult num $ decimateHighLevel       num factor vCoeffs     vInput
+        r2 <- run $ getResult num $ decimateCRR             num factor vCoeffs     vInput
+        r3 <- run $ getResult num $ decimateCSSERR          num factor vCoeffs     vInput
+        r4 <- run $ getResult num $ decimateCAVXRR          num factor vCoeffs     vInput
+        r5 <- run $ getResult num $ decimateCSSESymmetricRR num factor vCoeffsHalf vInput
+        r6 <- run $ getResult num $ decimateCAVXSymmetricRR num factor vCoeffsHalf vInput
+
+        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5]
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO ()) -> IO [a]
     getResult size func = do
         outBuf <- VGM.new size
