@@ -178,7 +178,8 @@ void filterSSERC(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
 void filterSSERC2(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j;
     for(i=0; i<num*2; i+=2){
-        __m128 accum = _mm_setzero_ps();
+        __m128 accum1 = _mm_setzero_ps();
+        __m128 accum2 = _mm_setzero_ps();
 
         float *startPtr = inBuf + i;
         for(j=0; j<numCoeffs; j+=4){
@@ -191,9 +192,10 @@ void filterSSERC2(int num, int numCoeffs, float *coeffs, float *inBuf, float *ou
             __m128 val2   = _mm_loadu_ps(startPtr + 2 * j + 4);
 
             //Multiply and acumulate
-            __m128 accum1 = _mm_add_ps(accum, _mm_mul_ps(coeff1, val1));
-            accum         = _mm_add_ps(accum1, _mm_mul_ps(coeff2, val2));
+            accum1 = _mm_add_ps(accum1, _mm_mul_ps(coeff1, val1));
+            accum2 = _mm_add_ps(accum2, _mm_mul_ps(coeff2, val2));
         }
+        __m128 accum = _mm_add_ps(accum1, accum2);
         outBuf[i]   = _mm_extract_epi32(accum, 0) + _mm_extract_epi32(accum, 2);
         outBuf[i+1] = _mm_extract_epi32(accum, 1) + _mm_extract_epi32(accum, 3);
     }
