@@ -149,6 +149,8 @@ void filterAVXSymmetricRR(int num, int numCoeffs, float *coeffs, float *inBuf, f
             __m256 coeff = _mm256_loadu_ps(coeffs   + j);
             __m256 val1  = _mm256_loadu_ps(startPtr + j);
             __m256 val2  = _mm256_loadu_ps(endPtr   - j);
+            val2         = _mm256_permute2f128_ps(val2, val2, 0x01);
+            val2         = _mm256_permute_ps(val2, _MM_SHUFFLE(0, 1, 2, 3));
 
             //Multiply and acumulate
             accum = _mm256_add_ps(accum, _mm256_mul_ps(coeff, _mm256_add_ps(val1, val2)));
@@ -372,6 +374,8 @@ void decimateAVXSymmetricRR(int num, int factor, int numCoeffs, float *coeffs, f
             __m256 coeff = _mm256_loadu_ps(coeffs   + j);
             __m256 val1  = _mm256_loadu_ps(startPtr + j);
             __m256 val2  = _mm256_loadu_ps(endPtr   - j);
+            val2         = _mm256_permute2f128_ps(val2, val2, 0x01);
+            val2         = _mm256_permute_ps(val2, _MM_SHUFFLE(0, 1, 2, 3));
 
             //Multiply and acumulate
             accum = _mm256_add_ps(accum, _mm256_mul_ps(coeff, _mm256_add_ps(val1, val2)));

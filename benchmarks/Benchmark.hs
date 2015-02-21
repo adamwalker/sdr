@@ -415,7 +415,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r7 <- run $ getResult num $ filterCSSESymmetricRR num vCoeffsHalf vInput
         r8 <- run $ getResult num $ filterCAVXSymmetricRR num vCoeffsHalf vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7]
+        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7, r8]
     propFiltersComplex = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
                                  forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
@@ -458,7 +458,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r5 <- run $ getResult num $ decimateCSSESymmetricRR num factor vCoeffsHalf vInput
         r6 <- run $ getResult num $ decimateCAVXSymmetricRR num factor vCoeffsHalf vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5]
+        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6]
     propDecimationComplex = forAll sizes $ \size -> 
                                 forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
                                     forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
