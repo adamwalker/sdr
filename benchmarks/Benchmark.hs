@@ -437,7 +437,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r5 <- run $ getResult num $ filterCSSESymmetricRC num vCoeffsHalf vInput
         r6 <- run $ getResult num $ filterCAVXRC          num vCoeffs2    vInput
 
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4]
+        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r6]
     propDecimationReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                                  forAll numCoeffs $ \numCoeffs -> 
@@ -479,7 +479,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r3 <- run $ getResult num $ decimateCSSERC          num factor vCoeffs2    vInput
         r4 <- run $ getResult num $ decimateCAVXRC          num factor vCoeffs2    vInput
 
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3]
+        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4]
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO ()) -> IO [a]
     getResult size func = do
         outBuf <- VGM.new size

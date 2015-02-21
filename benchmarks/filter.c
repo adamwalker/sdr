@@ -259,8 +259,17 @@ void filterAVXRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
             //Multiply and acumulate
             accum = _mm256_add_ps(accum, _mm256_mul_ps(coeff, val));
         }
-        outBuf[i]   = _mm256_extract_epi32(accum, 0) + _mm256_extract_epi32(accum, 2) + _mm256_extract_epi32(accum, 4) + _mm256_extract_epi32(accum, 6);
-        outBuf[i+1] = _mm256_extract_epi32(accum, 1) + _mm256_extract_epi32(accum, 3) + _mm256_extract_epi32(accum, 5) + _mm256_extract_epi32(accum, 7);
+
+        accum           = _mm256_permute_ps(accum, _MM_SHUFFLE(3, 1, 2, 0));
+        __m128 accum_hi = _mm256_extractf128_ps(accum, 1);
+        __m128 accum_lo = _mm256_extractf128_ps(accum, 0);
+        __m128 added    = _mm_hadd_ps(accum_lo, accum_hi);
+        added           = _mm_permute_ps(added, _MM_SHUFFLE(3, 1, 2, 0));
+        added           = _mm_hadd_ps(added, added);
+
+        _mm_store_ss(outBuf + i, added);
+        added = _mm_shuffle_ps(added, added, 0b00000001);
+        _mm_store_ss(outBuf + i + 1, added);
     }
 }
 
@@ -440,7 +449,7 @@ void decimateSSERC(int num, int factor, int numCoeffs, float *coeffs, float *inB
 
 void decimateAVXRC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j, k;
-    for(i=0, k=0; i<num*2; i+=2, k+=factor){
+    for(i=0, k=0; i<num*2; i+=2, k+=factor*2){
         __m256 accum = _mm256_setzero_ps();
 
         float *startPtr = inBuf + k;
@@ -453,8 +462,16 @@ void decimateAVXRC(int num, int factor, int numCoeffs, float *coeffs, float *inB
             //Multiply and acumulate
             accum = _mm256_add_ps(accum, _mm256_mul_ps(coeff, val));
         }
-        outBuf[i]   = _mm256_extract_epi32(accum, 0) + _mm256_extract_epi32(accum, 2) + _mm256_extract_epi32(accum, 4) + _mm256_extract_epi32(accum, 6);
-        outBuf[i+1] = _mm256_extract_epi32(accum, 1) + _mm256_extract_epi32(accum, 3) + _mm256_extract_epi32(accum, 5) + _mm256_extract_epi32(accum, 7);
+        accum           = _mm256_permute_ps(accum, _MM_SHUFFLE(3, 1, 2, 0));
+        __m128 accum_hi = _mm256_extractf128_ps(accum, 1);
+        __m128 accum_lo = _mm256_extractf128_ps(accum, 0);
+        __m128 added    = _mm_hadd_ps(accum_lo, accum_hi);
+        added           = _mm_permute_ps(added, _MM_SHUFFLE(3, 1, 2, 0));
+        added           = _mm_hadd_ps(added, added);
+
+        _mm_store_ss(outBuf + i, added);
+        added = _mm_shuffle_ps(added, added, 0b00000001);
+        _mm_store_ss(outBuf + i + 1, added);
     }
 }
 
