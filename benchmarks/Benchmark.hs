@@ -209,6 +209,12 @@ foreign import ccall unsafe "decimateSSERC"
 decimateCSSERC :: DecimateRC
 decimateCSSERC = decimateFFIC decimateSSERC_c
 
+foreign import ccall unsafe "decimateSSERC2"
+    decimateSSERC2_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateCSSERC2 :: DecimateRC
+decimateCSSERC2 = decimateFFIC decimateSSERC2_c
+
 foreign import ccall unsafe "decimateAVXRR"
     decimateAVXRR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
@@ -363,9 +369,10 @@ theBench = do
                     bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf
                 ],
                 bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ decimateHighLevel      (num `quot` decimation) decimation coeffs inBufComplex outBufComplex,
-                    bench "c"           $ nfIO $ decimateCRC            (num `quot` decimation) decimation coeffs inBufComplex outBufComplex,
+                    bench "highLevel"   $ nfIO $ decimateHighLevel      (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
+                    bench "c"           $ nfIO $ decimateCRC            (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
                     bench "cSSE"        $ nfIO $ decimateCSSERC         (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex,
+                    bench "cSSE2"       $ nfIO $ decimateCSSERC2        (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
                     bench "cAVX"        $ nfIO $ decimateCAVXRC         (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex
                 ]
             ],
@@ -477,9 +484,10 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r1 <- run $ getResult num $ decimateHighLevel       num factor vCoeffs     vInput
         r2 <- run $ getResult num $ decimateCRC             num factor vCoeffs     vInput
         r3 <- run $ getResult num $ decimateCSSERC          num factor vCoeffs2    vInput
-        r4 <- run $ getResult num $ decimateCAVXRC          num factor vCoeffs2    vInput
+        r4 <- run $ getResult num $ decimateCSSERC2         num factor vCoeffs     vInput
+        r5 <- run $ getResult num $ decimateCAVXRC          num factor vCoeffs2    vInput
 
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4]
+        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5]
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO ()) -> IO [a]
     getResult size func = do
         outBuf <- VGM.new size

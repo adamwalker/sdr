@@ -447,6 +447,36 @@ void decimateSSERC(int num, int factor, int numCoeffs, float *coeffs, float *inB
     }
 }
 
+void decimateSSERC2(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j, k;
+    for(i=0, k=0; i<num*2; i+=2, k+=factor*2){
+        __m128 accum1 = _mm_setzero_ps();
+        __m128 accum2 = _mm_setzero_ps();
+
+        float *startPtr = inBuf + k;
+        for(j=0; j<numCoeffs; j+=4){
+
+            //Load the needed vectors
+            __m128 coeff  = _mm_loadu_ps(coeffs + j);
+            __m128 coeff1 = _mm_shuffle_ps(coeff, coeff, 0x50);
+            __m128 coeff2 = _mm_shuffle_ps(coeff, coeff, 0xfa);
+            __m128 val1   = _mm_loadu_ps(startPtr + 2 * j);
+            __m128 val2   = _mm_loadu_ps(startPtr + 2 * j + 4);
+
+            //Multiply and acumulate
+            accum1 = _mm_add_ps(accum1, _mm_mul_ps(coeff1, val1));
+            accum2 = _mm_add_ps(accum2, _mm_mul_ps(coeff2, val2));
+        }
+        __m128 accum = _mm_add_ps(accum1, accum2);
+        accum = _mm_shuffle_ps(accum, accum, 0b11011000);
+        accum = _mm_hadd_ps(accum, accum);
+        _mm_store_ss(outBuf + i, accum);
+        accum = _mm_shuffle_ps(accum, accum, 0b00000001);
+        _mm_store_ss(outBuf + i + 1, accum);
+    }
+}
+
+
 void decimateAVXRC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j, k;
     for(i=0, k=0; i<num*2; i+=2, k+=factor*2){
