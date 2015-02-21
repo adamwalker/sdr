@@ -400,8 +400,8 @@ void decimateRC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf,
         float imag = 0;
         float *startPtr = inBuf + k;
         for(j=0; j<numCoeffs; j++){
-            real += startPtr[j] * coeffs[j];
-            imag += startPtr[j+1] * coeffs[j];
+            real += startPtr[2*j] * coeffs[j];
+            imag += startPtr[2*j+1] * coeffs[j];
         }
         outBuf[i] = real;
         outBuf[i+1] = imag;
@@ -413,7 +413,7 @@ void decimateRC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf,
  */
 void decimateSSERC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j, k;
-    for(i=0, k=0; i<num*2; i+=2, k+=factor){
+    for(i=0, k=0; i<num*2; i+=2, k+=factor*2){
         __m128 accum = _mm_setzero_ps();
 
         float *startPtr = inBuf + k;
@@ -426,8 +426,11 @@ void decimateSSERC(int num, int factor, int numCoeffs, float *coeffs, float *inB
             //Multiply and acumulate
             accum = _mm_add_ps(accum, _mm_mul_ps(coeff, val));
         }
-        outBuf[i]   = _mm_extract_epi32(accum, 0) + _mm_extract_epi32(accum, 2);
-        outBuf[i+1] = _mm_extract_epi32(accum, 1) + _mm_extract_epi32(accum, 3);
+        accum = _mm_shuffle_ps(accum, accum, 0b11011000);
+        accum = _mm_hadd_ps(accum, accum);
+        _mm_store_ss(outBuf + i, accum);
+        accum = _mm_shuffle_ps(accum, accum, 0b00000001);
+        _mm_store_ss(outBuf + i + 1, accum);
     }
 }
 

@@ -389,7 +389,7 @@ theBench = do
             ]
         ]
 
-theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal]
+theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
@@ -459,6 +459,27 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r6 <- run $ getResult num $ decimateCAVXSymmetricRR num factor vCoeffsHalf vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5]
+    propDecimationComplex = forAll sizes $ \size -> 
+                                forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
+                                    forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
+                                        forAll numCoeffs $ \numCoeffs -> 
+                                            forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                                                forAll factors $ \factor -> 
+                                                    testDecimationComplex size numCoeffs factor coeffs $ zipWith (:+) inBufR inBufI
+    testDecimationComplex :: Int -> Int -> Int -> [Float] -> [Complex Float] -> Property
+    testDecimationComplex size numCoeffs factor coeffs inBuf = monadicIO $ do
+        let vCoeffsHalf = VS.fromList coeffs
+            vCoeffs     = VS.fromList $ coeffs ++ reverse coeffs
+            vInput      = VS.fromList inBuf
+            num         = (size - numCoeffs*2 + 1) `quot` factor
+            vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
+
+        r1 <- run $ getResult num $ decimateHighLevel       num factor vCoeffs     vInput
+        r2 <- run $ getResult num $ decimateCRC             num factor vCoeffs     vInput
+        r3 <- run $ getResult num $ decimateCSSERC          num factor vCoeffs2    vInput
+        r4 <- run $ getResult num $ decimateCAVXRC          num factor vCoeffs2    vInput
+
+        assert $ and $ map (r1 `eqDeltaC`) [r2, r3]
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO ()) -> IO [a]
     getResult size func = do
         outBuf <- VGM.new size
