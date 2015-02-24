@@ -544,7 +544,17 @@ void convertCSSE(int num, uint8_t *in, float *out){
         __m128i val  = _mm_loadu_si128((__m128i *)(in + i));
         __m128i ints = _mm_cvtepu8_epi32(val);
         __m128  res  = _mm_cvtepi32_ps(ints);
-        _mm_store_ps(out + i, res);
+        _mm_storeu_ps(out + i, res);
+    }
+}
+
+void convertCAVX(int num, uint8_t *in, float *out){
+    int i;
+    for(i=0; i<num; i+=8){
+        __m128i val  = _mm_loadu_si128((__m128i *)(in + i));
+        __m256i ints = _mm256_cvtepu8_epi32(val);
+        __m256  res  = _mm256_cvtepi32_ps(ints);
+        _mm256_storeu_ps(out + i, res);
     }
 }
 

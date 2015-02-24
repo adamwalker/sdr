@@ -265,6 +265,8 @@ resampleC num interpolation decimation offset coeffs inBuf outBuf =
                 resample_c (fromIntegral num) (fromIntegral $ VG.length coeffs) (fromIntegral interpolation) (fromIntegral decimation) (fromIntegral offset) cPtr iPtr oPtr
 
 -- | Conversion
+convertHighLevel :: VS.Vector CUChar -> VS.Vector Float 
+convertHighLevel = VG.map fromIntegral
 
 foreign import ccall unsafe "convertC"
     convertC_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
@@ -284,8 +286,14 @@ convertCSSE num inBuf outBuf =
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             convertCSSE_c (fromIntegral num) iPtr oPtr
 
-convertHighLevel :: VS.Vector CUChar -> VS.Vector Float 
-convertHighLevel = VG.map fromIntegral
+foreign import ccall unsafe "convertCAVX"
+    convertCAVX_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
+
+convertCAVX :: Int -> VS.Vector CUChar -> VS.MVector RealWorld Float -> IO ()
+convertCAVX num inBuf outBuf = 
+    VS.unsafeWith inBuf $ \iPtr -> 
+        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            convertCAVX_c (fromIntegral num) iPtr oPtr
 
 -- | Scaling
 foreign import ccall unsafe "scale"
@@ -398,7 +406,9 @@ theBench = do
                 ]
             ],
             bgroup "conversion" [
-                bench "c"               $ nfIO $ convertC numConv inBufConv outBuf
+                bench "c"               $ nfIO $ convertC    numConv inBufConv outBuf,
+                bench "cSSE"            $ nfIO $ convertCSSE numConv inBufConv outBuf,
+                bench "cAVX"            $ nfIO $ convertCAVX numConv inBufConv outBuf
                 --bench "c"               $ nfIO $ convertHighLevel  inBufConv
             ],
             bgroup "scaling" [
@@ -523,8 +533,9 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
 
         r1 <- run $ getResult size $ convertC    size vInput
         r2 <- run $ getResult size $ convertCSSE size vInput
+        r3 <- run $ getResult size $ convertCAVX size vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r2]
+        assert $ and $ map (r1 `eqDelta`) [r2, r3]
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO ()) -> IO [a]
     getResult size func = do
         outBuf <- VGM.new size
@@ -541,4 +552,4 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
     duplicate = concat . map func 
         where func x = [x, x]
 
-main = theTest
+main = theBench
