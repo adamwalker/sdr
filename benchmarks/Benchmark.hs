@@ -280,28 +280,31 @@ convertHighLevel = VG.map fromIntegral
 
 -- | Scaling
 foreign import ccall unsafe "scale"
-    scale_c :: CInt -> CFloat -> Ptr CFloat -> IO ()
+    scale_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-scaleC :: Int -> Float -> VS.MVector RealWorld Float -> IO ()
-scaleC num factor buf = 
-    VS.unsafeWith (unsafeCoerce buf) $ \bPtr -> 
-        scale_c (fromIntegral num) (unsafeCoerce factor) bPtr
+scaleC :: Int -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleC num factor inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            scale_c (fromIntegral num) (unsafeCoerce factor) iPtr oPtr
 
 foreign import ccall unsafe "scaleSSE"
-    scaleSSE_c :: CInt -> CFloat -> Ptr CFloat -> IO ()
+    scaleSSE_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat-> IO ()
 
-scaleCSSE :: Int -> Float -> VS.MVector RealWorld Float -> IO ()
-scaleCSSE num factor buf = 
-    VS.unsafeWith (unsafeCoerce buf) $ \bPtr -> 
-        scaleSSE_c (fromIntegral num) (unsafeCoerce factor) bPtr
+scaleCSSE :: Int -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleCSSE num factor inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            scaleSSE_c (fromIntegral num) (unsafeCoerce factor) iPtr oPtr
 
 foreign import ccall unsafe "scaleAVX"
-    scaleAVX_c :: CInt -> CFloat -> Ptr CFloat -> IO ()
+    scaleAVX_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
-scaleCAVX :: Int -> Float -> VS.MVector RealWorld Float -> IO ()
-scaleCAVX num factor buf = 
-    VS.unsafeWith (unsafeCoerce buf) $ \bPtr -> 
-        scaleAVX_c (fromIntegral num) (unsafeCoerce factor) bPtr
+scaleCAVX :: Int -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleCAVX num factor inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            scaleAVX_c (fromIntegral num) (unsafeCoerce factor) iPtr oPtr
 
 theBench :: IO ()
 theBench = do
@@ -390,13 +393,13 @@ theBench = do
                 --bench "c"               $ nfIO $ convertHighLevel  inBufConv
             ],
             bgroup "scaling" [
-                bench "c"               $ nfIO $ scaleC    size 0.3 outBuf,
-                bench "cSSE"            $ nfIO $ scaleCSSE size 0.3 outBuf,
-                bench "cAVX"            $ nfIO $ scaleCAVX size 0.3 outBuf
+                bench "c"               $ nfIO $ scaleC    size 0.3 inBuf outBuf,
+                bench "cSSE"            $ nfIO $ scaleCSSE size 0.3 inBuf outBuf,
+                bench "cAVX"            $ nfIO $ scaleCAVX size 0.3 inBuf outBuf
             ]
         ]
 
-theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex]
+theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex, counterexample "Real Scaling" propScaleReal]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
@@ -488,6 +491,20 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r5 <- run $ getResult num $ decimateCAVXRC          num factor vCoeffs2    vInput
 
         assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5]
+    scales          = elements [0.1, 0.5, 1, 2, 10]
+    propScaleReal = forAll sizes $ \size -> 
+                        forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
+                            forAll scales $ \factor -> 
+                                testScaleReal size inBuf factor
+    testScaleReal :: Int -> [Float] -> Float -> Property
+    testScaleReal size inBuf factor = monadicIO $ do
+        let vInput = VS.fromList inBuf
+
+        r1 <- run $ getResult size $ scaleC    size factor vInput
+        r2 <- run $ getResult size $ scaleCSSE size factor vInput
+        r3 <- run $ getResult size $ scaleCAVX size factor vInput
+
+        assert $ and $ map (r1 `eqDelta`) [r2, r3]
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO ()) -> IO [a]
     getResult size func = do
         outBuf <- VGM.new size
