@@ -538,6 +538,16 @@ void convertC(int num, uint8_t *in, float *out){
     }
 }
 
+void convertCSSE(int num, uint8_t *in, float *out){
+    int i;
+    for(i=0; i<num; i+=4){
+        __m128i val  = _mm_loadu_si128((__m128i *)(in + i));
+        __m128i ints = _mm_cvtepu8_epi32(val);
+        __m128  res  = _mm_cvtepi32_ps(ints);
+        _mm_store_ps(out + i, res);
+    }
+}
+
 /*
 void convertSSE(int num, uint8_t *in, float *out){
     int i;

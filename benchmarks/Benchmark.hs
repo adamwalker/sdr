@@ -275,6 +275,15 @@ convertC num inBuf outBuf =
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             convertC_c (fromIntegral num) iPtr oPtr
 
+foreign import ccall unsafe "convertCSSE"
+    convertCSSE_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
+
+convertCSSE :: Int -> VS.Vector CUChar -> VS.MVector RealWorld Float -> IO ()
+convertCSSE num inBuf outBuf = 
+    VS.unsafeWith inBuf $ \iPtr -> 
+        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            convertCSSE_c (fromIntegral num) iPtr oPtr
+
 convertHighLevel :: VS.Vector CUChar -> VS.Vector Float 
 convertHighLevel = VG.map fromIntegral
 
@@ -399,7 +408,7 @@ theBench = do
             ]
         ]
 
-theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex, counterexample "Real Scaling" propScaleReal]
+theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex, counterexample "Real Scaling" propScaleReal, counterexample "Conversion" propConversion]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
@@ -505,6 +514,17 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r3 <- run $ getResult size $ scaleCAVX size factor vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3]
+    propConversion = forAll sizes $ \size -> 
+                         forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
+                             testConversion size inBuf
+    testConversion :: Int -> [Int] -> Property
+    testConversion size inBuf = monadicIO $ do
+        let vInput = VS.fromList $ map fromIntegral inBuf
+
+        r1 <- run $ getResult size $ convertC    size vInput
+        r2 <- run $ getResult size $ convertCSSE size vInput
+
+        assert $ and $ map (r1 `eqDelta`) [r2]
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO ()) -> IO [a]
     getResult size func = do
         outBuf <- VGM.new size
