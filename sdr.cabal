@@ -34,3 +34,11 @@ Test-Suite test
     build-depends:  base, QuickCheck, vector, sdr, primitive, storable-complex
     hs-source-dirs: tests
     ghc-options:    -O2
+
+benchmark benchmark
+    type:           exitcode-stdio-1.0
+    main-is:        Benchmarks.hs
+    build-depends:  base, criterion, vector, sdr, primitive, storable-complex
+    hs-source-dirs: benchmarks
+    ghc-options:    -O2
+    
