@@ -63,9 +63,9 @@ theBench = do
                     bench "imperative2" $ nfIO $ filterImperative2      num coeffs inBuf outBuf,
                     bench "c"           $ nfIO $ filterCRR              num coeffs inBuf outBuf,
                     bench "cSSE"        $ nfIO $ filterCSSERR           num coeffs inBuf outBuf,
-                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRR  num coeffsSym inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ filterCAVXRR           num coeffs inBuf outBuf,
-                    bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR  num coeffsSym inBuf outBuf
+                    --bench "cSSESym"     $ nfIO $ filterCSSESymmetricRR  num coeffsSym inBuf outBuf,
+                    bench "cAVX"        $ nfIO $ filterCAVXRR           num coeffs inBuf outBuf
+                    --bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR  num coeffsSym inBuf outBuf
                 ],
                 bgroup "complex" [
                     bench "highLevel"   $ nfIO $ filterHighLevel        num coeffs  inBufComplex outBufComplex,
@@ -80,9 +80,9 @@ theBench = do
                     bench "highLevel"   $ nfIO $ decimateHighLevel        (num `quot` decimation) decimation coeffs inBuf outBuf,
                     bench "c"           $ nfIO $ decimateCRR              (num `quot` decimation) decimation coeffs inBuf outBuf,
                     bench "cSSE"        $ nfIO $ decimateCSSERR           (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ decimateCAVXRR           (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf
+                    --bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf,
+                    bench "cAVX"        $ nfIO $ decimateCAVXRR           (num `quot` decimation) decimation coeffs inBuf outBuf
+                    --bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf
                 ],
                 bgroup "complex" [
                     bench "highLevel"   $ nfIO $ decimateHighLevel      (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
