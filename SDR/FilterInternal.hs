@@ -17,11 +17,13 @@ import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 
 import           SDR.Util
 
+{-# INLINE filterHighLevel #-}
 filterHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> v a -> vm (PrimState m) a -> m ()
 filterHighLevel num coeffs inBuf outBuf = fill (VFSM.generate num dotProd) outBuf
     where
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
+{-# INLINE filterImperative1 #-}
 filterImperative1 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> v a -> vm (PrimState m) a -> m ()
 filterImperative1 num coeffs inBuf outBuf = go 0
     where
@@ -33,6 +35,7 @@ filterImperative1 num coeffs inBuf outBuf = go 0
         | otherwise    = return ()
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
+{-# INLINE filterImperative2 #-}
 filterImperative2 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> v a -> vm (PrimState m) a -> m ()
 filterImperative2 num coeffs inBuf outBuf = go 0
     where
@@ -122,6 +125,7 @@ filterCAVXRC = filterFFIC filterAVXRC_c
 
 -- | Decimation
 
+{-# INLINE decimateHighLevel #-}
 decimateHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> v a -> vm (PrimState m) a -> m ()
 decimateHighLevel num factor coeffs inBuf outBuf = fill x outBuf
     where 
