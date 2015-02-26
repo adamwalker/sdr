@@ -33,3 +33,4 @@ Test-Suite test
     main-is:        TestSuite.hs
     build-depends:  base, QuickCheck, vector, sdr, primitive, storable-complex
     hs-source-dirs: tests
+    ghc-options:    -O2
