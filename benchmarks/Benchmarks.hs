@@ -63,7 +63,7 @@ theBench = do
                     bench "imperative2" $ nfIO $ filterImperative2      num coeffs inBuf outBuf,
                     bench "c"           $ nfIO $ filterCRR              num coeffs inBuf outBuf,
                     bench "cSSE"        $ nfIO $ filterCSSERR           num coeffs inBuf outBuf,
-                    --bench "cSSESym"     $ nfIO $ filterCSSESymmetricRR  num coeffsSym inBuf outBuf,
+                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRR  num coeffsSym inBuf outBuf,
                     bench "cAVX"        $ nfIO $ filterCAVXRR           num coeffs inBuf outBuf
                     --bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR  num coeffsSym inBuf outBuf
                 ],

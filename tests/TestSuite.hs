@@ -45,10 +45,10 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r4 <- run $ getResult num $ filterCRR             num vCoeffs     vInput
         r5 <- run $ getResult num $ filterCSSERR          num vCoeffs     vInput
         r6 <- run $ getResult num $ filterCAVXRR          num vCoeffs     vInput
-        --r7 <- run $ getResult num $ filterCSSESymmetricRR num vCoeffsHalf vInput
-        --r8 <- run $ getResult num $ filterCAVXSymmetricRR num vCoeffsHalf vInput
+        r7 <- run $ getResult num $ filterCSSESymmetricRR num vCoeffsHalf vInput
+        r8 <- run $ getResult num $ filterCAVXSymmetricRR num vCoeffsHalf vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6{-, r7, r8-}]
+        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7, r8]
     propFiltersComplex = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
                                  forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
@@ -87,10 +87,10 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r2 <- run $ getResult num $ decimateCRR             num factor vCoeffs     vInput
         r3 <- run $ getResult num $ decimateCSSERR          num factor vCoeffs     vInput
         r4 <- run $ getResult num $ decimateCAVXRR          num factor vCoeffs     vInput
-        --r5 <- run $ getResult num $ decimateCSSESymmetricRR num factor vCoeffsHalf vInput
-        --r6 <- run $ getResult num $ decimateCAVXSymmetricRR num factor vCoeffsHalf vInput
+        r5 <- run $ getResult num $ decimateCSSESymmetricRR num factor vCoeffsHalf vInput
+        r6 <- run $ getResult num $ decimateCAVXSymmetricRR num factor vCoeffsHalf vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4{-, r5, r6-}]
+        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6]
     propDecimationComplex = forAll sizes $ \size -> 
                                 forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
                                     forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 

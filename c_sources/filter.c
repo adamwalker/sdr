@@ -86,7 +86,8 @@ void filterSSESymmetricRR(int num, int numCoeffs, float *coeffs, float *inBuf, f
             //Load the needed vectors
             __m128 coeff = _mm_loadu_ps(coeffs   + j);
             __m128 val1  = _mm_loadu_ps(startPtr + j);
-            __m128 val2  = _mm_loadr_ps(endPtr   - j);
+            __m128 val2  = _mm_loadu_ps(endPtr   - j);
+            val2         = _mm_permute_ps(val2, _MM_SHUFFLE(0, 1, 2, 3));
 
             //Multiply and acumulate
             accum = _mm_add_ps(accum, _mm_mul_ps(coeff, _mm_add_ps(val1, val2)));
