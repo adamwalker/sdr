@@ -559,17 +559,6 @@ void convertCAVX(int num, uint8_t *in, float *out){
 }
 
 /*
-void convertSSE(int num, uint8_t *in, float *out){
-    int i;
-    for(i=0; i<num; i+=4){
-        //__m64  dat   = _mm64_loadu_ps(in + i);
-        __m128 cvted = _mm_cvtpu8_ps(dat);
-        _mm_storeu_ps(out + i, cvted);
-    }
-}
-*/
-
-/*
  * Scaling
  */
 
