@@ -61,6 +61,29 @@ fastFilterR coeffs = do
         filterCross = filterCrossHighLevel vCoeffs
     return $ Filter {..}
 
+{-# INLINE fastFilterC #-}
+fastFilterC :: [Float] -> IO (Filter IO VS.Vector VS.MVector (Complex Float))
+fastFilterC coeffs = do
+    let l          = length coeffs
+        ru         = (l + 8 - 1) `quot` 8
+        numCoeffsF = ru * 8 
+        diff       = numCoeffsF - l
+        vCoeffs    = VG.fromList $ coeffs ++ replicate diff 0
+    evaluate vCoeffs
+    let filterOne   = filterCAVXRC         vCoeffs
+        filterCross = filterCrossHighLevel vCoeffs
+    return $ Filter {..}
+
+{-# INLINE fastSymmetricFilterR #-}
+-- | Coefficient length must be a multiple of 4
+fastSymmetricFilterR :: [Float] -> IO (Filter IO VS.Vector VS.MVector Float)
+fastSymmetricFilterR coeffs = do
+    let vCoeffs     = VG.fromList coeffs 
+    evaluate vCoeffs
+    let filterOne   = filterCAVXSymmetricRR vCoeffs
+        filterCross = filterCrossHighLevel  vCoeffs
+    return $ Filter {..}
+
 {-# INLINE haskellDecimator #-}
 haskellDecimator :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> [b] -> IO (Decimator m v vm a)
 haskellDecimator factor coeffs = do
@@ -70,6 +93,19 @@ haskellDecimator factor coeffs = do
         decimateCross = decimateCrossHighLevel factor vCoeffs
         numCoeffsD    = length coeffs
     return $ (Decimator {..})
+
+{-# INLINE fastDecimatorR #-}
+fastDecimatorR :: Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector Float)
+fastDecimatorR factor coeffs = do
+    let l          = length coeffs
+        ru         = (l + 8 - 1) `quot` 8
+        numCoeffsD = ru * 8 
+        diff       = numCoeffsD - l
+        vCoeffs    = VG.fromList $ coeffs ++ replicate diff 0
+    evaluate vCoeffs
+    let decimateOne   = decimateCAVXRR         factor vCoeffs
+        decimateCross = decimateCrossHighLevel factor vCoeffs
+    return $ Decimator {..}
 
 {-# INLINE fastDecimatorC #-}
 fastDecimatorC :: Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector (Complex Float))
@@ -82,6 +118,15 @@ fastDecimatorC factor coeffs = do
     evaluate vCoeffs
     let decimateOne   = decimateCAVXRC         factor vCoeffs
         decimateCross = decimateCrossHighLevel factor vCoeffs
+    return $ Decimator {..}
+
+{-# INLINE fastSymmetricDecimatorR #-}
+fastSymmetricDecimatorR :: Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector Float)
+fastSymmetricDecimatorR factor coeffs = do
+    let vCoeffs    = VG.fromList coeffs
+    evaluate vCoeffs
+    let decimateOne   = decimateCAVXSymmetricRR factor vCoeffs
+        decimateCross = decimateCrossHighLevel  factor vCoeffs
     return $ Decimator {..}
 
 data Buffer v a = Buffer {
