@@ -2,8 +2,12 @@
 module SDR.Filter (
     haskellFilter,
     fastFilterR,
+    fastFilterC,
+    fastSymmetricFilterR,
     haskellDecimator,
+    fastDecimatorR,
     fastDecimatorC,
+    fastSymmetricDecimatorR,
     filterr,
     decimate,
     resample
@@ -79,9 +83,12 @@ fastFilterC coeffs = do
 fastSymmetricFilterR :: [Float] -> IO (Filter IO VS.Vector VS.MVector Float)
 fastSymmetricFilterR coeffs = do
     let vCoeffs     = VG.fromList coeffs 
+    let vCoeffs2    = VG.fromList $ coeffs ++ reverse coeffs
     evaluate vCoeffs
+    evaluate vCoeffs2
     let filterOne   = filterCAVXSymmetricRR vCoeffs
-        filterCross = filterCrossHighLevel  vCoeffs
+        filterCross = filterCrossHighLevel  vCoeffs2
+        numCoeffsF  = length coeffs * 2
     return $ Filter {..}
 
 {-# INLINE haskellDecimator #-}
@@ -124,9 +131,12 @@ fastDecimatorC factor coeffs = do
 fastSymmetricDecimatorR :: Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector Float)
 fastSymmetricDecimatorR factor coeffs = do
     let vCoeffs    = VG.fromList coeffs
+    let vCoeffs2   = VG.fromList $ coeffs ++ reverse coeffs
     evaluate vCoeffs
+    evaluate vCoeffs2
     let decimateOne   = decimateCAVXSymmetricRR factor vCoeffs
-        decimateCross = decimateCrossHighLevel  factor vCoeffs
+        decimateCross = decimateCrossHighLevel  factor vCoeffs2
+        numCoeffsD    = length coeffs * 2
     return $ Decimator {..}
 
 data Buffer v a = Buffer {
