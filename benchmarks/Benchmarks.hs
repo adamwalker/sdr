@@ -58,38 +58,38 @@ theBench = do
     defaultMain [
             bgroup "filter" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ filterHighLevel        coeffs num inBuf outBuf,
-                    bench "imperative1" $ nfIO $ filterImperative1      num coeffs inBuf outBuf,
-                    bench "imperative2" $ nfIO $ filterImperative2      num coeffs inBuf outBuf,
-                    bench "c"           $ nfIO $ filterCRR              num coeffs inBuf outBuf,
-                    bench "cSSE"        $ nfIO $ filterCSSERR           num coeffs inBuf outBuf,
-                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRR  num coeffsSym inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ filterCAVXRR           num coeffs inBuf outBuf
-                    --bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR  num coeffsSym inBuf outBuf
+                    bench "highLevel"   $ nfIO $ filterHighLevel          coeffs    num inBuf outBuf,
+                    bench "imperative1" $ nfIO $ filterImperative1        coeffs    num inBuf outBuf,
+                    bench "imperative2" $ nfIO $ filterImperative2        coeffs    num inBuf outBuf,
+                    bench "c"           $ nfIO $ filterCRR                coeffs    num inBuf outBuf,
+                    bench "cSSE"        $ nfIO $ filterCSSERR             coeffs    num inBuf outBuf,
+                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRR    coeffsSym num inBuf outBuf,
+                    bench "cAVX"        $ nfIO $ filterCAVXRR             coeffs    num inBuf outBuf,
+                    bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR    coeffsSym num inBuf outBuf
                 ],
                 bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ filterHighLevel        coeffs num  inBufComplex outBufComplex,
-                    bench "c"           $ nfIO $ filterCRC              num coeffs  inBufComplex outBufComplex,
-                    bench "cSSE"        $ nfIO $ filterCSSERC           num coeffs2 inBufComplex outBufComplex,
-                    bench "cSSE2"       $ nfIO $ filterCSSERC2          num coeffs  inBufComplex outBufComplex,
-                    bench "cAVX"        $ nfIO $ filterCAVXRC           num coeffs2 inBufComplex outBufComplex
+                    bench "highLevel"   $ nfIO $ filterHighLevel          coeffs    num inBufComplex outBufComplex,
+                    bench "c"           $ nfIO $ filterCRC                coeffs    num inBufComplex outBufComplex,
+                    bench "cSSE"        $ nfIO $ filterCSSERC             coeffs2   num inBufComplex outBufComplex,
+                    bench "cSSE2"       $ nfIO $ filterCSSERC2            coeffs    num inBufComplex outBufComplex,
+                    bench "cAVX"        $ nfIO $ filterCAVXRC             coeffs2   num inBufComplex outBufComplex
                 ]
             ],
             bgroup "decimate" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ decimateHighLevel        decimation coeffs (num `quot` decimation) inBuf outBuf,
-                    bench "c"           $ nfIO $ decimateCRR              (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    bench "cSSE"        $ nfIO $ decimateCSSERR           (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    --bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ decimateCAVXRR           (num `quot` decimation) decimation coeffs inBuf outBuf
-                    --bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf
+                    bench "highLevel"   $ nfIO $ decimateHighLevel        decimation coeffs    (num `quot` decimation) inBuf outBuf,
+                    bench "c"           $ nfIO $ decimateCRR              decimation coeffs    (num `quot` decimation) inBuf outBuf,
+                    bench "cSSE"        $ nfIO $ decimateCSSERR           decimation coeffs    (num `quot` decimation) inBuf outBuf,
+                    bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRR  decimation coeffsSym (num `quot` decimation) inBuf outBuf,
+                    bench "cAVX"        $ nfIO $ decimateCAVXRR           decimation coeffs    (num `quot` decimation) inBuf outBuf,
+                    bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRR  decimation coeffsSym (num `quot` decimation) inBuf outBuf
                 ],
                 bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ decimateHighLevel      decimation coeffs (num `quot` decimation)  inBufComplex outBufComplex,
-                    bench "c"           $ nfIO $ decimateCRC            (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
-                    bench "cSSE"        $ nfIO $ decimateCSSERC         (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex,
-                    bench "cSSE2"       $ nfIO $ decimateCSSERC2        (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
-                    bench "cAVX"        $ nfIO $ decimateCAVXRC         (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex
+                    bench "highLevel"   $ nfIO $ decimateHighLevel        decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex,
+                    bench "c"           $ nfIO $ decimateCRC              decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex,
+                    bench "cSSE"        $ nfIO $ decimateCSSERC           decimation coeffs2   (num `quot` decimation) inBufComplex outBufComplex,
+                    bench "cSSE2"       $ nfIO $ decimateCSSERC2          decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex,
+                    bench "cAVX"        $ nfIO $ decimateCAVXRC           decimation coeffs2   (num `quot` decimation) inBufComplex outBufComplex
                 ]
             ]
         ]

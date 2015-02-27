@@ -39,14 +39,14 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
             vInput      = VS.fromList inBuf
             num         = size - numCoeffs*2 + 1
 
-        r1 <- run $ getResult num $ filterHighLevel       vCoeffs num     vInput
-        r2 <- run $ getResult num $ filterImperative1     num vCoeffs     vInput
-        r3 <- run $ getResult num $ filterImperative2     num vCoeffs     vInput
-        r4 <- run $ getResult num $ filterCRR             num vCoeffs     vInput
-        r5 <- run $ getResult num $ filterCSSERR          num vCoeffs     vInput
-        r6 <- run $ getResult num $ filterCAVXRR          num vCoeffs     vInput
-        r7 <- run $ getResult num $ filterCSSESymmetricRR num vCoeffsHalf vInput
-        r8 <- run $ getResult num $ filterCAVXSymmetricRR num vCoeffsHalf vInput
+        r1 <- run $ getResult num $ filterHighLevel       vCoeffs     num vInput
+        r2 <- run $ getResult num $ filterImperative1     vCoeffs     num vInput
+        r3 <- run $ getResult num $ filterImperative2     vCoeffs     num vInput
+        r4 <- run $ getResult num $ filterCRR             vCoeffs     num vInput
+        r5 <- run $ getResult num $ filterCSSERR          vCoeffs     num vInput
+        r6 <- run $ getResult num $ filterCAVXRR          vCoeffs     num vInput
+        r7 <- run $ getResult num $ filterCSSESymmetricRR vCoeffsHalf num vInput
+        r8 <- run $ getResult num $ filterCAVXSymmetricRR vCoeffsHalf num vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7, r8]
     propFiltersComplex = forAll sizes $ \size -> 
@@ -63,11 +63,11 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
             num         = size - numCoeffs*2 + 1
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        r1 <- run $ getResult num $ filterHighLevel       vCoeffs num     vInput
-        r2 <- run $ getResult num $ filterCRC             num vCoeffs     vInput
-        r3 <- run $ getResult num $ filterCSSERC          num vCoeffs2    vInput
-        r4 <- run $ getResult num $ filterCSSERC2         num vCoeffs     vInput
-        r5 <- run $ getResult num $ filterCAVXRC          num vCoeffs2    vInput
+        r1 <- run $ getResult num $ filterHighLevel       vCoeffs  num vInput
+        r2 <- run $ getResult num $ filterCRC             vCoeffs  num vInput
+        r3 <- run $ getResult num $ filterCSSERC          vCoeffs2 num vInput
+        r4 <- run $ getResult num $ filterCSSERC2         vCoeffs  num vInput
+        r5 <- run $ getResult num $ filterCAVXRC          vCoeffs2 num vInput
 
         assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5]
     propDecimationReal = forAll sizes $ \size -> 
@@ -83,12 +83,12 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` factor
 
-        r1 <- run $ getResult num $ decimateHighLevel       factor vCoeffs num     vInput
-        r2 <- run $ getResult num $ decimateCRR             num factor vCoeffs     vInput
-        r3 <- run $ getResult num $ decimateCSSERR          num factor vCoeffs     vInput
-        r4 <- run $ getResult num $ decimateCAVXRR          num factor vCoeffs     vInput
-        r5 <- run $ getResult num $ decimateCSSESymmetricRR num factor vCoeffsHalf vInput
-        r6 <- run $ getResult num $ decimateCAVXSymmetricRR num factor vCoeffsHalf vInput
+        r1 <- run $ getResult num $ decimateHighLevel       factor vCoeffs     num vInput
+        r2 <- run $ getResult num $ decimateCRR             factor vCoeffs     num vInput
+        r3 <- run $ getResult num $ decimateCSSERR          factor vCoeffs     num vInput
+        r4 <- run $ getResult num $ decimateCAVXRR          factor vCoeffs     num vInput
+        r5 <- run $ getResult num $ decimateCSSESymmetricRR factor vCoeffsHalf num vInput
+        r6 <- run $ getResult num $ decimateCAVXSymmetricRR factor vCoeffsHalf num vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6]
     propDecimationComplex = forAll sizes $ \size -> 
@@ -106,11 +106,11 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
             num         = (size - numCoeffs*2 + 1) `quot` factor
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        r1 <- run $ getResult num $ decimateHighLevel       factor vCoeffs num     vInput
-        r2 <- run $ getResult num $ decimateCRC             num factor vCoeffs     vInput
-        r3 <- run $ getResult num $ decimateCSSERC          num factor vCoeffs2    vInput
-        r4 <- run $ getResult num $ decimateCSSERC2         num factor vCoeffs     vInput
-        r5 <- run $ getResult num $ decimateCAVXRC          num factor vCoeffs2    vInput
+        r1 <- run $ getResult num $ decimateHighLevel       factor vCoeffs  num vInput
+        r2 <- run $ getResult num $ decimateCRC             factor vCoeffs  num vInput
+        r3 <- run $ getResult num $ decimateCSSERC          factor vCoeffs2 num vInput
+        r4 <- run $ getResult num $ decimateCSSERC2         factor vCoeffs  num vInput
+        r5 <- run $ getResult num $ decimateCAVXRC          factor vCoeffs2 num vInput
 
         assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5]
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO ()) -> IO [a]

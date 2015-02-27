@@ -24,8 +24,8 @@ filterHighLevel coeffs num inBuf outBuf = fill (VFSM.generate num dotProd) outBu
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 {-# INLINE filterImperative1 #-}
-filterImperative1 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> v a -> vm (PrimState m) a -> m ()
-filterImperative1 num coeffs inBuf outBuf = go 0
+filterImperative1 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
+filterImperative1 coeffs num inBuf outBuf = go 0
     where
     go offset 
         | offset < num = do
@@ -36,8 +36,8 @@ filterImperative1 num coeffs inBuf outBuf = go 0
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 {-# INLINE filterImperative2 #-}
-filterImperative2 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> v a -> vm (PrimState m) a -> m ()
-filterImperative2 num coeffs inBuf outBuf = go 0
+filterImperative2 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
+filterImperative2 coeffs num inBuf outBuf = go 0
     where
     go offset 
         | offset < num = do
@@ -52,18 +52,18 @@ filterImperative2 num coeffs inBuf outBuf = go 0
             | otherwise            = accum
 
 type FilterCRR = CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-type FilterRR  = Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-type FilterRC  = Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
+type FilterRR  = VS.Vector Float -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+type FilterRC  = VS.Vector Float -> Int -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
 
 filterFFIR :: FilterCRR -> FilterRR 
-filterFFIR func num coeffs inBuf outBuf = 
+filterFFIR func coeffs num inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 func (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
 filterFFIC :: FilterCRR -> FilterRC 
-filterFFIC func num coeffs inBuf outBuf = 
+filterFFIC func coeffs num inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
@@ -133,18 +133,18 @@ decimateHighLevel factor coeffs num inBuf outBuf = fill x outBuf
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 type DecimateCRR = CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-type DecimateRR  = Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-type DecimateRC  = Int -> Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
+type DecimateRR  = Int -> VS.Vector Float -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+type DecimateRC  = Int -> VS.Vector Float -> Int -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
 
 decimateFFIR :: DecimateCRR -> DecimateRR 
-decimateFFIR func num factor coeffs inBuf outBuf = 
+decimateFFIR func factor coeffs num inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 func (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
 decimateFFIC :: DecimateCRR -> DecimateRC 
-decimateFFIC func num factor coeffs inBuf outBuf = 
+decimateFFIC func factor coeffs num inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 

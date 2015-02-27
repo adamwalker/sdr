@@ -57,7 +57,7 @@ fastFilterR coeffs = do
         diff       = numCoeffsF - l
         vCoeffs    = VG.fromList $ coeffs ++ replicate diff 0
     evaluate vCoeffs
-    let filterOne s = filterCAVXRR         s vCoeffs
+    let filterOne   = filterCAVXRR         vCoeffs
         filterCross = filterCrossHighLevel vCoeffs
     return $ Filter {..}
 
@@ -80,7 +80,7 @@ fastDecimatorC factor coeffs = do
         diff       = numCoeffsD - l
         vCoeffs    = VG.fromList $ coeffs ++ replicate diff 0
     evaluate vCoeffs
-    let decimateOne s = decimateCAVXRC         s factor vCoeffs
+    let decimateOne   = decimateCAVXRC         factor vCoeffs
         decimateCross = decimateCrossHighLevel factor vCoeffs
     return $ Decimator {..}
 
