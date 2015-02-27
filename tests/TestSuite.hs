@@ -39,7 +39,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
             vInput      = VS.fromList inBuf
             num         = size - numCoeffs*2 + 1
 
-        r1 <- run $ getResult num $ filterHighLevel       num vCoeffs     vInput
+        r1 <- run $ getResult num $ filterHighLevel       vCoeffs num     vInput
         r2 <- run $ getResult num $ filterImperative1     num vCoeffs     vInput
         r3 <- run $ getResult num $ filterImperative2     num vCoeffs     vInput
         r4 <- run $ getResult num $ filterCRR             num vCoeffs     vInput
@@ -63,7 +63,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
             num         = size - numCoeffs*2 + 1
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        r1 <- run $ getResult num $ filterHighLevel       num vCoeffs     vInput
+        r1 <- run $ getResult num $ filterHighLevel       vCoeffs num     vInput
         r2 <- run $ getResult num $ filterCRC             num vCoeffs     vInput
         r3 <- run $ getResult num $ filterCSSERC          num vCoeffs2    vInput
         r4 <- run $ getResult num $ filterCSSERC2         num vCoeffs     vInput
@@ -83,7 +83,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` factor
 
-        r1 <- run $ getResult num $ decimateHighLevel       num factor vCoeffs     vInput
+        r1 <- run $ getResult num $ decimateHighLevel       factor vCoeffs num     vInput
         r2 <- run $ getResult num $ decimateCRR             num factor vCoeffs     vInput
         r3 <- run $ getResult num $ decimateCSSERR          num factor vCoeffs     vInput
         r4 <- run $ getResult num $ decimateCAVXRR          num factor vCoeffs     vInput
@@ -106,7 +106,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
             num         = (size - numCoeffs*2 + 1) `quot` factor
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        r1 <- run $ getResult num $ decimateHighLevel       num factor vCoeffs     vInput
+        r1 <- run $ getResult num $ decimateHighLevel       factor vCoeffs num     vInput
         r2 <- run $ getResult num $ decimateCRC             num factor vCoeffs     vInput
         r3 <- run $ getResult num $ decimateCSSERC          num factor vCoeffs2    vInput
         r4 <- run $ getResult num $ decimateCSSERC2         num factor vCoeffs     vInput

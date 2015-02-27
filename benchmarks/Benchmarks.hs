@@ -58,7 +58,7 @@ theBench = do
     defaultMain [
             bgroup "filter" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ filterHighLevel        num coeffs inBuf outBuf,
+                    bench "highLevel"   $ nfIO $ filterHighLevel        coeffs num inBuf outBuf,
                     bench "imperative1" $ nfIO $ filterImperative1      num coeffs inBuf outBuf,
                     bench "imperative2" $ nfIO $ filterImperative2      num coeffs inBuf outBuf,
                     bench "c"           $ nfIO $ filterCRR              num coeffs inBuf outBuf,
@@ -68,7 +68,7 @@ theBench = do
                     --bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR  num coeffsSym inBuf outBuf
                 ],
                 bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ filterHighLevel        num coeffs  inBufComplex outBufComplex,
+                    bench "highLevel"   $ nfIO $ filterHighLevel        coeffs num  inBufComplex outBufComplex,
                     bench "c"           $ nfIO $ filterCRC              num coeffs  inBufComplex outBufComplex,
                     bench "cSSE"        $ nfIO $ filterCSSERC           num coeffs2 inBufComplex outBufComplex,
                     bench "cSSE2"       $ nfIO $ filterCSSERC2          num coeffs  inBufComplex outBufComplex,
@@ -77,7 +77,7 @@ theBench = do
             ],
             bgroup "decimate" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ decimateHighLevel        (num `quot` decimation) decimation coeffs inBuf outBuf,
+                    bench "highLevel"   $ nfIO $ decimateHighLevel        decimation coeffs (num `quot` decimation) inBuf outBuf,
                     bench "c"           $ nfIO $ decimateCRR              (num `quot` decimation) decimation coeffs inBuf outBuf,
                     bench "cSSE"        $ nfIO $ decimateCSSERR           (num `quot` decimation) decimation coeffs inBuf outBuf,
                     --bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf,
@@ -85,7 +85,7 @@ theBench = do
                     --bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf
                 ],
                 bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ decimateHighLevel      (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
+                    bench "highLevel"   $ nfIO $ decimateHighLevel      decimation coeffs (num `quot` decimation)  inBufComplex outBufComplex,
                     bench "c"           $ nfIO $ decimateCRC            (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
                     bench "cSSE"        $ nfIO $ decimateCSSERC         (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex,
                     bench "cSSE2"       $ nfIO $ decimateCSSERC2        (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
