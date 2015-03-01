@@ -21,12 +21,14 @@ import           Test.QuickCheck.Monadic
 import           Foreign.Storable.Complex
 
 import           SDR.FilterInternal
+import           SDR.Util
 
-theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex]
+theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex, counterexample "Conversion" propConversion]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
     factors         = elements [1, 2, 3, 4, 7, 9, 12, 15, 21]
+
     propFiltersReal = forAll sizes $ \size -> 
                           forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                               forAll numCoeffs $ \numCoeffs -> 
@@ -49,6 +51,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r8 <- run $ getResult num $ filterCAVXSymmetricRR vCoeffsHalf num vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7, r8]
+
     propFiltersComplex = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
                                  forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
@@ -70,6 +73,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r5 <- run $ getResult num $ filterCAVXRC          vCoeffs2 num vInput
 
         assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5]
+
     propDecimationReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                                  forAll numCoeffs $ \numCoeffs -> 
@@ -91,6 +95,7 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r6 <- run $ getResult num $ decimateCAVXSymmetricRR factor vCoeffsHalf num vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6]
+
     propDecimationComplex = forAll sizes $ \size -> 
                                 forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
                                     forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
@@ -113,12 +118,28 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
         r5 <- run $ getResult num $ decimateCAVXRC          factor vCoeffs2 num vInput
 
         assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5]
+
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO ()) -> IO [a]
     getResult size func = do
         outBuf <- VGM.new size
         func outBuf
         out :: VS.Vector a <- VG.freeze outBuf
         return $ VG.toList out
+
+    propConversion = forAll sizes $ \size -> 
+                         forAll (vectorOf (2 * size) (choose (-10, 10))) $ \inBuf -> 
+                             testConversion size inBuf
+    testConversion :: Int -> [Int] -> Property
+    testConversion size inBuf = monadicIO $ do
+        let vInput = VS.fromList $ map fromIntegral inBuf
+
+        let r1 = VG.toList $ (makeComplexBufferVect size vInput :: VS.Vector (Complex Float))
+            r2 = VG.toList $ convertC              size vInput
+            r3 = VG.toList $ convertCSSE           size vInput
+            r4 = VG.toList $ convertCAVX           size vInput
+
+        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4]
+
     eqDelta x y = and $ map (uncurry eqDelta') $ zip x y
         where
         eqDelta' x y = abs (x - y) < 0.01

@@ -6,6 +6,9 @@ module SDR.Util (
     devnull,
     rate,
     makeComplexBufferVect,
+    convertC, 
+    convertCSSE,
+    convertCAVX,
     floatVecToByteString,
     doubleVecToByteString,
     floatVecFromByteString,
@@ -34,12 +37,16 @@ import Data.Time.Clock
 import Data.Vector.Generic                         as VG   hiding ((++))
 import qualified Data.Vector.Generic.Mutable       as VGM
 import Data.Vector.Storable                        as VS   hiding ((++))
+import Data.Vector.Storable.Mutable                as VSM  hiding ((++))
 import Data.Vector.Fusion.Stream.Monadic                   hiding ((++))
 import qualified Data.Vector.Fusion.Stream         as VFS  hiding ((++))
 import qualified Data.Vector.Fusion.Stream.Monadic as VFSM hiding ((++))
 import Data.Tuple.All
 import Control.Monad.Primitive
 import Control.Applicative
+import Unsafe.Coerce
+import Foreign.Ptr
+import System.IO.Unsafe
 
 import Pipes
 import qualified Pipes.Prelude as P
@@ -95,6 +102,39 @@ makeComplexBufferVect samples input = VG.generate samples convert
     {-# INLINE convert' #-}
     convert' val = (fromIntegral val - 128) / 128
 
+foreign import ccall unsafe "convertC"
+    convertC_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
+
+convertC :: Int -> VS.Vector CUChar -> VS.Vector (Complex Float)
+convertC num inBuf = unsafePerformIO $ do
+    outBuf <- VGM.new num
+    VS.unsafeWith inBuf $ \iPtr -> 
+        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            convertC_c (2 * fromIntegral num) iPtr oPtr
+    VG.freeze outBuf
+
+foreign import ccall unsafe "convertCSSE"
+    convertCSSE_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
+
+convertCSSE :: Int -> VS.Vector CUChar -> VS.Vector (Complex Float)
+convertCSSE num inBuf = unsafePerformIO $ do
+    outBuf <- VGM.new num
+    VS.unsafeWith inBuf $ \iPtr -> 
+        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            convertCSSE_c (2 * fromIntegral num) iPtr oPtr
+    VG.freeze outBuf
+
+foreign import ccall unsafe "convertCAVX"
+    convertCAVX_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
+
+convertCAVX :: Int -> VS.Vector CUChar -> VS.Vector (Complex Float)
+convertCAVX num inBuf = unsafePerformIO $ do
+    outBuf <- VGM.new num
+    VS.unsafeWith inBuf $ \iPtr -> 
+        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            convertCAVX_c (2 * fromIntegral num) iPtr oPtr
+    VG.freeze outBuf
+
 {-| Slow functions for serializing/deserializing vectors to/from
     bytestrings. There must be a better way to do this that doesn't involve
     copying.
@@ -128,7 +168,7 @@ toByteString :: forall a. (Storable a) => Pipe (VS.Vector a) ByteString IO ()
 toByteString = P.map $ \dat -> let (fp, o, sz) = VS.unsafeToForeignPtr dat in PS (castForeignPtr fp) o (sz * sizeOf (undefined :: a))
 
 fromByteString :: forall a. (Storable a) => Pipe ByteString (VS.Vector a) IO ()
-fromByteString = P.map $ \(PS fp o l) -> unsafeFromForeignPtr (castForeignPtr fp) o (l `quot` sizeOf (undefined :: a))
+fromByteString = P.map $ \(PS fp o l) -> VS.unsafeFromForeignPtr (castForeignPtr fp) o (l `quot` sizeOf (undefined :: a))
 
 toHandle :: (Storable a) => Handle -> Consumer (VS.Vector a) IO ()
 toHandle handle = toByteString >-> PB.toHandle handle 
