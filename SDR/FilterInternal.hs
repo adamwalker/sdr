@@ -204,6 +204,22 @@ foreign import ccall unsafe "decimateAVXSymmetricRR"
 decimateCAVXSymmetricRR :: DecimateRR
 decimateCAVXSymmetricRR = decimateFFIR decimateAVXSymmetricRR_c
 
+-- | Resampling
+{-# INLINE resampleHighLevel #-}
+resampleHighLevel :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> vm (PrimState m) a -> m Int
+resampleHighLevel interpolation decimation coeffs filterOffset count inBuf outBuf = fill 0 filterOffset 0
+    where
+    fill i filterOffset inputOffset
+        | i < count = do
+            let dp = dotProd filterOffset inputOffset
+            VGM.unsafeWrite outBuf i dp
+            let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
+                inputOffset'  = inputOffset + q + 1
+                filterOffset' = interpolation - 1 - r
+            filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
+        | otherwise = return filterOffset
+    dotProd filterOffset offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation (VG.unsafeDrop filterOffset coeffs))
+
 {-
  - Cross buffer
 -}
@@ -220,4 +236,19 @@ filterCrossHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a,
 filterCrossHighLevel coeffs num lastBuf nextBuf outBuf = fill (VFSM.generate num dotProd) outBuf
     where
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) coeffs
+
+{-# INLINE resampleCrossHighLevel #-}
+resampleCrossHighLevel :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> v a -> vm (PrimState m) a -> m Int
+resampleCrossHighLevel interpolation decimation coeffs filterOffset count lastBuf nextBuf outBuf = fill 0 filterOffset 0
+    where
+    fill i filterOffset inputOffset
+        | i < count = do
+            let dp = dotProd filterOffset inputOffset
+            VGM.unsafeWrite outBuf i dp
+            let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
+                inputOffset'  = inputOffset + q + 1
+                filterOffset' = interpolation - 1 - r
+            filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
+        | otherwise = return filterOffset
+    dotProd filterOffset i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) (stride interpolation (VG.unsafeDrop filterOffset coeffs))
 
