@@ -13,22 +13,22 @@ module SDR.Filter (
     resample
     ) where
 
-import Foreign.C.Types
-import Data.Complex
-import Control.Exception 
+import           Foreign.C.Types
+import           Data.Complex
+import           Control.Exception 
 import qualified Data.Vector.Generic               as VG
 import qualified Data.Vector.Generic.Mutable       as VGM
 import qualified Data.Vector.Storable              as VS
 import qualified Data.Vector.Storable.Mutable      as VSM
 import qualified Data.Vector.Fusion.Stream         as VFS
 import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
-import Control.Monad.Primitive
-import Control.Monad
+import           Control.Monad.Primitive
+import           Control.Monad
 
-import Pipes
+import           Pipes
 
-import SDR.Util
-import SDR.FilterInternal
+import           SDR.Util
+import           SDR.FilterInternal
 
 data Filter m v vm a = Filter {
     numCoeffsF    :: Int,
@@ -41,6 +41,10 @@ data Decimator m v vm a = Decimator {
     decimateOne   :: Int -> v a -> vm (PrimState m) a -> m (),
     decimateCross :: Int -> v a -> v a -> vm (PrimState m) a -> m ()
 }
+
+duplicate :: [a] -> [a]
+duplicate = concat . map func 
+    where func x = [x, x]
 
 {-# INLINE haskellFilter #-}
 haskellFilter :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => [b] -> IO (Filter m v vm a) 
@@ -68,11 +72,11 @@ fastFilterR coeffs = do
 {-# INLINE fastFilterC #-}
 fastFilterC :: [Float] -> IO (Filter IO VS.Vector VS.MVector (Complex Float))
 fastFilterC coeffs = do
-    let l          = length coeffs
-        ru         = (l + 8 - 1) `quot` 8
-        numCoeffsF = ru * 8 
-        diff       = numCoeffsF - l
-        vCoeffs    = VG.fromList $ coeffs ++ replicate diff 0
+    let l           = length coeffs
+        ru          = (l + 8 - 1) `quot` 8
+        numCoeffsF  = ru * 8 
+        diff        = numCoeffsF - l
+        vCoeffs     = VG.fromList $ duplicate $ coeffs ++ replicate diff 0
     evaluate vCoeffs
     let filterOne   = filterCAVXRC         vCoeffs
         filterCross = filterCrossHighLevel vCoeffs
@@ -121,7 +125,7 @@ fastDecimatorC factor coeffs = do
         ru         = (l + 8 - 1) `quot` 8
         numCoeffsD = ru * 8 
         diff       = numCoeffsD - l
-        vCoeffs    = VG.fromList $ coeffs ++ replicate diff 0
+        vCoeffs    = VG.fromList $ duplicate $ coeffs ++ replicate diff 0
     evaluate vCoeffs
     let decimateOne   = decimateCAVXRC         factor vCoeffs
         decimateCross = decimateCrossHighLevel factor vCoeffs
