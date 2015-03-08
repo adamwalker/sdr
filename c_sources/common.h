@@ -1,13 +1,13 @@
 /*
  * Real horizontal addition
  */
-inline __m128 sse_hadd_R(__m128 in){
+static inline __m128 sse_hadd_R(__m128 in){
     __m128 accum;
     accum = _mm_hadd_ps(in, in);
     return _mm_hadd_ps(accum, accum);
 }
 
-inline __m128 avx_hadd_R(__m256 in){
+static inline __m128 avx_hadd_R(__m256 in){
     __m128 res1 = _mm256_extractf128_ps(in, 0);
     __m128 res2 = _mm256_extractf128_ps(in, 1);
 
@@ -23,7 +23,7 @@ inline __m128 avx_hadd_R(__m256 in){
 /*
  * Real dot products
  */
-inline __m128 sse_dotprod_R(int num, float *a, float *b){
+static inline __m128 sse_dotprod_R(int num, float *a, float *b){
     int i;
     __m128 accum = _mm_setzero_ps();
 
@@ -38,7 +38,7 @@ inline __m128 sse_dotprod_R(int num, float *a, float *b){
     return accum;
 }
 
-inline __m256 avx_dotprod_R(int num, float *a, float *b){
+static inline __m256 avx_dotprod_R(int num, float *a, float *b){
     int i;
     __m256 accum = _mm256_setzero_ps();
 
@@ -57,12 +57,12 @@ inline __m256 avx_dotprod_R(int num, float *a, float *b){
 /*
  * Complex horizontal addition
  */
-inline __m128 sse_hadd_C(__m128 in) {
+static inline __m128 sse_hadd_C(__m128 in) {
     __m128 accum = _mm_shuffle_ps(in, in, 0b11011000);
     return _mm_hadd_ps(accum, accum);
 }
 
-inline __m128 avx_hadd_C(__m256 in) {
+static inline __m128 avx_hadd_C(__m256 in) {
     __m256 accum    = _mm256_permute_ps(in, _MM_SHUFFLE(3, 1, 2, 0));
     __m128 accum_hi = _mm256_extractf128_ps(accum, 1);
     __m128 accum_lo = _mm256_extractf128_ps(accum, 0);
@@ -76,7 +76,7 @@ inline __m128 avx_hadd_C(__m256 in) {
  * Complex dot products
  */
 
-inline __m128 sse_dotprod_C(int num, float *coeffs, float *startPtr){
+static inline __m128 sse_dotprod_C(int num, float *coeffs, float *startPtr){
     int i;
     __m128 accum1 = _mm_setzero_ps();
     __m128 accum2 = _mm_setzero_ps();
@@ -102,7 +102,7 @@ inline __m128 sse_dotprod_C(int num, float *coeffs, float *startPtr){
  * Real symmetric dot products
  */
 
-inline __m128 sse_sym_dotprod_R(int num, float *a, float *b){
+static inline __m128 sse_sym_dotprod_R(int num, float *a, float *b){
     int i;
     __m128 accum = _mm_setzero_ps();
 
@@ -123,7 +123,7 @@ inline __m128 sse_sym_dotprod_R(int num, float *a, float *b){
     return accum;
 }
 
-inline __m256 avx_sym_dotprod_R(int num, float *a, float *b){
+static inline __m256 avx_sym_dotprod_R(int num, float *a, float *b){
     int i;
     __m256 accum = _mm256_setzero_ps();
 
