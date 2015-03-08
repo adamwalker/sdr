@@ -6,6 +6,7 @@ import           Foreign.C.Types
 import           Foreign.Ptr
 import           Unsafe.Coerce
 import           Data.Complex
+import           Foreign.Marshal.Array
 
 import qualified Data.Vector.Generic               as VG
 import qualified Data.Vector.Generic.Mutable       as VGM
@@ -264,6 +265,133 @@ resampleCRR num interpolation decimation offset coeffs inBuf outBuf =
             VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 resample_c (fromIntegral num) (fromIntegral $ VG.length coeffs) (fromIntegral interpolation) (fromIntegral decimation) (fromIntegral offset) cPtr iPtr oPtr
 
+pad :: a -> Int -> [a] -> [a]
+pad with num list = list ++ replicate (num - length list) with 
+
+strideList :: Int -> [a] -> [a]
+strideList s xs = go 0 xs
+    where
+    go _ []     = []
+    go 0 (x:xs) = x : go (s-1) xs
+    go n (x:xs) = go (n - 1) xs
+
+roundUp :: Int -> Int -> Int
+roundUp num div = ((num + div - 1) `quot` div) * div
+
+foreign import ccall unsafe "resample2"
+    resample2_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+resampleCRR2 :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+resampleCRR2 interpolation decimation coeffs = do
+    groupsP     <- mapM newArray $ map (map realToFrac) groups
+    groupsPP    <- newArray groupsP
+    incrementsP <- newArray $ map fromIntegral increments
+
+    return $ go groupsPP incrementsP
+
+    where
+    go groupsP incrementsP num offset inBuf outBuf = 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                resample2_c (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsP iPtr oPtr
+
+    numCoeffs   = maximum $ map (length . snd) dats
+    numGroups   = length groups
+    increments  = map fst dats
+
+    groups      :: [[Float]]
+    groups      = map (pad 0 numCoeffs) $ map snd dats
+
+    dats :: [(Int, [Float])]
+    dats = func 0
+        where
+
+        func' 0      = []
+        func' x      = func x
+
+        func :: Int -> [(Int, [Float])]
+        func offset = (increment, strideList interpolation $ drop offset coeffs) : func' offset'
+            where
+            (q, r)    = quotRem (decimation - offset - 1) interpolation
+            increment = q + 1
+            offset'   = interpolation - 1 - r
+
+foreign import ccall unsafe "resampleSSERR"
+    resampleCSSERR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+resampleCSSERR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+resampleCSSERR interpolation decimation coeffs = do
+    groupsP     <- mapM newArray $ map (map realToFrac) groups
+    groupsPP    <- newArray groupsP
+    incrementsP <- newArray $ map fromIntegral increments
+
+    return $ go groupsPP incrementsP
+
+    where
+    go groupsP incrementsP num offset inBuf outBuf = 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                resampleCSSERR_c (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsP iPtr oPtr
+
+    numCoeffs   = maximum $ map (length . snd) dats
+    numGroups   = length groups
+    increments  = map fst dats
+
+    groups      :: [[Float]]
+    groups      = map (pad 0 (roundUp numCoeffs 4)) $ map snd dats
+
+    dats :: [(Int, [Float])]
+    dats = func 0
+        where
+
+        func' 0      = []
+        func' x      = func x
+
+        func :: Int -> [(Int, [Float])]
+        func offset = (increment, strideList interpolation $ drop offset coeffs) : func' offset'
+            where
+            (q, r)    = quotRem (decimation - offset - 1) interpolation
+            increment = q + 1
+            offset'   = interpolation - 1 - r
+
+foreign import ccall unsafe "resampleAVXRR"
+    resampleAVXRR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+resampleCAVXRR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+resampleCAVXRR interpolation decimation coeffs = do
+    groupsP     <- mapM newArray $ map (map realToFrac) groups
+    groupsPP    <- newArray groupsP
+    incrementsP <- newArray $ map fromIntegral increments
+
+    return $ go groupsPP incrementsP
+
+    where
+    go groupsP incrementsP num offset inBuf outBuf = 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                resampleAVXRR_c (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsP iPtr oPtr
+
+    numCoeffs   = maximum $ map (length . snd) dats
+    numGroups   = length groups
+    increments  = map fst dats
+
+    groups      :: [[Float]]
+    groups      = map (pad 0 (roundUp numCoeffs 8)) $ map snd dats
+
+    dats :: [(Int, [Float])]
+    dats = func 0
+        where
+
+        func' 0      = []
+        func' x      = func x
+
+        func :: Int -> [(Int, [Float])]
+        func offset = (increment, strideList interpolation $ drop offset coeffs) : func' offset'
+            where
+            (q, r)    = quotRem (decimation - offset - 1) interpolation
+            increment = q + 1
+            offset'   = interpolation - 1 - r
+
 -- | Conversion
 convertHighLevel :: VS.Vector CUChar -> VS.Vector Float 
 convertHighLevel = VG.map fromIntegral
@@ -333,6 +461,8 @@ theBench = do
         interpolation = 3
         numCoeffsDiv2  =  64
 
+        coeffsList :: [Float]
+        coeffsList = take numCoeffs [0 ..]
         coeffs    :: VS.Vector Float
         coeffs    =  VG.fromList $ take numCoeffs [0 ..]
         coeffsSym    :: VS.Vector Float
@@ -357,6 +487,10 @@ theBench = do
 
     outBuf        :: VS.MVector RealWorld Float <- VGM.new size
     outBufComplex :: VS.MVector RealWorld (Complex Float) <- VGM.new size
+
+    resampler3 <- resampleCRR2   interpolation decimation coeffsList
+    resampler4 <- resampleCSSERR interpolation decimation coeffsList
+    resampler5 <- resampleCAVXRR interpolation decimation coeffsList
 
     --Benchmarks
     defaultMain [
@@ -399,7 +533,10 @@ theBench = do
             bgroup "resample" [
                 bgroup "real" [
                     bench "highLevel"   $ nfIO $ resampleHighLevel      (num `quot` decimation) interpolation decimation 0 coeffs inBuf outBuf,
-                    bench "c"           $ nfIO $ resampleCRR            (num `quot` decimation) interpolation decimation 0 coeffs inBuf outBuf
+                    bench "c"           $ nfIO $ resampleCRR            (num `quot` decimation) interpolation decimation 0 coeffs inBuf outBuf,
+                    bench "c2"          $ nfIO $ resampler3             (num `quot` decimation) 0 inBuf outBuf,
+                    bench "cSSE"        $ nfIO $ resampler4             (num `quot` decimation) 0 inBuf outBuf,
+                    bench "cAVX"        $ nfIO $ resampler5             (num `quot` decimation) 0 inBuf outBuf
                 ],
                 bgroup "complex" [
                     bench "highLevel"   $ nfIO $ resampleHighLevel      (num `quot` decimation) interpolation decimation 0 coeffs inBufComplex outBufComplex
@@ -418,7 +555,7 @@ theBench = do
             ]
         ]
 
-theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex, counterexample "Real Scaling" propScaleReal, counterexample "Conversion" propConversion, counterexample "Real resampling" propResamplingReal]
+theTest = quickCheck $ conjoin [counterexample "Real resampling" propResamplingReal]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
@@ -525,10 +662,17 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` decimation
 
+        resampler3 <- run $ resampleCRR2   interpolation decimation (coeffs ++ reverse coeffs)
+        resampler4 <- run $ resampleCSSERR interpolation decimation (coeffs ++ reverse coeffs)
+        resampler5 <- run $ resampleCAVXRR interpolation decimation (coeffs ++ reverse coeffs)
+
         r1 <- run $ getResult num $ resampleHighLevel       num interpolation decimation 0 vCoeffs vInput
         r2 <- run $ getResult num $ resampleCRR             num interpolation decimation 0 vCoeffs vInput
+        r3 <- run $ getResult num $ resampler3              num 0 vInput
+        r4 <- run $ getResult num $ resampler4              num 0 vInput
+        r5 <- run $ getResult num $ resampler5              num 0 vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r2]
+        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5]
     scales          = elements [0.1, 0.5, 1, 2, 10]
     propScaleReal = forAll sizes $ \size -> 
                         forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
@@ -571,4 +715,4 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
     duplicate = concat . map func 
         where func x = [x, x]
 
-main = theBench
+main = theTest

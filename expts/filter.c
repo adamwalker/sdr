@@ -527,6 +527,93 @@ void resample(int buf_size, int coeff_size, int interpolation, int decimation, i
     }
 }
 
+void resample2(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
+    int   i, j;
+    int   group      = starting_group;
+    float *start_ptr = in_buf;
+
+    for(i=0; i<buf_size; i++){
+        float accum = 0;
+
+        for(j=0; j<num_coeffs; j++){
+	        accum += start_ptr[j] * coeffs[group][j];
+        }
+
+        out_buf[i]  = accum;
+
+        start_ptr  += increments[group];
+
+        group++;
+        if(group == num_groups) 
+            group = 0;
+    }
+}
+
+void resampleSSERR(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
+    int   i, j;
+    int   group      = starting_group;
+    float *startPtr  = in_buf;
+
+    for(i=0; i<buf_size; i++){
+        __m128 accum = _mm_setzero_ps();
+
+        for(j=0; j<num_coeffs; j+=4){
+            //Load the needed vectors
+            __m128 coeff = _mm_loadu_ps(coeffs[group] + j);
+            __m128 val   = _mm_loadu_ps(startPtr + j);
+
+            //Multiply and acumulate
+            accum = _mm_add_ps(accum, _mm_mul_ps(coeff, val));
+        }
+
+        accum = _mm_hadd_ps(accum, accum);
+        accum = _mm_hadd_ps(accum, accum);
+        _mm_store_ss(out_buf + i, accum);
+
+        startPtr  += increments[group];
+
+        group++;
+        if(group == num_groups) 
+            group = 0;
+    }
+}
+
+void resampleAVXRR(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
+    int   i, j;
+    int   group      = starting_group;
+    float *startPtr  = in_buf;
+
+    for(i=0; i<buf_size; i++){
+        __m256 accum = _mm256_setzero_ps();
+
+        for(j=0; j<num_coeffs; j+=8){
+            //Load the needed vectors
+            __m256 coeff = _mm256_loadu_ps(coeffs[group] + j);
+            __m256 val   = _mm256_loadu_ps(startPtr + j);
+
+            //Multiply and acumulate
+            accum = _mm256_add_ps(accum, _mm256_mul_ps(coeff, val));
+        }
+
+        __m128 res1 = _mm256_extractf128_ps(accum, 0);
+        __m128 res2 = _mm256_extractf128_ps(accum, 1);
+
+        res1 = _mm_hadd_ps(res1, res1);
+        res1 = _mm_hadd_ps(res1, res1);
+
+        res2 = _mm_hadd_ps(res2, res2);
+        res2 = _mm_hadd_ps(res2, res2);
+
+        _mm_store_ss(out_buf + i, _mm_add_ss(res1, res2));
+
+        startPtr  += increments[group];
+
+        group++;
+        if(group == num_groups) 
+            group = 0;
+    }
+}
+
 /*
  * Conversion
  */

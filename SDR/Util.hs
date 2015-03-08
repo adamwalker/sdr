@@ -47,6 +47,7 @@ import Control.Applicative
 import Unsafe.Coerce
 import Foreign.Ptr
 import System.IO.Unsafe
+import Foreign.Storable.Complex
 
 import Pipes
 import qualified Pipes.Prelude as P
