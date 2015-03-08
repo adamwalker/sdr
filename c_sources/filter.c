@@ -94,10 +94,7 @@ void filterSSERC(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
         float *startPtr = inBuf + i;
         __m128 accum = sse_dotprod_R(numCoeffs, coeffs, startPtr);
         accum        = sse_hadd_C(accum);
-
-        _mm_store_ss(outBuf + i, accum);
-        accum = _mm_shuffle_ps(accum, accum, 0b00000001);
-        _mm_store_ss(outBuf + i + 1, accum);
+        store_complex(outBuf + i, accum);
     }
 }
 
@@ -107,10 +104,7 @@ void filterSSERC2(int num, int numCoeffs, float *coeffs, float *inBuf, float *ou
         float *startPtr = inBuf + i;
         __m128 accum = sse_dotprod_C(numCoeffs, coeffs, startPtr);
         accum        = sse_hadd_C(accum);
-
-        _mm_store_ss(outBuf + i, accum);
-        accum = _mm_shuffle_ps(accum, accum, 0b00000001);
-        _mm_store_ss(outBuf + i + 1, accum);
+        store_complex(outBuf + i, accum);
     }
 }
 
@@ -120,10 +114,7 @@ void filterAVXRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
         float *startPtr = inBuf + i;
         __m256 accum  = avx_dotprod_R(numCoeffs, coeffs, startPtr);
         __m128 accum2 = avx_hadd_C(accum);
-
-        _mm_store_ss(outBuf + i, accum2);
-        accum2 = _mm_shuffle_ps(accum2, accum2, 0b00000001);
-        _mm_store_ss(outBuf + i + 1, accum2);
+        store_complex(outBuf + i, accum2);
     }
 }
 

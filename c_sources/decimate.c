@@ -92,10 +92,7 @@ void decimateSSERC(int num, int factor, int numCoeffs, float *coeffs, float *inB
         float *startPtr = inBuf + k;
         __m128 accum = sse_dotprod_R(numCoeffs, coeffs, startPtr);
         accum        = sse_hadd_C(accum);
-
-        _mm_store_ss(outBuf + i, accum);
-        accum = _mm_shuffle_ps(accum, accum, 0b00000001);
-        _mm_store_ss(outBuf + i + 1, accum);
+        store_complex(outBuf + i, accum);
     }
 }
 
@@ -105,10 +102,7 @@ void decimateSSERC2(int num, int factor, int numCoeffs, float *coeffs, float *in
         float *startPtr = inBuf + k;
         __m128 accum = sse_dotprod_C(numCoeffs, coeffs, startPtr);
         accum        = sse_hadd_C(accum);
-
-        _mm_store_ss(outBuf + i, accum);
-        accum = _mm_shuffle_ps(accum, accum, 0b00000001);
-        _mm_store_ss(outBuf + i + 1, accum);
+        store_complex(outBuf + i, accum);
     }
 }
 
@@ -119,10 +113,7 @@ void decimateAVXRC(int num, int factor, int numCoeffs, float *coeffs, float *inB
         float *startPtr = inBuf + k;
         __m256 accum  = avx_dotprod_R(numCoeffs, coeffs, startPtr);
         __m128 accum2 = avx_hadd_C(accum);
-
-        _mm_store_ss(outBuf + i, accum2);
-        accum2 = _mm_shuffle_ps(accum2, accum2, 0b00000001);
-        _mm_store_ss(outBuf + i + 1, accum2);
+        store_complex(outBuf + i, accum2);
     }
 }
 

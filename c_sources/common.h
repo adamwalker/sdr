@@ -145,3 +145,9 @@ static inline __m256 avx_sym_dotprod_R(int num, float *a, float *b){
     return accum;
 }
 
+static inline void store_complex(float *loc, __m128 val){
+    _mm_store_ss(loc, val);
+    val = _mm_shuffle_ps(val, val, 0b00000001);
+    _mm_store_ss(loc + 1, val);
+}
+
