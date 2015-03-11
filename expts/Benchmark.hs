@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, ScopedTypeVariables, BangPatterns #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, ScopedTypeVariables, BangPatterns, RecordWildCards #-}
 
 import           Control.Monad.Primitive 
 import           Control.Monad
@@ -278,29 +278,22 @@ strideList s xs = go 0 xs
 roundUp :: Int -> Int -> Int
 roundUp num div = ((num + div - 1) `quot` div) * div
 
-foreign import ccall unsafe "resample2"
-    resample2_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+data Coeffs = Coeffs {
+    numCoeffs  :: Int,
+    numGroups  :: Int,
+    increments :: [Int],
+    groups     :: [[Float]]
+}
 
-resampleCRR2 :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
-resampleCRR2 interpolation decimation coeffs = do
-    groupsP     <- mapM newArray $ map (map realToFrac) groups
-    groupsPP    <- newArray groupsP
-    incrementsP <- newArray $ map fromIntegral increments
-
-    return $ go groupsPP incrementsP
-
+prepareCoeffs :: Int -> Int -> Int -> [Float] -> Coeffs
+prepareCoeffs n interpolation decimation coeffs = Coeffs {..}
     where
-    go groupsP incrementsP num offset inBuf outBuf = 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                resample2_c (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsP iPtr oPtr
-
     numCoeffs   = maximum $ map (length . snd) dats
     numGroups   = length groups
     increments  = map fst dats
 
     groups      :: [[Float]]
-    groups      = map (pad 0 numCoeffs) $ map snd dats
+    groups      = map (pad 0 (roundUp numCoeffs n)) $ map snd dats
 
     dats :: [(Int, [Float])]
     dats = func 0
@@ -315,82 +308,41 @@ resampleCRR2 interpolation decimation coeffs = do
             (q, r)    = quotRem (decimation - offset - 1) interpolation
             increment = q + 1
             offset'   = interpolation - 1 - r
+
+resampleFFIR :: (Ptr CFloat -> Ptr CFloat -> IO ()) -> VS.Vector Float -> VSM.MVector RealWorld Float -> IO ()
+resampleFFIR func inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            func iPtr oPtr
+
+type ResampleR = CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+mkResampler :: ResampleR -> Int -> Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+mkResampler func n interpolation decimation coeffs = do
+    groupsP     <- mapM newArray $ map (map realToFrac) groups
+    groupsPP    <- newArray groupsP
+    incrementsP <- newArray $ map fromIntegral increments
+    return $ \num offset -> resampleFFIR $ func (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsPP
+    where
+    Coeffs {..} = prepareCoeffs n interpolation decimation coeffs
+
+foreign import ccall unsafe "resample2"
+    resample2_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+resampleCRR2 :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+resampleCRR2 = mkResampler resample2_c 1
 
 foreign import ccall unsafe "resampleSSERR"
     resampleCSSERR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
 
 resampleCSSERR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
-resampleCSSERR interpolation decimation coeffs = do
-    groupsP     <- mapM newArray $ map (map realToFrac) groups
-    groupsPP    <- newArray groupsP
-    incrementsP <- newArray $ map fromIntegral increments
-
-    return $ go groupsPP incrementsP
-
-    where
-    go groupsP incrementsP num offset inBuf outBuf = 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                resampleCSSERR_c (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsP iPtr oPtr
-
-    numCoeffs   = maximum $ map (length . snd) dats
-    numGroups   = length groups
-    increments  = map fst dats
-
-    groups      :: [[Float]]
-    groups      = map (pad 0 (roundUp numCoeffs 4)) $ map snd dats
-
-    dats :: [(Int, [Float])]
-    dats = func 0
-        where
-
-        func' 0      = []
-        func' x      = func x
-
-        func :: Int -> [(Int, [Float])]
-        func offset = (increment, strideList interpolation $ drop offset coeffs) : func' offset'
-            where
-            (q, r)    = quotRem (decimation - offset - 1) interpolation
-            increment = q + 1
-            offset'   = interpolation - 1 - r
+resampleCSSERR = mkResampler resampleCSSERR_c 4
 
 foreign import ccall unsafe "resampleAVXRR"
     resampleAVXRR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
 
 resampleCAVXRR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
-resampleCAVXRR interpolation decimation coeffs = do
-    groupsP     <- mapM newArray $ map (map realToFrac) groups
-    groupsPP    <- newArray groupsP
-    incrementsP <- newArray $ map fromIntegral increments
-
-    return $ go groupsPP incrementsP
-
-    where
-    go groupsP incrementsP num offset inBuf outBuf = 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                resampleAVXRR_c (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsP iPtr oPtr
-
-    numCoeffs   = maximum $ map (length . snd) dats
-    numGroups   = length groups
-    increments  = map fst dats
-
-    groups      :: [[Float]]
-    groups      = map (pad 0 (roundUp numCoeffs 8)) $ map snd dats
-
-    dats :: [(Int, [Float])]
-    dats = func 0
-        where
-
-        func' 0      = []
-        func' x      = func x
-
-        func :: Int -> [(Int, [Float])]
-        func offset = (increment, strideList interpolation $ drop offset coeffs) : func' offset'
-            where
-            (q, r)    = quotRem (decimation - offset - 1) interpolation
-            increment = q + 1
-            offset'   = interpolation - 1 - r
+resampleCAVXRR = mkResampler resampleAVXRR_c 8
 
 -- | Conversion
 convertHighLevel :: VS.Vector CUChar -> VS.Vector Float 
