@@ -29,6 +29,8 @@ theBench = do
         interpolation = 3
         numCoeffsDiv2  =  64
 
+        coeffsList :: [Float]
+        coeffsList = take numCoeffs [0 ..]
         coeffs    :: VS.Vector Float
         coeffs    =  VG.fromList $ take numCoeffs [0 ..]
         coeffsSym    :: VS.Vector Float
@@ -53,6 +55,10 @@ theBench = do
 
     outBuf        :: VS.MVector RealWorld Float <- VGM.new size
     outBufComplex :: VS.MVector RealWorld (Complex Float) <- VGM.new size
+
+    resampler3 <- resampleCRR2   interpolation decimation coeffsList
+    resampler4 <- resampleCSSERR interpolation decimation coeffsList
+    resampler5 <- resampleCAVXRR interpolation decimation coeffsList
 
     --Benchmarks
     defaultMain [
@@ -90,6 +96,18 @@ theBench = do
                     bench "cSSE"        $ nfIO $ decimateCSSERC           decimation coeffs2   (num `quot` decimation) inBufComplex outBufComplex,
                     bench "cSSE2"       $ nfIO $ decimateCSSERC2          decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex,
                     bench "cAVX"        $ nfIO $ decimateCAVXRC           decimation coeffs2   (num `quot` decimation) inBufComplex outBufComplex
+                ]
+            ],
+            bgroup "resample" [
+                bgroup "real" [
+                    bench "highLevel"   $ nfIO $ resampleHighLevel        interpolation decimation coeffs 0 (num `quot` decimation) inBuf outBuf,
+                    bench "c"           $ nfIO $ resampleCRR              (num `quot` decimation) interpolation decimation 0 coeffs inBuf outBuf,
+                    bench "c2"          $ nfIO $ resampler3               (num `quot` decimation) 0 inBuf outBuf,
+                    bench "cSSE"        $ nfIO $ resampler4               (num `quot` decimation) 0 inBuf outBuf,
+                    bench "cAVX"        $ nfIO $ resampler5               (num `quot` decimation) 0 inBuf outBuf
+                ],
+                bgroup "complex" [
+                    bench "highLevel"   $ nfIO $ resampleHighLevel        interpolation decimation coeffs 0 (num `quot` decimation) inBufComplex outBufComplex
                 ]
             ]
         ]

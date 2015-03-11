@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, BangPatterns #-}
+{-# LANGUAGE ScopedTypeVariables, BangPatterns, RecordWildCards #-}
 module SDR.FilterInternal where
 
 import           Control.Monad.Primitive 
@@ -7,6 +7,7 @@ import           Foreign.C.Types
 import           Foreign.Ptr
 import           Unsafe.Coerce
 import           Data.Complex
+import           Foreign.Marshal.Array
 
 import qualified Data.Vector.Generic               as VG
 import qualified Data.Vector.Generic.Mutable       as VGM
@@ -219,6 +220,95 @@ resampleHighLevel interpolation decimation coeffs filterOffset count inBuf outBu
             filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
         | otherwise = return filterOffset
     dotProd filterOffset offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation (VG.unsafeDrop filterOffset coeffs))
+
+foreign import ccall unsafe "resample"
+    resample_c :: CInt -> CInt -> CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+resampleCRR :: Int -> Int -> Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+resampleCRR num interpolation decimation offset coeffs inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+            VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+                resample_c (fromIntegral num) (fromIntegral $ VG.length coeffs) (fromIntegral interpolation) (fromIntegral decimation) (fromIntegral offset) cPtr iPtr oPtr
+
+pad :: a -> Int -> [a] -> [a]
+pad with num list = list ++ replicate (num - length list) with 
+
+strideList :: Int -> [a] -> [a]
+strideList s xs = go 0 xs
+    where
+    go _ []     = []
+    go 0 (x:xs) = x : go (s-1) xs
+    go n (x:xs) = go (n - 1) xs
+
+roundUp :: Int -> Int -> Int
+roundUp num div = ((num + div - 1) `quot` div) * div
+
+data Coeffs = Coeffs {
+    numCoeffs  :: Int,
+    numGroups  :: Int,
+    increments :: [Int],
+    groups     :: [[Float]]
+}
+
+prepareCoeffs :: Int -> Int -> Int -> [Float] -> Coeffs
+prepareCoeffs n interpolation decimation coeffs = Coeffs {..}
+    where
+    numCoeffs   = maximum $ map (length . snd) dats
+    numGroups   = length groups
+    increments  = map fst dats
+
+    groups      :: [[Float]]
+    groups      = map (pad 0 (roundUp numCoeffs n)) $ map snd dats
+
+    dats :: [(Int, [Float])]
+    dats = func 0
+        where
+
+        func' 0      = []
+        func' x      = func x
+
+        func :: Int -> [(Int, [Float])]
+        func offset = (increment, strideList interpolation $ drop offset coeffs) : func' offset'
+            where
+            (q, r)    = quotRem (decimation - offset - 1) interpolation
+            increment = q + 1
+            offset'   = interpolation - 1 - r
+
+resampleFFIR :: (Ptr CFloat -> Ptr CFloat -> IO ()) -> VS.Vector Float -> VSM.MVector RealWorld Float -> IO ()
+resampleFFIR func inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            func iPtr oPtr
+
+type ResampleR = CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+mkResampler :: ResampleR -> Int -> Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+mkResampler func n interpolation decimation coeffs = do
+    groupsP     <- mapM newArray $ map (map realToFrac) groups
+    groupsPP    <- newArray groupsP
+    incrementsP <- newArray $ map fromIntegral increments
+    return $ \num offset -> resampleFFIR $ func (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsPP
+    where
+    Coeffs {..} = prepareCoeffs n interpolation decimation coeffs
+
+foreign import ccall unsafe "resample2"
+    resample2_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+resampleCRR2 :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+resampleCRR2 = mkResampler resample2_c 1
+
+foreign import ccall unsafe "resampleSSERR"
+    resampleCSSERR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+resampleCSSERR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+resampleCSSERR = mkResampler resampleCSSERR_c 4
+
+foreign import ccall unsafe "resampleAVXRR"
+    resampleAVXRR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+resampleCAVXRR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+resampleCAVXRR = mkResampler resampleAVXRR_c 8
 
 {-
  - Cross buffer
