@@ -140,3 +140,13 @@ void filterSSESymmetricRC(int num, int numCoeffs, float *coeffs, float *inBuf, f
         store_complex(outBuf + i, accum);
     }
 }
+
+void filterAVXSymmetricRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i;
+    for(i=0; i<num*2; i+=2){
+        float *startPtr = inBuf + i;
+        __m256 accum = avx_sym_dotprod_C(numCoeffs, coeffs, startPtr);
+        __m128 accum1 = avx_hadd_C(accum);
+        store_complex(outBuf + i, accum1);
+    }
+}

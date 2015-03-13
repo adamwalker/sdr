@@ -204,6 +204,39 @@ static inline __m128 sse_sym_dotprod_C(int num, float *a, float *b){
     return _mm_add_ps(accum1, accum2);
 }
 
+static inline __m256 avx_sym_dotprod_C(int num, float *a, float *b){
+    int i;
+    __m256 accum1 = _mm256_setzero_ps();
+    __m256 accum2 = _mm256_setzero_ps();
+
+    float *startPtr = b;
+    float *endPtr   = b + num * 4 - 8;
+    for(i=0; i<num; i+=8){
+        //
+        //Load the needed vectors
+        __m256 coeff  = _mm256_loadu_ps(a + i);
+        __m256 coeffa = _mm256_shuffle_ps(coeff, coeff, 0x50);
+        __m256 coeffb = _mm256_shuffle_ps(coeff, coeff, 0xfa);
+        __m256 coeff1 = _mm256_permute2f128_ps(coeffa, coeffb, 0x20);
+        __m256 coeff2 = _mm256_permute2f128_ps(coeffa, coeffb, 0x31);
+
+        __m256 val1  = _mm256_loadu_ps(startPtr + 2*i);
+        __m256 val2  = _mm256_loadu_ps(startPtr + 2*i + 8);
+        __m256 val3  = _mm256_loadu_ps(endPtr   - 2*i - 8);
+        val3         = _mm256_permute_ps(val3, _MM_SHUFFLE(1, 0, 3, 2));
+        val3         = _mm256_permute2f128_ps(val3, val3, 0x01);
+        __m256 val4  = _mm256_loadu_ps(endPtr   - 2*i);
+        val4         = _mm256_permute_ps(val4, _MM_SHUFFLE(1, 0, 3, 2));
+        val4         = _mm256_permute2f128_ps(val4, val4, 0x01);
+
+        //Multiply and acumulate
+        accum1 = _mm256_add_ps(accum1, _mm256_mul_ps(coeff1, _mm256_add_ps(val1, val4)));
+        accum2 = _mm256_add_ps(accum2, _mm256_mul_ps(coeff2, _mm256_add_ps(val2, val3)));
+    }
+
+    return _mm256_add_ps(accum1, accum2);
+}
+
 /*
  * Storing complex numbers
  */
