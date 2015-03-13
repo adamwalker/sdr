@@ -124,6 +124,12 @@ foreign import ccall unsafe "filterAVXRC"
 filterCAVXRC :: FilterRC
 filterCAVXRC = filterFFIC filterAVXRC_c
 
+foreign import ccall unsafe "filterSSESymmetricRC"
+    filterSSESymmetricRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCSSESymmetricRC :: FilterRC
+filterCSSESymmetricRC = filterFFIC filterSSESymmetricRC_c
+
 -- | Decimation
 
 {-# INLINE decimateHighLevel #-}
@@ -204,6 +210,12 @@ foreign import ccall unsafe "decimateAVXSymmetricRR"
 
 decimateCAVXSymmetricRR :: DecimateRR
 decimateCAVXSymmetricRR = decimateFFIR decimateAVXSymmetricRR_c
+
+foreign import ccall unsafe "decimateSSESymmetricRC"
+    decimateSSESymmetricRC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+decimateCSSESymmetricRC :: DecimateRC
+decimateCSSESymmetricRC = decimateFFIC decimateSSESymmetricRC_c
 
 -- | Resampling
 {-# INLINE resampleHighLevel #-}

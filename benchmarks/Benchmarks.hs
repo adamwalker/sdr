@@ -78,6 +78,7 @@ theBench = do
                     bench "c"           $ nfIO $ filterCRC                coeffs    num inBufComplex outBufComplex,
                     bench "cSSE"        $ nfIO $ filterCSSERC             coeffs2   num inBufComplex outBufComplex,
                     bench "cSSE2"       $ nfIO $ filterCSSERC2            coeffs    num inBufComplex outBufComplex,
+                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRC    coeffsSym num inBufComplex outBufComplex,
                     bench "cAVX"        $ nfIO $ filterCAVXRC             coeffs2   num inBufComplex outBufComplex
                 ]
             ],
@@ -95,6 +96,7 @@ theBench = do
                     bench "c"           $ nfIO $ decimateCRC              decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex,
                     bench "cSSE"        $ nfIO $ decimateCSSERC           decimation coeffs2   (num `quot` decimation) inBufComplex outBufComplex,
                     bench "cSSE2"       $ nfIO $ decimateCSSERC2          decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex,
+                    bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRC  decimation coeffsSym (num `quot` decimation) inBufComplex outBufComplex,
                     bench "cAVX"        $ nfIO $ decimateCAVXRC           decimation coeffs2   (num `quot` decimation) inBufComplex outBufComplex
                 ]
             ],

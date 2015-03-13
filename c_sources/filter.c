@@ -119,6 +119,19 @@ void filterAVXRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
 }
 
 /*
+ * Symmetric versions
+ */
+void filterSSESymmetricRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i;
+    for(i=0; i<num*2; i+=2){
+        float *startPtr = inBuf + i;
+        __m128 accum = sse_sym_dotprod_C(numCoeffs, coeffs, startPtr);
+        accum = sse_hadd_C(accum);
+        store_complex(outBuf + i, accum);
+    }
+}
+
+/*
  * Rational downsampling
  */
 void resample(int buf_size, int coeff_size, int interpolation, int decimation, int filter_offset, float *coeffs, float *in_buf, float *out_buf){

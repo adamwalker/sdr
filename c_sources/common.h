@@ -98,10 +98,37 @@ static inline __m128 sse_dotprod_C(int num, float *coeffs, float *startPtr){
     return accum;
 }
 
+static inline __m256 avx_dotprod_C(int num, float *a, float *b){
+    int i;
+    __m256 accum1 = _mm256_setzero_ps();
+    __m256 accum2 = _mm256_setzero_ps();
+
+    float *startPtr = a;
+    for(i=0; i<num; i+=8){
+
+        //Load the needed vectors
+        __m256 coeff  = _mm256_loadu_ps(a + i);
+
+        __m256 coeffa = _mm256_shuffle_ps(coeff, coeff, 0x50);
+        __m256 coeffb = _mm256_shuffle_ps(coeff, coeff, 0xfa);
+
+        __m256 coeff1 = _mm256_permute2f128_ps(coeffa, coeffb, 0x20);
+        __m256 coeff2 = _mm256_permute2f128_ps(coeffa, coeffb, 0x31);
+
+        __m256 val1   = _mm256_loadu_ps(b + 2 * i);
+        __m256 val2   = _mm256_loadu_ps(b + 2 * i + 8);
+
+        //Multiply and acumulate
+        accum1 = _mm256_add_ps(accum1, _mm256_mul_ps(coeff1, val1));
+        accum2 = _mm256_add_ps(accum2, _mm256_mul_ps(coeff2, val2));
+    }
+
+    return _mm256_add_ps(accum1, accum2);
+}
+
 /*
  * Real symmetric dot products
  */
-
 static inline __m128 sse_sym_dotprod_R(int num, float *a, float *b){
     int i;
     __m128 accum = _mm_setzero_ps();
@@ -145,6 +172,41 @@ static inline __m256 avx_sym_dotprod_R(int num, float *a, float *b){
     return accum;
 }
 
+/*
+ * Complex symmetric dot products
+ */
+static inline __m128 sse_sym_dotprod_C(int num, float *a, float *b){
+    int i;
+    __m128 accum1 = _mm_setzero_ps();
+    __m128 accum2 = _mm_setzero_ps();
+
+    float *startPtr = b;
+    float *endPtr   = b + num * 4 - 4;
+    for(i=0; i<num; i+=4){
+
+        //Load the needed vectors
+        __m128 coeff  = _mm_loadu_ps(a + i);
+        __m128 coeff1 = _mm_shuffle_ps(coeff, coeff, 0x50);
+        __m128 coeff2 = _mm_shuffle_ps(coeff, coeff, 0xfa);
+
+        __m128 val1   = _mm_loadu_ps(startPtr + 2*i);
+        __m128 val2   = _mm_loadu_ps(startPtr + 2*i + 4);
+        __m128 val3   = _mm_loadu_ps(endPtr   - 2*i - 4);
+        val3          = _mm_shuffle_ps(val3, val3, _MM_SHUFFLE(1, 0, 3, 2));
+        __m128 val4   = _mm_loadu_ps(endPtr   - 2*i);
+        val4          = _mm_shuffle_ps(val4, val4, _MM_SHUFFLE(1, 0, 3, 2));
+
+        //Multiply and acumulate
+        accum1 = _mm_add_ps(accum1, _mm_mul_ps(coeff1, _mm_add_ps(val1, val4)));
+        accum2 = _mm_add_ps(accum2, _mm_mul_ps(coeff2, _mm_add_ps(val2, val3)));
+    }
+
+    return _mm_add_ps(accum1, accum2);
+}
+
+/*
+ * Storing complex numbers
+ */
 static inline void store_complex(float *loc, __m128 val){
     _mm_store_ss(loc, val);
     val = _mm_shuffle_ps(val, val, 0b00000001);
