@@ -2,6 +2,17 @@
 #include <stdint.h>
 #include <x86intrin.h>
 
+static inline __m128 avx_hadd_C(__m256 in) {
+    __m256 accum    = _mm256_permute_ps(in, _MM_SHUFFLE(3, 1, 2, 0));
+    __m128 accum_hi = _mm256_extractf128_ps(accum, 1);
+    __m128 accum_lo = _mm256_extractf128_ps(accum, 0);
+    __m128 added    = _mm_hadd_ps(accum_lo, accum_hi);
+    added           = _mm_permute_ps(added, _MM_SHUFFLE(3, 1, 2, 0));
+    added           = _mm_hadd_ps(added, added);
+    return added;
+}
+
+
 /*
  * Filtering
  */
@@ -169,6 +180,44 @@ void filterAVXSymmetricRR(int num, int numCoeffs, float *coeffs, float *inBuf, f
     }
 }
 
+void filterAVXSymmetricRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j;
+    for(i=0; i<num*2; i+=2){
+        __m256 accum1 = _mm256_setzero_ps();
+        __m256 accum2 = _mm256_setzero_ps();
+
+        float *startPtr = inBuf + i;
+        float *endPtr = inBuf + i + numCoeffs * 4 - 8;
+        for(j=0; j<numCoeffs; j+=8){
+            //
+            //Load the needed vectors
+            __m256 coeff  = _mm256_loadu_ps(coeffs + j);
+            __m256 coeffa = _mm256_shuffle_ps(coeff, coeff, 0x50);
+            __m256 coeffb = _mm256_shuffle_ps(coeff, coeff, 0xfa);
+            __m256 coeff1 = _mm256_permute2f128_ps(coeffa, coeffb, 0x20);
+            __m256 coeff2 = _mm256_permute2f128_ps(coeffa, coeffb, 0x31);
+
+            __m256 val1  = _mm256_loadu_ps(startPtr + 2*j);
+            __m256 val2  = _mm256_loadu_ps(startPtr + 2*j + 8);
+            __m256 val3  = _mm256_loadu_ps(endPtr   - 2*j - 8);
+            val3         = _mm256_permute_ps(val3, _MM_SHUFFLE(1, 0, 3, 2));
+            val3         = _mm256_permute2f128_ps(val3, val3, 0x01);
+            __m256 val4  = _mm256_loadu_ps(endPtr   - 2*j);
+            val4         = _mm256_permute_ps(val4, _MM_SHUFFLE(1, 0, 3, 2));
+            val4         = _mm256_permute2f128_ps(val4, val4, 0x01);
+
+            //Multiply and acumulate
+            accum1 = _mm256_add_ps(accum1, _mm256_mul_ps(coeff1, _mm256_add_ps(val1, val4)));
+            accum2 = _mm256_add_ps(accum2, _mm256_mul_ps(coeff2, _mm256_add_ps(val2, val3)));
+        }
+
+        __m128 accum = avx_hadd_C(_mm256_add_ps(accum1, accum2));
+        _mm_store_ss(outBuf + i, accum);
+        accum = _mm_shuffle_ps(accum, accum, 0b00000001);
+        _mm_store_ss(outBuf + i + 1, accum);
+    }
+}
+
 /*
  * Real coefficients, complex input
  */
@@ -271,16 +320,6 @@ void filterAVXRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
         added = _mm_shuffle_ps(added, added, 0b00000001);
         _mm_store_ss(outBuf + i + 1, added);
     }
-}
-
-static inline __m128 avx_hadd_C(__m256 in) {
-    __m256 accum    = _mm256_permute_ps(in, _MM_SHUFFLE(3, 1, 2, 0));
-    __m128 accum_hi = _mm256_extractf128_ps(accum, 1);
-    __m128 accum_lo = _mm256_extractf128_ps(accum, 0);
-    __m128 added    = _mm_hadd_ps(accum_lo, accum_hi);
-    added           = _mm_permute_ps(added, _MM_SHUFFLE(3, 1, 2, 0));
-    added           = _mm_hadd_ps(added, added);
-    return added;
 }
 
 void filterAVXRC2(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){

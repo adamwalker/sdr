@@ -142,6 +142,12 @@ foreign import ccall unsafe "filterSSESymmetricRC"
 filterCSSESymmetricRC :: FilterRC
 filterCSSESymmetricRC = filterFFIC filterSSESymmetricRC_c
 
+foreign import ccall unsafe "filterAVXSymmetricRC"
+    filterAVXSymmetricRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCAVXSymmetricRC :: FilterRC
+filterCAVXSymmetricRC = filterFFIC filterAVXSymmetricRC_c
+
 foreign import ccall unsafe "filterAVXRR"
     filterAVXRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
@@ -470,7 +476,8 @@ theBench = do
                     bench "cSSE2"       $ nfIO $ filterCSSERC2          num coeffs  inBufComplex outBufComplex,
                     bench "cSSESym"     $ nfIO $ filterCSSESymmetricRC  num coeffsSym inBufComplex outBufComplex,
                     bench "cAVX"        $ nfIO $ filterCAVXRC           num coeffs2 inBufComplex outBufComplex,
-                    bench "cAVX2"       $ nfIO $ filterCAVXRC2          num coeffs  inBufComplex outBufComplex
+                    bench "cAVX2"       $ nfIO $ filterCAVXRC2          num coeffs  inBufComplex outBufComplex,
+                    bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRC  num coeffsSym inBufComplex outBufComplex
                 ]
             ],
             bgroup "decimate" [
@@ -565,8 +572,9 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
         r5 <- run $ getResult num $ filterCSSESymmetricRC num vCoeffsHalf vInput
         r6 <- run $ getResult num $ filterCAVXRC          num vCoeffs2    vInput
         r7 <- run $ getResult num $ filterCAVXRC2         num vCoeffs     vInput
+        r8 <- run $ getResult num $ filterCAVXSymmetricRC num vCoeffsHalf vInput
 
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5, r6, r7]
+        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5, r6, r7, r8]
     propDecimationReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                                  forAll numCoeffs $ \numCoeffs -> 
