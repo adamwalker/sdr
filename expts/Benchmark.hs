@@ -160,6 +160,12 @@ foreign import ccall unsafe "filterAVXRC"
 filterCAVXRC :: FilterRC
 filterCAVXRC = filterFFIC filterAVXRC_c
 
+foreign import ccall unsafe "filterAVXRC2"
+    filterAVXRC2_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+filterCAVXRC2 :: FilterRC
+filterCAVXRC2 = filterFFIC filterAVXRC2_c
+
 -- | Decimation
 
 decimateHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> v a -> vm (PrimState m) a -> m ()
@@ -462,7 +468,8 @@ theBench = do
                     bench "c"           $ nfIO $ filterCRC              num coeffs  inBufComplex outBufComplex,
                     bench "cSSE"        $ nfIO $ filterCSSERC           num coeffs2 inBufComplex outBufComplex,
                     bench "cSSE2"       $ nfIO $ filterCSSERC2          num coeffs  inBufComplex outBufComplex,
-                    bench "cAVX"        $ nfIO $ filterCAVXRC           num coeffs2 inBufComplex outBufComplex
+                    bench "cAVX"        $ nfIO $ filterCAVXRC           num coeffs2 inBufComplex outBufComplex,
+                    bench "cAVX2"       $ nfIO $ filterCAVXRC2          num coeffs  inBufComplex outBufComplex
                 ]
             ],
             bgroup "decimate" [
@@ -507,7 +514,7 @@ theBench = do
             ]
         ]
 
-theTest = quickCheck $ conjoin [counterexample "Real resampling" propResamplingReal]
+theTest = quickCheck $ conjoin [propFiltersComplex]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
@@ -549,14 +556,16 @@ theTest = quickCheck $ conjoin [counterexample "Real resampling" propResamplingR
             num         = size - numCoeffs*2 + 1
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
+
         r1 <- run $ getResult num $ filterHighLevel       num vCoeffs     vInput
         r2 <- run $ getResult num $ filterCRC             num vCoeffs     vInput
         r3 <- run $ getResult num $ filterCSSERC          num vCoeffs2    vInput
         r4 <- run $ getResult num $ filterCSSERC2         num vCoeffs     vInput
         r5 <- run $ getResult num $ filterCSSESymmetricRC num vCoeffsHalf vInput
         r6 <- run $ getResult num $ filterCAVXRC          num vCoeffs2    vInput
+        r7 <- run $ getResult num $ filterCAVXRC2         num vCoeffs     vInput
 
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r6]
+        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r6, r7]
     propDecimationReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                                  forAll numCoeffs $ \numCoeffs -> 
@@ -667,4 +676,4 @@ theTest = quickCheck $ conjoin [counterexample "Real resampling" propResamplingR
     duplicate = concat . map func 
         where func x = [x, x]
 
-main = theTest
+main = theBench
