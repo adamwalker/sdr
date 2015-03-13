@@ -108,7 +108,7 @@ void filterSSESymmetricRC(int num, int numCoeffs, float *coeffs, float *inBuf, f
         __m128 accum2 = _mm_setzero_ps();
 
         float *startPtr = inBuf + i;
-        float *endPtr = inBuf + i + numCoeffs * 2 - 4;
+        float *endPtr = inBuf + i + numCoeffs * 4 - 4;
         for(j=0; j<numCoeffs; j+=4){
 
             //Load the needed vectors

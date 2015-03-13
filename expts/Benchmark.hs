@@ -468,6 +468,7 @@ theBench = do
                     bench "c"           $ nfIO $ filterCRC              num coeffs  inBufComplex outBufComplex,
                     bench "cSSE"        $ nfIO $ filterCSSERC           num coeffs2 inBufComplex outBufComplex,
                     bench "cSSE2"       $ nfIO $ filterCSSERC2          num coeffs  inBufComplex outBufComplex,
+                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRC  num coeffsSym inBufComplex outBufComplex,
                     bench "cAVX"        $ nfIO $ filterCAVXRC           num coeffs2 inBufComplex outBufComplex,
                     bench "cAVX2"       $ nfIO $ filterCAVXRC2          num coeffs  inBufComplex outBufComplex
                 ]
@@ -565,7 +566,7 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
         r6 <- run $ getResult num $ filterCAVXRC          num vCoeffs2    vInput
         r7 <- run $ getResult num $ filterCAVXRC2         num vCoeffs     vInput
 
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r6, r7]
+        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5, r6, r7]
     propDecimationReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                                  forAll numCoeffs $ \numCoeffs -> 
