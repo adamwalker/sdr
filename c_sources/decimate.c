@@ -117,6 +117,16 @@ void decimateAVXRC(int num, int factor, int numCoeffs, float *coeffs, float *inB
     }
 }
 
+void decimateAVXRC2(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i, j, k;
+    for(i=0, k=0; i<num*2; i+=2, k+=factor*2){
+        float *startPtr = inBuf + k;
+        __m256 accum  = avx_dotprod_C(numCoeffs, coeffs, startPtr);
+        __m128 accum2 = avx_hadd_C(accum);
+        store_complex(outBuf + i, accum2);
+    }
+}
+
 /*
  * Symmetric versions
  */

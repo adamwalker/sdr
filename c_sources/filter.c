@@ -118,6 +118,16 @@ void filterAVXRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *out
     }
 }
 
+void filterAVXRC2(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
+    int i;
+    for(i=0; i<num*2; i+=2){
+        float *startPtr = inBuf + i;
+        __m256 accum  = avx_dotprod_C(numCoeffs, coeffs, startPtr);
+        __m128 accum2 = avx_hadd_C(accum);
+        store_complex(outBuf + i, accum2);
+    }
+}
+
 /*
  * Symmetric versions
  */
