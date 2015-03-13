@@ -275,15 +275,15 @@ prepareCoeffs n interpolation decimation coeffs = Coeffs {..}
             increment = q + 1
             offset'   = interpolation - 1 - r
 
-resampleFFIR :: (Ptr CFloat -> Ptr CFloat -> IO ()) -> VS.Vector Float -> VSM.MVector RealWorld Float -> IO ()
-resampleFFIR func inBuf outBuf = 
+resampleFFIR :: (Ptr CFloat -> Ptr CFloat -> IO CInt) -> VS.Vector Float -> VSM.MVector RealWorld Float -> IO Int
+resampleFFIR func inBuf outBuf = liftM fromIntegral $
     VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             func iPtr oPtr
 
-type ResampleR = CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+type ResampleR = CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
 
-mkResampler :: ResampleR -> Int -> Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+mkResampler :: ResampleR -> Int -> Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO Int)
 mkResampler func n interpolation decimation coeffs = do
     groupsP     <- mapM newArray $ map (map realToFrac) groups
     groupsPP    <- newArray groupsP
@@ -293,21 +293,21 @@ mkResampler func n interpolation decimation coeffs = do
     Coeffs {..} = prepareCoeffs n interpolation decimation coeffs
 
 foreign import ccall unsafe "resample2"
-    resample2_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+    resample2_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
 
-resampleCRR2 :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+resampleCRR2 :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO Int)
 resampleCRR2 = mkResampler resample2_c 1
 
 foreign import ccall unsafe "resampleSSERR"
-    resampleCSSERR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+    resampleCSSERR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
 
-resampleCSSERR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+resampleCSSERR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO Int)
 resampleCSSERR = mkResampler resampleCSSERR_c 4
 
 foreign import ccall unsafe "resampleAVXRR"
-    resampleAVXRR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
+    resampleAVXRR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
 
-resampleCAVXRR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
+resampleCAVXRR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO Int)
 resampleCAVXRR = mkResampler resampleAVXRR_c 8
 
 {-

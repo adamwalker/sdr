@@ -9,6 +9,7 @@ module SDR.Filter (
     fastDecimatorC,
     fastSymmetricDecimatorR,
     haskellResampler,
+    fastResampler,
     filterr,
     decimate,
     resample
@@ -158,6 +159,17 @@ haskellResampler interpolation decimation coeffs = do
     let resampleOne   = resampleHighLevel      interpolation decimation vCoeffs
         resampleCross = resampleCrossHighLevel interpolation decimation vCoeffs
         numCoeffsR  = length coeffs
+    return $ Resampler {..}
+
+{-# INLINE fastResampler #-}
+fastResampler :: Int -> Int -> [Float] -> IO (Resampler IO VS.Vector VS.MVector Float)
+fastResampler interpolation decimation coeffs = do
+    let vCoeffs     = VG.fromList coeffs
+    evaluate vCoeffs
+    resamp <- resampleCAVXRR interpolation decimation coeffs
+    let resampleOne   = resamp
+        resampleCross = resampleCrossHighLevel interpolation decimation vCoeffs
+        numCoeffsR    = length coeffs
     return $ Resampler {..}
 
 data Buffer v a = Buffer {

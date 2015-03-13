@@ -139,7 +139,7 @@ void resample(int buf_size, int coeff_size, int interpolation, int decimation, i
     }
 }
 
-void resample2(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
+int resample2(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
     int   i, j;
     int   group      = starting_group;
     float *start_ptr = in_buf;
@@ -150,18 +150,18 @@ void resample2(int buf_size, int num_coeffs, int starting_group, int num_groups,
         for(j=0; j<num_coeffs; j++){
 	        accum += start_ptr[j] * coeffs[group][j];
         }
-
         out_buf[i]  = accum;
 
         start_ptr  += increments[group];
-
         group++;
         if(group == num_groups) 
             group = 0;
     }
+
+    return group;
 }
 
-void resampleSSERR(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
+int resampleSSERR(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
     int   i, j;
     int   group      = starting_group;
     float *startPtr  = in_buf;
@@ -176,9 +176,11 @@ void resampleSSERR(int buf_size, int num_coeffs, int starting_group, int num_gro
         if(group == num_groups) 
             group = 0;
     }
+
+    return group;
 }
 
-void resampleAVXRR(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
+int resampleAVXRR(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
     int   i, j;
     int   group      = starting_group;
     float *startPtr  = in_buf;
@@ -193,4 +195,6 @@ void resampleAVXRR(int buf_size, int num_coeffs, int starting_group, int num_gro
         if(group == num_groups) 
             group = 0;
     }
+
+    return group;
 }
