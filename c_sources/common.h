@@ -23,6 +23,15 @@ static inline __m128 avx_hadd_R(__m256 in){
 /*
  * Real dot products
  */
+static inline float dotprod_R(int num, float *a, float *b){
+    int i;
+    float accum = 0;
+    for(i=0; i<num; i++){
+        accum += a[i] * b[i];
+    }
+    return accum;
+}
+
 static inline __m128 sse_dotprod_R(int num, float *a, float *b){
     int i;
     __m128 accum = _mm_setzero_ps();
@@ -75,6 +84,17 @@ static inline __m128 avx_hadd_C(__m256 in) {
 /*
  * Complex dot products
  */
+static inline float dotprod_C(int num, float *a, float *b, float *result){
+    int i;
+    float real = 0;
+    float imag = 0;
+    for(i=0; i<num; i++){
+        real += b[2*i] * a[i];
+        imag += b[2*i+1] * a[i];
+    }
+    result[0] = real;
+    result[1] = imag;
+}
 
 static inline __m128 sse_dotprod_C(int num, float *coeffs, float *startPtr){
     int i;

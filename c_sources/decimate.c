@@ -8,14 +8,10 @@
  * Real coefficients, real inputs
  */
 void decimateRR(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
-    int i, j, k;
+    int i, k;
     for(i=0, k=0; i<num; i++, k+=factor){
-        float accum = 0;
         float *startPtr = inBuf + k;
-        for(j=0; j<numCoeffs; j++){
-            accum += startPtr[j] * coeffs[j];
-        }
-        outBuf[i] = accum;
+        outBuf[i] = dotprod_R(numCoeffs, coeffs, startPtr);
     }
 }
 
@@ -69,17 +65,10 @@ void decimateAVXSymmetricRR(int num, int factor, int numCoeffs, float *coeffs, f
  * Real coefficients, complex inputs
  */
 void decimateRC(int num, int factor, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
-    int i, j, k;
+    int i, k;
     for(i=0, k=0; i<num*2; i+=2, k+=factor*2){
-        float real = 0;
-        float imag = 0;
         float *startPtr = inBuf + k;
-        for(j=0; j<numCoeffs; j++){
-            real += startPtr[2*j] * coeffs[j];
-            imag += startPtr[2*j+1] * coeffs[j];
-        }
-        outBuf[i] = real;
-        outBuf[i+1] = imag;
+        dotprod_C(numCoeffs, coeffs, startPtr, outBuf + i);
     }
 }
 

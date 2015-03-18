@@ -8,14 +8,10 @@
  * Real coefficients, real inputs
  */
 void filterRR(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
-    int i, j;
+    int i;
     for(i=0; i<num; i++){
-        float accum = 0;
         float *startPtr = inBuf + i;
-        for(j=0; j<numCoeffs; j++){
-            accum += startPtr[j] * coeffs[j];
-        }
-        outBuf[i] = accum;
+        outBuf[i] = dotprod_R(numCoeffs, coeffs, startPtr);
     }
 }
 
@@ -72,15 +68,8 @@ void filterAVXSymmetricRR(int num, int numCoeffs, float *coeffs, float *inBuf, f
 void filterRC(int num, int numCoeffs, float *coeffs, float *inBuf, float *outBuf){
     int i, j;
     for(i=0; i<num*2; i+=2){
-        float real = 0;
-        float imag = 0;
         float *startPtr = inBuf + i;
-        for(j=0; j<numCoeffs; j++){
-            real += startPtr[2*j] * coeffs[j];
-            imag += startPtr[2*j+1] * coeffs[j];
-        }
-        outBuf[i] = real;
-        outBuf[i+1] = imag;
+        dotprod_C(numCoeffs, coeffs, startPtr, outBuf + i);
     }
 }
 

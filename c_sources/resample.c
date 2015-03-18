@@ -31,12 +31,7 @@ int resample2(int buf_size, int num_coeffs, int starting_group, int num_groups, 
     float *start_ptr = in_buf;
 
     for(i=0; i<buf_size; i++){
-        float accum = 0;
-
-        for(j=0; j<num_coeffs; j++){
-	        accum += start_ptr[j] * coeffs[group][j];
-        }
-        out_buf[i]  = accum;
+        out_buf[i]  = dotprod_R(num_coeffs, coeffs[group], start_ptr);
 
         start_ptr  += increments[group];
         group++;
