@@ -16,6 +16,7 @@ import qualified Data.Vector.Storable.Mutable      as VSM
 import qualified Data.Vector.Fusion.Stream         as VFS
 import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 
+import           SDR.VectorUtils
 import           SDR.Util
 
 {-# INLINE filterHighLevel #-}

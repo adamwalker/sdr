@@ -5,9 +5,6 @@ module SDR.Util (
     convertC, 
     convertCSSE,
     convertCAVX,
-    mapAccumMV,
-    stride,
-    fill,
     Mult,
     mult,
     parseSize,
@@ -91,42 +88,6 @@ convertCAVX num inBuf = unsafePerformIO $ do
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             convertCAVX_c (2 * fromIntegral num) iPtr oPtr
     VG.freeze outBuf
-
-{-| Like mapAccumL but monadic and over vectors. Doesn't return the
-    accumulator at the end because it doesn't seem to be possible to do
-    this with the Stream datatype, making this function pretty useless.
--}
-mapAccumMV :: (Monad m) => (acc -> x -> m (acc, y)) -> acc -> Stream m x -> Stream m y
-mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
-    where
-    step' (s, acc) = do
-        r <- step s
-        case r of
-            Yield y s' -> do
-                (!acc', !res) <- func acc y 
-                return $ Yield res (s', acc')
-            Skip    s' -> return $ Skip (s', acc)
-            Done       -> return Done
-
-{-| Create a vector from another vector containing only the elements that
-    occur every stride elements in the source vector.
--}
-{-# INLINE stride #-}
-stride :: VG.Vector v a => Int -> v a -> v a
-stride str inv = VG.unstream $ VFS.unfoldr func 0
-    where
-    len = VG.length inv
-    func i | i >= len  = Nothing
-           | otherwise = Just (VG.unsafeIndex inv i, i + str)
-
--- | Fill a mutable vector from a monadic stream
-{-# INLINE fill #-}
-fill :: (PrimMonad m, Functor m, VGM.MVector vm a) => VFS.MStream m a -> vm (PrimState m) a -> m ()
-fill str outBuf = void $ VFSM.foldM' put 0 str
-    where 
-    put i x = do
-        VGM.unsafeWrite outBuf i x
-        return $ i + 1
 
 -- | A class for things that can be multiplied by a scalar.
 class Mult a b where

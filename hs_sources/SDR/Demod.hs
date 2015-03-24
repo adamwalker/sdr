@@ -10,7 +10,7 @@ import Data.Vector.Fusion.Stream
 
 import Pipes
 
-import SDR.Util
+import SDR.VectorUtils
 
 -- | FM demodulate a stream of complex samples
 {-# INLINE fmDemodStr #-}
