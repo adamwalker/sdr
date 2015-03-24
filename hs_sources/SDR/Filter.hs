@@ -1,4 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
+
+{-| Filtering, decimation and resampling -}
 module SDR.Filter (
     Filter(..),
     Decimator(..),
@@ -35,7 +37,7 @@ import           Pipes
 import           SDR.Util
 import           SDR.FilterInternal
 
-{- | A Filter contains all of the information needed by the filterr 
+{- | A `Filter` contains all of the information needed by the `filterr` 
      function to perform filtering. i.e. it contains the filter coefficients 
      and pointers to the functions to do the actual filtering.
 -}
@@ -45,7 +47,7 @@ data Filter m v vm a = Filter {
     filterCross   :: Int -> v a -> v a -> vm (PrimState m) a -> m ()
 }
 
-{- | A Decimator contains all of the information needed by the decimate
+{- | A `Decimator` contains all of the information needed by the `decimate`
      function to perform decimation i.e. it contains the filter coefficients 
      and pointers to the functions to do the actual decimation.
 -}
@@ -55,7 +57,7 @@ data Decimator m v vm a = Decimator {
     decimateCross :: Int -> v a -> v a -> vm (PrimState m) a -> m ()
 }
 
-{- | A Resampler contains all of the information needed by the resample 
+{- | A `Resampler` contains all of the information needed by the `resample` 
      function to perform resampling i.e. it contains the filter coefficients 
      and pointers to the functions to do the actual resampling.
 -}
@@ -71,7 +73,9 @@ duplicate = concat . map func
 
 {-# INLINE haskellFilter #-}
 -- | Returns a slow Filter data structure entirely implemented in Haskell
-haskellFilter :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => [b] -> IO (Filter m v vm a) 
+haskellFilter :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) 
+              => [b]                  -- ^ The filter coefficients
+              -> IO (Filter m v vm a) -- ^ The `Filter` data structure
 haskellFilter coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
@@ -82,7 +86,8 @@ haskellFilter coeffs = do
 
 {-# INLINE fastFilterR #-}
 -- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
-fastFilterR :: [Float] -> IO (Filter IO VS.Vector VS.MVector Float)
+fastFilterR :: [Float]                                   -- ^ The filter coefficients
+            -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
 fastFilterR coeffs = do
     let l          = length coeffs
         ru         = (l + 8 - 1) `quot` 8
@@ -96,7 +101,8 @@ fastFilterR coeffs = do
 
 {-# INLINE fastFilterC #-}
 -- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering complex data with real coefficients.
-fastFilterC :: [Float] -> IO (Filter IO VS.Vector VS.MVector (Complex Float))
+fastFilterC :: [Float]                                             -- ^ The filter coefficients
+            -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
 fastFilterC coeffs = do
     let l           = length coeffs
         ru          = (l + 8 - 1) `quot` 8
@@ -110,7 +116,8 @@ fastFilterC coeffs = do
 
 {-# INLINE fastSymmetricFilterR #-}
 -- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering real data with real coefficients. For filters with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
-fastSymmetricFilterR :: [Float] -> IO (Filter IO VS.Vector VS.MVector Float)
+fastSymmetricFilterR :: [Float]                                   -- ^ The first half of the filter coefficients
+                     -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
 fastSymmetricFilterR coeffs = do
     let vCoeffs     = VG.fromList coeffs 
     let vCoeffs2    = VG.fromList $ coeffs ++ reverse coeffs
@@ -123,7 +130,10 @@ fastSymmetricFilterR coeffs = do
 
 {-# INLINE haskellDecimator #-}
 -- | Returns a slow Decimator data structure entirely implemented in Haskell
-haskellDecimator :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> [b] -> IO (Decimator m v vm a)
+haskellDecimator :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) 
+                 => Int                     -- ^ The decimation factor
+                 -> [b]                     -- ^ The filter coefficients
+                 -> IO (Decimator m v vm a) -- ^ The `Decimator` data structure
 haskellDecimator factor coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
@@ -134,7 +144,9 @@ haskellDecimator factor coeffs = do
 
 {-# INLINE fastDecimatorR #-}
 -- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating real data with real coefficients.
-fastDecimatorR :: Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector Float)
+fastDecimatorR :: Int                                          -- ^ The decimation factor
+               -> [Float]                                      -- ^ The filter coefficients
+               -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
 fastDecimatorR factor coeffs = do
     let l          = length coeffs
         ru         = (l + 8 - 1) `quot` 8
@@ -148,7 +160,9 @@ fastDecimatorR factor coeffs = do
 
 {-# INLINE fastDecimatorC #-}
 -- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating complex data with real coefficients.
-fastDecimatorC :: Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector (Complex Float))
+fastDecimatorC :: Int                                                    -- ^ The decimation factor
+               -> [Float]                                                -- ^ The filter coefficients
+               -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
 fastDecimatorC factor coeffs = do
     let l          = length coeffs
         ru         = (l + 8 - 1) `quot` 8
@@ -162,7 +176,9 @@ fastDecimatorC factor coeffs = do
 
 {-# INLINE fastSymmetricDecimatorR #-}
 -- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating real data with real coefficients. For decimators with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
-fastSymmetricDecimatorR :: Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector Float)
+fastSymmetricDecimatorR :: Int                                          -- ^ The decimation factor
+                        -> [Float]                                      -- ^ The first half of the filter coefficients
+                        -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
 fastSymmetricDecimatorR factor coeffs = do
     let vCoeffs    = VG.fromList coeffs
     let vCoeffs2   = VG.fromList $ coeffs ++ reverse coeffs
@@ -175,7 +191,11 @@ fastSymmetricDecimatorR factor coeffs = do
 
 {-# INLINE haskellResampler #-}
 -- | Returns a slow Decimator data structure entirely implemented in Haskell
-haskellResampler :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> [b] -> IO (Resampler m v vm a) 
+haskellResampler :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) 
+                  => Int                     -- ^ The interpolation factor
+                  -> Int                     -- ^ The decimation factor
+                  -> [b]                     -- ^ The filter coefficients
+                  -> IO (Resampler m v vm a) -- ^ The `Resampler` data structure
 haskellResampler interpolation decimation coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
@@ -186,7 +206,10 @@ haskellResampler interpolation decimation coeffs = do
 
 {-# INLINE fastResampler #-}
 -- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
-fastResampler :: Int -> Int -> [Float] -> IO (Resampler IO VS.Vector VS.MVector Float)
+fastResampler :: Int                                          -- ^ The interpolation factor
+              -> Int                                          -- ^ The decimation factor
+              -> [Float]                                      -- ^ The filter coefficients
+              -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
 fastResampler interpolation decimation coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
@@ -220,7 +243,11 @@ advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count =
 --Filtering
 {-# INLINE filterr #-}
 {-| Create a pipe that performs filtering -}
-filterr :: (PrimMonad m, Functor m, VG.Vector v a, Num a) => Filter m v (VG.Mutable v) a -> Int -> Int -> Pipe (v a) (v a) m ()
+filterr :: (PrimMonad m, Functor m, VG.Vector v a, Num a) 
+        => Filter m v (VG.Mutable v) a -- ^ The `Filter` data structure
+        -> Int                         -- ^ The input block size
+        -> Int                         -- ^ The output block size
+        -> Pipe (v a) (v a) m ()       -- ^ The `Pipe` that does the filtering
 filterr Filter{..} blockSizeIn blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
@@ -256,7 +283,12 @@ filterr Filter{..} blockSizeIn blockSizeOut = do
 --Decimation
 {-# INLINE decimate #-}
 {-| Create a pipe that performs decimation -}
-decimate :: (PrimMonad m, Functor m, VG.Vector v a, Num a) => Decimator m v (VG.Mutable v) a -> Int -> Int -> Int -> Pipe (v a) (v a) m ()
+decimate :: (PrimMonad m, Functor m, VG.Vector v a, Num a) 
+         => Decimator m v (VG.Mutable v) a -- ^ The `Decimator` data structure
+         -> Int                            -- ^ The decimation factor
+         -> Int                            -- ^ The input block size
+         -> Int                            -- ^ The output block size
+         -> Pipe (v a) (v a) m ()          -- ^ The `Pipe` that does the decimation
 decimate Decimator{..} factor blockSizeIn blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
@@ -327,7 +359,13 @@ quotUp q d = (q + (d - 1)) `quot` d
 
 {-# INLINE resample #-}
 {-| Create a pipe that performs resampling -}
-resample :: (PrimMonad m, VG.Vector v a, Num a) => Resampler m v (VG.Mutable v) a -> Int -> Int -> Int -> Int -> Pipe (v a) (v a) m ()
+resample :: (PrimMonad m, VG.Vector v a, Num a) 
+         => Resampler m v (VG.Mutable v) a -- ^ The `Resampler` data structure
+         -> Int                            -- ^ The interpolation factor
+         -> Int                            -- ^ The decimation factor
+         -> Int                            -- ^ The input block size
+         -> Int                            -- ^ The output block size
+         -> Pipe (v a) (v a) m ()          -- ^ The `Pipe` that does the resampling
 resample Resampler{..} interpolation decimation blockSizeIn blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
