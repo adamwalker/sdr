@@ -23,7 +23,7 @@ import           Foreign.Storable.Complex
 import           SDR.FilterInternal
 import           SDR.Util
 
-theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex, counterexample "Conversion" propConversion]
+theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex, counterexample "Conversion" propConversion, counterexample "Scale" propScaleReal]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
@@ -176,6 +176,21 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
             r4 = VG.toList $ convertCAVX           size vInput
 
         assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4]
+
+    scales          = elements [0.1, 0.5, 1, 2, 10]
+    propScaleReal = forAll sizes $ \size -> 
+                        forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
+                            forAll scales $ \factor -> 
+                                testScaleReal size inBuf factor
+    testScaleReal :: Int -> [Float] -> Float -> Property
+    testScaleReal size inBuf factor = monadicIO $ do
+        let vInput = VS.fromList inBuf
+
+        r1 <- run $ getResult size $ scaleC    size factor vInput
+        r2 <- run $ getResult size $ scaleCSSE size factor vInput
+        r3 <- run $ getResult size $ scaleCAVX size factor vInput
+
+        assert $ and $ map (r1 `eqDelta`) [r2, r3]
 
     eqDelta x y = and $ map (uncurry eqDelta') $ zip x y
         where

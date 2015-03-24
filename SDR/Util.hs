@@ -22,7 +22,10 @@ module SDR.Util (
     fill,
     Mult,
     mult,
-    parseSize
+    parseSize,
+    scaleC,
+    scaleCSSE,
+    scaleCAVX
     ) where
 
 import Control.Monad
@@ -233,3 +236,30 @@ parseSize = eitherReader $ \arg -> case reads arg of
         x   -> Left  $ "Cannot parse suffix: `" ++ x ++ "'"
     _             -> Left $ "Cannot parse value: `" ++ arg ++ "'"
 
+-- | Scaling
+foreign import ccall unsafe "scale"
+    scale_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+scaleC :: Int -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleC num factor inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            scale_c (fromIntegral num) (unsafeCoerce factor) iPtr oPtr
+
+foreign import ccall unsafe "scaleSSE"
+    scaleSSE_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat-> IO ()
+
+scaleCSSE :: Int -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleCSSE num factor inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            scaleSSE_c (fromIntegral num) (unsafeCoerce factor) iPtr oPtr
+
+foreign import ccall unsafe "scaleAVX"
+    scaleAVX_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+scaleCAVX :: Int -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleCAVX num factor inBuf outBuf = 
+    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            scaleAVX_c (fromIntegral num) (unsafeCoerce factor) iPtr oPtr

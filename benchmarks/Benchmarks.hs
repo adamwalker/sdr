@@ -18,6 +18,7 @@ import           Foreign.Storable.Complex
 import           Criterion.Main
 
 import           SDR.FilterInternal
+import           SDR.Util
 
 theBench :: IO ()
 theBench = do
@@ -115,6 +116,11 @@ theBench = do
                 bgroup "complex" [
                     bench "highLevel"   $ nfIO $ resampleHighLevel        interpolation decimation coeffs 0 (num `quot` decimation) inBufComplex outBufComplex
                 ]
+            ],
+            bgroup "scaling" [
+                bench "c"               $ nfIO $ scaleC    size 0.3 inBuf outBuf,
+                bench "cSSE"            $ nfIO $ scaleCSSE size 0.3 inBuf outBuf,
+                bench "cAVX"            $ nfIO $ scaleCAVX size 0.3 inBuf outBuf
             ]
         ]
 
