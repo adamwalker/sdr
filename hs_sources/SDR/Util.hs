@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts, BangPatterns, ScopedTypeVariables, MultiParamTypeClasses, FlexibleInstances #-}
 
+{-| Various utiliy signal processing functions -}
 module SDR.Util (
     makeComplexBufferVect,
     convertC, 
@@ -7,7 +8,6 @@ module SDR.Util (
     convertCAVX,
     Mult,
     mult,
-    parseSize,
     scaleC,
     scaleCSSE,
     scaleCAVX
@@ -41,8 +41,16 @@ import qualified Pipes.Prelude as P
 import qualified Pipes.ByteString as PB
 import Data.Serialize hiding (Done)
 import qualified Data.Serialize as S
-import Options.Applicative
-import Data.Decimal
+
+-- | A class for things that can be multiplied by a scalar.
+class Mult a b where
+    mult :: a -> b -> a
+
+instance (Num a) => Mult a a where
+    mult = (*)
+
+instance (Num a) => Mult (Complex a) a where
+    mult (x :+ y) z = (x * z) :+ (y * z)
 
 {-| Create a vector of complex samples from a vector of interleaved
     I Q components.
@@ -88,26 +96,6 @@ convertCAVX num inBuf = unsafePerformIO $ do
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             convertCAVX_c (2 * fromIntegral num) iPtr oPtr
     VG.freeze outBuf
-
--- | A class for things that can be multiplied by a scalar.
-class Mult a b where
-    mult :: a -> b -> a
-
-instance (Num a) => Mult a a where
-    mult = (*)
-
-instance (Num a) => Mult (Complex a) a where
-    mult (x :+ y) z = (x * z) :+ (y * z)
-
-parseSize :: ReadM Integer
-parseSize = eitherReader $ \arg -> case reads arg of
-    [(r, suffix)] -> case suffix of 
-        []  -> return $ round (r :: Decimal)
-        "K" -> return $ round $ r * 1000 
-        "M" -> return $ round $ r * 1000000
-        "G" -> return $ round $ r * 1000000000
-        x   -> Left  $ "Cannot parse suffix: `" ++ x ++ "'"
-    _             -> Left $ "Cannot parse value: `" ++ arg ++ "'"
 
 -- | Scaling
 foreign import ccall unsafe "scale"
