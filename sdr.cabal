@@ -31,7 +31,7 @@ library
     ghc-options:         -O2
     -- includes:            c_sources/common.h
     c-sources:           c_sources/filter.c, c_sources/decimate.c, c_sources/convert.c, c_sources/resample.c, c_sources/scale.c
-    cc-options:          -O2 -mavx2 -msse4 -g
+    cc-options:          -mavx2 -msse4 -g
 
 Test-Suite test
     type:           exitcode-stdio-1.0
