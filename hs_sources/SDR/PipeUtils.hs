@@ -1,3 +1,4 @@
+{-| Pipes utility functions -}
 module SDR.PipeUtils (
     fork, 
     printStream,

@@ -1,3 +1,4 @@
+{-| Stream samples from a Realtek RTL2832U based device -}
 module SDR.RTLSDRStream (
     sdrStream
     ) where
@@ -16,7 +17,7 @@ import Pipes
 import Pipes.Concurrent 
 import RTLSDR
 
--- | Returns a producer that streams data from a Realtek RTL2832U based device
+-- | Returns a producer that streams data from a Realtek RTL2832U based device. You probably want to use `makeComplexBufferVect` to turn it into a list of complex Floats.
 sdrStream :: Word32 -> Word32 -> Word32 -> Word32 -> EitherT String IO (Producer (VS.Vector CUChar) IO ())
 sdrStream frequency sampleRate bufNum bufLen = do
     lift $ putStrLn "Initializing RTLSDR device"

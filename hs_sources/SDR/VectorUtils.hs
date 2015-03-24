@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 
+{-| Various Vector based utility functions -}
 module SDR.VectorUtils (
     mapAccumMV,
     stride,
