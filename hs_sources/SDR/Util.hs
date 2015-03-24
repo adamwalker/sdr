@@ -9,14 +9,6 @@ module SDR.Util (
     convertC, 
     convertCSSE,
     convertCAVX,
-    floatVecToByteString,
-    doubleVecToByteString,
-    floatVecFromByteString,
-    doubleVecFromByteString,
-    toByteString,
-    fromByteString,
-    toHandle,
-    fromHandle,
     mapAccumMV,
     stride,
     fill,
@@ -138,47 +130,6 @@ convertCAVX num inBuf = unsafePerformIO $ do
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             convertCAVX_c (2 * fromIntegral num) iPtr oPtr
     VG.freeze outBuf
-
-{-| Slow functions for serializing/deserializing vectors to/from
-    bytestrings. There must be a better way to do this that doesn't involve
-    copying.
--}
-floatVecToByteString    :: VG.Vector v Float  => v Float -> ByteString
-floatVecToByteString vect = runPut $ VG.mapM_ putFloat32le vect
-
-doubleVecToByteString   :: VG.Vector v Double => v Double -> ByteString
-doubleVecToByteString vect = runPut $ VG.mapM_ putFloat64le vect
-
-floatVecFromByteString  :: VG.Vector v Float  => ByteString -> v Float
-floatVecFromByteString bs = VG.unfoldrN (BS.length bs `div` 4) go bs
-    where
-    go bs = case runGetPartial getFloat32le bs of
-                Fail _ _    -> Nothing
-                Partial _   -> error "floatVecFromByteString: Partial"
-                S.Done r b  -> Just (r, b)
-
-doubleVecFromByteString  :: VG.Vector v Double  => ByteString -> v Double
-doubleVecFromByteString bs = VG.unfoldrN (BS.length bs `div` 8) go bs
-    where
-    go bs = case runGetPartial getFloat64le bs of
-                Fail _ _    -> Nothing
-                Partial _   -> error "doubleVecFromByteString"
-                S.Done r b  -> Just (r, b)
-
-{-| Fast functions for serializing/deserializing storable vectors to/from
-    bytestrings.
--}
-toByteString :: forall a. (Storable a) => Pipe (VS.Vector a) ByteString IO ()
-toByteString = P.map $ \dat -> let (fp, o, sz) = VS.unsafeToForeignPtr dat in PS (castForeignPtr fp) o (sz * sizeOf (undefined :: a))
-
-fromByteString :: forall a. (Storable a) => Pipe ByteString (VS.Vector a) IO ()
-fromByteString = P.map $ \(PS fp o l) -> VS.unsafeFromForeignPtr (castForeignPtr fp) o (l `quot` sizeOf (undefined :: a))
-
-toHandle :: (Storable a) => Handle -> Consumer (VS.Vector a) IO ()
-toHandle handle = toByteString >-> PB.toHandle handle 
-
-fromHandle :: forall a. (Storable a) => Int -> Handle -> Producer (VS.Vector a) IO ()
-fromHandle samples handle = PB.hGet (samples * sizeOf (undefined :: a)) handle >-> fromByteString 
 
 {-| Like mapAccumL but monadic and over vectors. Doesn't return the
     accumulator at the end because it doesn't seem to be possible to do
