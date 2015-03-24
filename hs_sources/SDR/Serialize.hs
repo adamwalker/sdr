@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables, FlexibleContexts #-}
 
+{-| Utility functions for serializing and deserializing samples -}
 module SDR.Serialize (
     floatVecToByteString,
     doubleVecToByteString,

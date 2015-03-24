@@ -1,4 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
+
+{-| FM demodulation pipes -}
 module SDR.Demod (
     fmDemodStr,
     fmDemodVec
