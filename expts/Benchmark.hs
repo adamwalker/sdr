@@ -56,32 +56,6 @@ filterHighLevel num coeffs inBuf outBuf = fill (VFSM.generate num dotProd) outBu
     where
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
-filterImperative1 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> v a -> vm (PrimState m) a -> m ()
-filterImperative1 num coeffs inBuf outBuf = go 0
-    where
-    go offset 
-        | offset < num = do
-            let res = dotProd offset
-            VGM.unsafeWrite outBuf offset res
-            go $ offset + 1
-        | otherwise    = return ()
-    dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
-
-filterImperative2 :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> v a -> vm (PrimState m) a -> m ()
-filterImperative2 num coeffs inBuf outBuf = go 0
-    where
-    go offset 
-        | offset < num = do
-            let res = dotProd (VG.unsafeDrop offset inBuf)
-            VGM.unsafeWrite outBuf offset res
-            go $ offset + 1
-        | otherwise    = return ()
-    dotProd buf = go 0 0
-        where
-        go !accum j 
-            | j < VG.length coeffs = go (VG.unsafeIndex buf j `mult` VG.unsafeIndex coeffs j  + accum) (j + 1)
-            | otherwise            = accum
-
 type FilterCRR = CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 type FilterRR  = Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
 type FilterRC  = Int -> VS.Vector Float -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO ()
@@ -99,78 +73,6 @@ filterFFIC func num coeffs inBuf outBuf =
         VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 func (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
-
-foreign import ccall unsafe "filterRR"
-    filterRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCRR :: FilterRR
-filterCRR = filterFFIR filterRR_c 
-
-foreign import ccall unsafe "filterRC"
-    filterRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCRC :: FilterRC
-filterCRC = filterFFIC filterRC_c
-
-foreign import ccall unsafe "filterSSERR"
-    filterSSERR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCSSERR :: FilterRR
-filterCSSERR = filterFFIR filterSSERR_c
-
-foreign import ccall unsafe "filterSSESymmetricRR"
-    filterSSESymmetricRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCSSESymmetricRR :: FilterRR
-filterCSSESymmetricRR = filterFFIR filterSSESymmetricRR_c
-
-foreign import ccall unsafe "filterSSERC"
-    filterSSERC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCSSERC :: FilterRC
-filterCSSERC = filterFFIC filterSSERC_c
-
-foreign import ccall unsafe "filterSSERC2"
-    filterSSERC2_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCSSERC2 :: FilterRC
-filterCSSERC2 = filterFFIC filterSSERC2_c
-
-foreign import ccall unsafe "filterSSESymmetricRC"
-    filterSSESymmetricRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCSSESymmetricRC :: FilterRC
-filterCSSESymmetricRC = filterFFIC filterSSESymmetricRC_c
-
-foreign import ccall unsafe "filterAVXSymmetricRC"
-    filterAVXSymmetricRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCAVXSymmetricRC :: FilterRC
-filterCAVXSymmetricRC = filterFFIC filterAVXSymmetricRC_c
-
-foreign import ccall unsafe "filterAVXRR"
-    filterAVXRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCAVXRR :: FilterRR
-filterCAVXRR = filterFFIR filterAVXRR_c
-
-foreign import ccall unsafe "filterAVXSymmetricRR"
-    filterAVXSymmetricRR_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCAVXSymmetricRR :: FilterRR
-filterCAVXSymmetricRR = filterFFIR filterAVXSymmetricRR_c
-
-foreign import ccall unsafe "filterAVXRC"
-    filterAVXRC_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCAVXRC :: FilterRC
-filterCAVXRC = filterFFIC filterAVXRC_c
-
-foreign import ccall unsafe "filterAVXRC2"
-    filterAVXRC2_c :: CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-filterCAVXRC2 :: FilterRC
-filterCAVXRC2 = filterFFIC filterAVXRC2_c
 
 -- | Decimation
 
@@ -198,60 +100,6 @@ decimateFFIC func num factor coeffs inBuf outBuf =
             VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
                 func (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
-foreign import ccall unsafe "decimateRR"
-    decimateCRR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-decimateCRR :: DecimateRR
-decimateCRR = decimateFFIR decimateCRR_c
-
-foreign import ccall unsafe "decimateRC"
-    decimateCRC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-decimateCRC :: DecimateRC
-decimateCRC = decimateFFIC decimateCRC_c
-
-foreign import ccall unsafe "decimateSSERR"
-    decimateSSERR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-decimateCSSERR :: DecimateRR
-decimateCSSERR = decimateFFIR decimateSSERR_c
-
-foreign import ccall unsafe "decimateSSERC"
-    decimateSSERC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-decimateCSSERC :: DecimateRC
-decimateCSSERC = decimateFFIC decimateSSERC_c
-
-foreign import ccall unsafe "decimateSSERC2"
-    decimateSSERC2_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-decimateCSSERC2 :: DecimateRC
-decimateCSSERC2 = decimateFFIC decimateSSERC2_c
-
-foreign import ccall unsafe "decimateAVXRR"
-    decimateAVXRR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-decimateCAVXRR :: DecimateRR
-decimateCAVXRR = decimateFFIR decimateAVXRR_c
-
-foreign import ccall unsafe "decimateAVXRC"
-    decimateAVXRC_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-decimateCAVXRC :: DecimateRC
-decimateCAVXRC = decimateFFIC decimateAVXRC_c
-
-foreign import ccall unsafe "decimateSSESymmetricRR"
-    decimateSSESymmetricRR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-decimateCSSESymmetricRR :: DecimateRR
-decimateCSSESymmetricRR = decimateFFIR decimateSSESymmetricRR_c
-
-foreign import ccall unsafe "decimateAVXSymmetricRR"
-    decimateAVXSymmetricRR_c :: CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-decimateCAVXSymmetricRR :: DecimateRR
-decimateCAVXSymmetricRR = decimateFFIR decimateAVXSymmetricRR_c
-
 -- | Rational downsampling
 resampleHighLevel :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> Int -> Int -> v b -> v a -> vm (PrimState m) a -> m Int
 resampleHighLevel count interpolation decimation filterOffset coeffs inBuf outBuf = fill 0 filterOffset 0
@@ -266,16 +114,6 @@ resampleHighLevel count interpolation decimation filterOffset coeffs inBuf outBu
             filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
         | otherwise = return filterOffset
     dotProd filterOffset offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation (VG.unsafeDrop filterOffset coeffs))
-
-foreign import ccall unsafe "resample"
-    resample_c :: CInt -> CInt -> CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-resampleCRR :: Int -> Int -> Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-resampleCRR num interpolation decimation offset coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-                resample_c (fromIntegral num) (fromIntegral $ VG.length coeffs) (fromIntegral interpolation) (fromIntegral decimation) (fromIntegral offset) cPtr iPtr oPtr
 
 pad :: a -> Int -> [a] -> [a]
 pad with num list = list ++ replicate (num - length list) with 
@@ -337,55 +175,6 @@ mkResampler func n interpolation decimation coeffs = do
     return $ \num offset -> resampleFFIR $ func (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsPP
     where
     Coeffs {..} = prepareCoeffs n interpolation decimation coeffs
-
-foreign import ccall unsafe "resample2"
-    resample2_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-resampleCRR2 :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
-resampleCRR2 = mkResampler resample2_c 1
-
-foreign import ccall unsafe "resampleSSERR"
-    resampleCSSERR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-resampleCSSERR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
-resampleCSSERR = mkResampler resampleCSSERR_c 4
-
-foreign import ccall unsafe "resampleAVXRR"
-    resampleAVXRR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO ()
-
-resampleCAVXRR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ())
-resampleCAVXRR = mkResampler resampleAVXRR_c 8
-
--- | Conversion
-convertHighLevel :: VS.Vector CUChar -> VS.Vector Float 
-convertHighLevel = VG.map fromIntegral
-
-foreign import ccall unsafe "convertC"
-    convertC_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
-
-convertC :: Int -> VS.Vector CUChar -> VS.MVector RealWorld Float -> IO ()
-convertC num inBuf outBuf = 
-    VS.unsafeWith inBuf $ \iPtr -> 
-        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            convertC_c (fromIntegral num) iPtr oPtr
-
-foreign import ccall unsafe "convertCSSE"
-    convertCSSE_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
-
-convertCSSE :: Int -> VS.Vector CUChar -> VS.MVector RealWorld Float -> IO ()
-convertCSSE num inBuf outBuf = 
-    VS.unsafeWith inBuf $ \iPtr -> 
-        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            convertCSSE_c (fromIntegral num) iPtr oPtr
-
-foreign import ccall unsafe "convertCAVX"
-    convertCAVX_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
-
-convertCAVX :: Int -> VS.Vector CUChar -> VS.MVector RealWorld Float -> IO ()
-convertCAVX num inBuf outBuf = 
-    VS.unsafeWith inBuf $ \iPtr -> 
-        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            convertCAVX_c (fromIntegral num) iPtr oPtr
 
 -- | Scaling
 foreign import ccall unsafe "scale"
@@ -452,68 +241,31 @@ theBench = do
     outBuf        :: VS.MVector RealWorld Float <- VGM.new size
     outBufComplex :: VS.MVector RealWorld (Complex Float) <- VGM.new size
 
-    resampler3 <- resampleCRR2   interpolation decimation coeffsList
-    resampler4 <- resampleCSSERR interpolation decimation coeffsList
-    resampler5 <- resampleCAVXRR interpolation decimation coeffsList
-
     --Benchmarks
     defaultMain [
             bgroup "filter" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ filterHighLevel        num coeffs inBuf outBuf,
-                    bench "imperative1" $ nfIO $ filterImperative1      num coeffs inBuf outBuf,
-                    bench "imperative2" $ nfIO $ filterImperative2      num coeffs inBuf outBuf,
-                    bench "c"           $ nfIO $ filterCRR              num coeffs inBuf outBuf,
-                    bench "cSSE"        $ nfIO $ filterCSSERR           num coeffs inBuf outBuf,
-                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRR  num coeffsSym inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ filterCAVXRR           num coeffs inBuf outBuf,
-                    bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR  num coeffsSym inBuf outBuf
+                    bench "highLevel"   $ nfIO $ filterHighLevel        num coeffs inBuf outBuf
                 ],
                 bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ filterHighLevel        num coeffs  inBufComplex outBufComplex,
-                    bench "c"           $ nfIO $ filterCRC              num coeffs  inBufComplex outBufComplex,
-                    bench "cSSE"        $ nfIO $ filterCSSERC           num coeffs2 inBufComplex outBufComplex,
-                    bench "cSSE2"       $ nfIO $ filterCSSERC2          num coeffs  inBufComplex outBufComplex,
-                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRC  num coeffsSym inBufComplex outBufComplex,
-                    bench "cAVX"        $ nfIO $ filterCAVXRC           num coeffs2 inBufComplex outBufComplex,
-                    bench "cAVX2"       $ nfIO $ filterCAVXRC2          num coeffs  inBufComplex outBufComplex,
-                    bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRC  num coeffsSym inBufComplex outBufComplex
+                    bench "highLevel"   $ nfIO $ filterHighLevel        num coeffs  inBufComplex outBufComplex
                 ]
             ],
             bgroup "decimate" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ decimateHighLevel        (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    bench "c"           $ nfIO $ decimateCRR              (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    bench "cSSE"        $ nfIO $ decimateCSSERR           (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ decimateCAVXRR           (num `quot` decimation) decimation coeffs inBuf outBuf,
-                    bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRR  (num `quot` decimation) decimation coeffsSym inBuf outBuf
+                    bench "highLevel"   $ nfIO $ decimateHighLevel        (num `quot` decimation) decimation coeffs inBuf outBuf
                 ],
                 bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ decimateHighLevel      (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
-                    bench "c"           $ nfIO $ decimateCRC            (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
-                    bench "cSSE"        $ nfIO $ decimateCSSERC         (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex,
-                    bench "cSSE2"       $ nfIO $ decimateCSSERC2        (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex,
-                    bench "cAVX"        $ nfIO $ decimateCAVXRC         (num `quot` decimation) decimation coeffs2 inBufComplex outBufComplex
+                    bench "highLevel"   $ nfIO $ decimateHighLevel      (num `quot` decimation) decimation coeffs  inBufComplex outBufComplex
                 ]
             ],
             bgroup "resample" [
                 bgroup "real" [
-                    bench "highLevel"   $ nfIO $ resampleHighLevel      (num `quot` decimation) interpolation decimation 0 coeffs inBuf outBuf,
-                    bench "c"           $ nfIO $ resampleCRR            (num `quot` decimation) interpolation decimation 0 coeffs inBuf outBuf,
-                    bench "c2"          $ nfIO $ resampler3             (num `quot` decimation) 0 inBuf outBuf,
-                    bench "cSSE"        $ nfIO $ resampler4             (num `quot` decimation) 0 inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ resampler5             (num `quot` decimation) 0 inBuf outBuf
+                    bench "highLevel"   $ nfIO $ resampleHighLevel      (num `quot` decimation) interpolation decimation 0 coeffs inBuf outBuf
                 ],
                 bgroup "complex" [
                     bench "highLevel"   $ nfIO $ resampleHighLevel      (num `quot` decimation) interpolation decimation 0 coeffs inBufComplex outBufComplex
                 ]
-            ],
-            bgroup "conversion" [
-                bench "c"               $ nfIO $ convertC    numConv inBufConv outBuf,
-                bench "cSSE"            $ nfIO $ convertCSSE numConv inBufConv outBuf,
-                bench "cAVX"            $ nfIO $ convertCAVX numConv inBufConv outBuf
-                --bench "c"               $ nfIO $ convertHighLevel  inBufConv
             ],
             bgroup "scaling" [
                 bench "c"               $ nfIO $ scaleC    size 0.3 inBuf outBuf,
@@ -541,15 +293,8 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
             num         = size - numCoeffs*2 + 1
 
         r1 <- run $ getResult num $ filterHighLevel       num vCoeffs     vInput
-        r2 <- run $ getResult num $ filterImperative1     num vCoeffs     vInput
-        r3 <- run $ getResult num $ filterImperative2     num vCoeffs     vInput
-        r4 <- run $ getResult num $ filterCRR             num vCoeffs     vInput
-        r5 <- run $ getResult num $ filterCSSERR          num vCoeffs     vInput
-        r6 <- run $ getResult num $ filterCAVXRR          num vCoeffs     vInput
-        r7 <- run $ getResult num $ filterCSSESymmetricRR num vCoeffsHalf vInput
-        r8 <- run $ getResult num $ filterCAVXSymmetricRR num vCoeffsHalf vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7, r8]
+        assert $ and $ map (r1 `eqDelta`) [r1]
     propFiltersComplex = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
                                  forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
@@ -562,19 +307,11 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
             vCoeffs     = VS.fromList $ coeffs ++ reverse coeffs
             vInput      = VS.fromList inBuf
             num         = size - numCoeffs*2 + 1
-            vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
-
+            --vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
         r1 <- run $ getResult num $ filterHighLevel       num vCoeffs     vInput
-        r2 <- run $ getResult num $ filterCRC             num vCoeffs     vInput
-        r3 <- run $ getResult num $ filterCSSERC          num vCoeffs2    vInput
-        r4 <- run $ getResult num $ filterCSSERC2         num vCoeffs     vInput
-        r5 <- run $ getResult num $ filterCSSESymmetricRC num vCoeffsHalf vInput
-        r6 <- run $ getResult num $ filterCAVXRC          num vCoeffs2    vInput
-        r7 <- run $ getResult num $ filterCAVXRC2         num vCoeffs     vInput
-        r8 <- run $ getResult num $ filterCAVXSymmetricRC num vCoeffsHalf vInput
 
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5, r6, r7, r8]
+        assert $ and $ map (r1 `eqDeltaC`) [r1]
     propDecimationReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                                  forAll numCoeffs $ \numCoeffs -> 
@@ -589,13 +326,8 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
             num         = (size - numCoeffs*2 + 1) `quot` factor
 
         r1 <- run $ getResult num $ decimateHighLevel       num factor vCoeffs     vInput
-        r2 <- run $ getResult num $ decimateCRR             num factor vCoeffs     vInput
-        r3 <- run $ getResult num $ decimateCSSERR          num factor vCoeffs     vInput
-        r4 <- run $ getResult num $ decimateCAVXRR          num factor vCoeffs     vInput
-        r5 <- run $ getResult num $ decimateCSSESymmetricRR num factor vCoeffsHalf vInput
-        r6 <- run $ getResult num $ decimateCAVXSymmetricRR num factor vCoeffsHalf vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6]
+        assert $ and $ map (r1 `eqDelta`) [r1]
     propDecimationComplex = forAll sizes $ \size -> 
                                 forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
                                     forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
@@ -609,15 +341,11 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
             vCoeffs     = VS.fromList $ coeffs ++ reverse coeffs
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` factor
-            vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
+            --vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
         r1 <- run $ getResult num $ decimateHighLevel       num factor vCoeffs     vInput
-        r2 <- run $ getResult num $ decimateCRC             num factor vCoeffs     vInput
-        r3 <- run $ getResult num $ decimateCSSERC          num factor vCoeffs2    vInput
-        r4 <- run $ getResult num $ decimateCSSERC2         num factor vCoeffs     vInput
-        r5 <- run $ getResult num $ decimateCAVXRC          num factor vCoeffs2    vInput
 
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5]
+        assert $ and $ map (r1 `eqDeltaC`) [r1]
     propResamplingReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                                  forAll numCoeffs $ \numCoeffs -> 
@@ -632,17 +360,9 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` decimation
 
-        resampler3 <- run $ resampleCRR2   interpolation decimation (coeffs ++ reverse coeffs)
-        resampler4 <- run $ resampleCSSERR interpolation decimation (coeffs ++ reverse coeffs)
-        resampler5 <- run $ resampleCAVXRR interpolation decimation (coeffs ++ reverse coeffs)
-
         r1 <- run $ getResult num $ resampleHighLevel       num interpolation decimation 0 vCoeffs vInput
-        r2 <- run $ getResult num $ resampleCRR             num interpolation decimation 0 vCoeffs vInput
-        r3 <- run $ getResult num $ resampler3              num 0 vInput
-        r4 <- run $ getResult num $ resampler4              num 0 vInput
-        r5 <- run $ getResult num $ resampler5              num 0 vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5]
+        assert $ and $ map (r1 `eqDelta`) [r1]
     scales          = elements [0.1, 0.5, 1, 2, 10]
     propScaleReal = forAll sizes $ \size -> 
                         forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
@@ -655,18 +375,6 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
         r1 <- run $ getResult size $ scaleC    size factor vInput
         r2 <- run $ getResult size $ scaleCSSE size factor vInput
         r3 <- run $ getResult size $ scaleCAVX size factor vInput
-
-        assert $ and $ map (r1 `eqDelta`) [r2, r3]
-    propConversion = forAll sizes $ \size -> 
-                         forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
-                             testConversion size inBuf
-    testConversion :: Int -> [Int] -> Property
-    testConversion size inBuf = monadicIO $ do
-        let vInput = VS.fromList $ map fromIntegral inBuf
-
-        r1 <- run $ getResult size $ convertC    size vInput
-        r2 <- run $ getResult size $ convertCSSE size vInput
-        r3 <- run $ getResult size $ convertCAVX size vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3]
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO b) -> IO [a]
