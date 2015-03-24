@@ -1,10 +1,6 @@
 {-# LANGUAGE FlexibleContexts, BangPatterns, ScopedTypeVariables, MultiParamTypeClasses, FlexibleInstances #-}
 
 module SDR.Util (
-    fork, 
-    printStream,
-    devnull,
-    rate,
     makeComplexBufferVect,
     convertC, 
     convertCSSE,
@@ -28,7 +24,6 @@ import Data.Complex
 import Data.ByteString.Internal 
 import Data.ByteString as BS
 import System.IO
-import Data.Time.Clock
 import Data.Vector.Generic                         as VG   hiding ((++))
 import qualified Data.Vector.Generic.Mutable       as VGM
 import Data.Vector.Storable                        as VS   hiding ((++))
@@ -51,40 +46,6 @@ import Data.Serialize hiding (Done)
 import qualified Data.Serialize as S
 import Options.Applicative
 import Data.Decimal
-
-fork :: Monad m => Producer a m r -> Producer a (Producer a m) r
-fork prod = runEffect $ hoist (lift . lift) prod >-> fork' 
-    where 
-    fork' = forever $ do
-        res <- await
-        lift $ yield res
-        lift $ lift $ yield res
-
--- | A consumer that prints everything to stdout
-printStream :: (Show a, VG.Vector v a) => Int -> Consumer (v a) IO ()
-printStream samples = for cat $ VG.mapM_ (lift . print) 
-
--- | A consumer that discards everything
-devnull :: Monad m => Consumer a m ()
-devnull = forever await
-
--- | Passthrough pipe that prints the sample rate
-rate :: Int -> Pipe a a IO b
-rate samples = do
-    start <- lift getCurrentTime 
-    let rate' buffers = do
-            res <- await
-
-            time <- lift getCurrentTime 
-            let diff = diffUTCTime time start 
-                diffSecs :: Double
-                diffSecs = fromRational $ toRational diff
-
-            lift $ print $ buffers * fromIntegral samples / diffSecs
-
-            yield res
-            rate' (buffers + 1)
-    rate' 1
 
 {-| Create a vector of complex samples from a vector of interleaved
     I Q components.
