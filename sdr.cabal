@@ -3,8 +3,8 @@
 
 name:                sdr
 version:             0.1.0.0
-synopsis:            Toy software defined radio library
--- description:         
+synopsis:            Software defined radio library
+description:         A Software Defined Radio Library. 
 license:             BSD3
 license-file:        LICENSE
 author:              Adam Walker
@@ -16,6 +16,10 @@ bug-reports:         https://github.com/adamwalker/sdr/issues
 build-type:          Simple
 -- extra-source-files:  
 cabal-version:       >=1.10
+
+source-repository head
+    type: git
+    location: https://github.com/adamwalker/sdr
 
 library
     exposed-modules:     SDR.Pulse, SDR.RTLSDRStream, SDR.Util, SDR.Plot, SDR.Filter, SDR.Demod, SDR.FFT, SDR.FilterInternal
