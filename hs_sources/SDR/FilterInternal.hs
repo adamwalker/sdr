@@ -1,4 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables, BangPatterns, RecordWildCards #-}
+
+{-| Functions used internally by the SDR.Filter module. Most of these are
+    not actually used but exist for benchmarking purposes to determine the 
+    fastest filter implementation.
+-}
 module SDR.FilterInternal where
 
 import           Control.Monad.Primitive 
@@ -143,7 +148,7 @@ foreign import ccall unsafe "filterAVXSymmetricRC"
 filterCAVXSymmetricRC :: FilterRC
 filterCAVXSymmetricRC = filterFFIC filterAVXSymmetricRC_c
 
--- | Decimation
+-- Decimation
 
 {-# INLINE decimateHighLevel #-}
 decimateHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> v a -> vm (PrimState m) a -> m ()
@@ -242,7 +247,7 @@ foreign import ccall unsafe "decimateAVXSymmetricRC"
 decimateCAVXSymmetricRC :: DecimateRC
 decimateCAVXSymmetricRC = decimateFFIC decimateAVXSymmetricRC_c
 
--- | Resampling
+-- Resampling
 {-# INLINE resampleHighLevel #-}
 resampleHighLevel :: (PrimMonad m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> Int -> v b -> Int -> Int -> v a -> vm (PrimState m) a -> m Int
 resampleHighLevel interpolation decimation coeffs filterOffset count inBuf outBuf = fill 0 filterOffset 0
