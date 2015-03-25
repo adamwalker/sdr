@@ -71,18 +71,18 @@ doubleVecFromByteString bs = VG.unfoldrN (BS.length bs `div` 8) go bs
                 S.Done r b  -> Just (r, b)
 
 -- | Convert a Vector of Storable values to a ByteString. This is fast as it is just a cast.
-toByteString :: forall a. (Storable a) => Pipe (VS.Vector a) ByteString IO ()
-toByteString = P.map $ \dat -> let (fp, o, sz) = VS.unsafeToForeignPtr dat in PS (castForeignPtr fp) o (sz * sizeOf (undefined :: a))
+toByteString :: forall a. Storable a => VS.Vector a -> ByteString 
+toByteString dat = let (fp, o, sz) = VS.unsafeToForeignPtr dat in PS (castForeignPtr fp) o (sz * sizeOf (undefined :: a))
 
 -- | Convert a ByteString to a Vector of Storable values. This is fast as it is just a cast.
-fromByteString :: forall a. (Storable a) => Pipe ByteString (VS.Vector a) IO ()
-fromByteString = P.map $ \(PS fp o l) -> VS.unsafeFromForeignPtr (castForeignPtr fp) o (l `quot` sizeOf (undefined :: a))
+fromByteString :: forall a. Storable a => ByteString -> VS.Vector a
+fromByteString  (PS fp o l) = VS.unsafeFromForeignPtr (castForeignPtr fp) o (l `quot` sizeOf (undefined :: a))
 
 -- | Given a Handle, create a Consumer that dumps the Vectors written to it to a Handle.
 toHandle :: (Storable a) => Handle -> Consumer (VS.Vector a) IO ()
-toHandle handle = toByteString >-> PB.toHandle handle 
+toHandle handle = P.map toByteString >-> PB.toHandle handle 
 
 -- | Given a Handle, create a Producer that creates Vectors from data read from the Handle.
 fromHandle :: forall a. (Storable a) => Int -> Handle -> Producer (VS.Vector a) IO ()
-fromHandle samples handle = PB.hGet (samples * sizeOf (undefined :: a)) handle >-> fromByteString 
+fromHandle samples handle = PB.hGet (samples * sizeOf (undefined :: a)) handle >-> P.map fromByteString 
 
