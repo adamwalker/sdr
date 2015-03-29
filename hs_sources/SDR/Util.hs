@@ -13,34 +13,17 @@ module SDR.Util (
     scaleCAVX
     ) where
 
-import Control.Monad
 import Foreign.C.Types
-import Foreign.ForeignPtr
-import Foreign.Storable
 import Data.Complex
-import Data.ByteString.Internal 
-import Data.ByteString as BS
-import System.IO
 import Data.Vector.Generic                         as VG   hiding ((++))
 import qualified Data.Vector.Generic.Mutable       as VGM
 import Data.Vector.Storable                        as VS   hiding ((++))
-import Data.Vector.Storable.Mutable                as VSM  hiding ((++))
-import Data.Vector.Fusion.Stream.Monadic                   hiding ((++))
-import qualified Data.Vector.Fusion.Stream         as VFS  hiding ((++))
-import qualified Data.Vector.Fusion.Stream.Monadic as VFSM hiding ((++))
-import Data.Tuple.All
+import Data.Vector.Storable.Mutable                as VSM  
 import Control.Monad.Primitive
-import Control.Applicative
 import Unsafe.Coerce
 import Foreign.Ptr
 import System.IO.Unsafe
 import Foreign.Storable.Complex
-
-import Pipes
-import qualified Pipes.Prelude as P
-import qualified Pipes.ByteString as PB
-import Data.Serialize hiding (Done)
-import qualified Data.Serialize as S
 
 -- | A class for things that can be multiplied by a scalar.
 class Mult a b where
@@ -51,6 +34,8 @@ instance (Num a) => Mult a a where
 
 instance (Num a) => Mult (Complex a) a where
     mult (x :+ y) z = (x * z) :+ (y * z)
+
+--TODO: none of these functions need the num argument
 
 -- | Create a vector of complex float samples from a vector of interleaved I Q component bytes.
 {-# INLINE makeComplexBufferVect #-}
@@ -65,7 +50,7 @@ makeComplexBufferVect samples input = VG.generate samples convert
 foreign import ccall unsafe "convertC"
     convertC_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
--- | Same as makeComplexBufferVect but written in C
+-- | Same as `makeComplexBufferVect` but written in C
 convertC :: Int -> VS.Vector CUChar -> VS.Vector (Complex Float)
 convertC num inBuf = unsafePerformIO $ do
     outBuf <- VGM.new num
@@ -77,7 +62,7 @@ convertC num inBuf = unsafePerformIO $ do
 foreign import ccall unsafe "convertCSSE"
     convertCSSE_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
--- | Same as makeComplexBufferVect but written in C using SSE intrinsics
+-- | Same as `makeComplexBufferVect` but written in C using SSE intrinsics
 convertCSSE :: Int -> VS.Vector CUChar -> VS.Vector (Complex Float)
 convertCSSE num inBuf = unsafePerformIO $ do
     outBuf <- VGM.new num
@@ -89,7 +74,7 @@ convertCSSE num inBuf = unsafePerformIO $ do
 foreign import ccall unsafe "convertCAVX"
     convertCAVX_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
--- | Same as makeComplexBufferVect but written in C using AVX intrinsics
+-- | Same as `makeComplexBufferVect` but written in C using AVX intrinsics
 convertCAVX :: Int -> VS.Vector CUChar -> VS.Vector (Complex Float)
 convertCAVX num inBuf = unsafePerformIO $ do
     outBuf <- VGM.new num

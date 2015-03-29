@@ -20,7 +20,11 @@ import qualified Data.Vector.Fusion.Stream.Monadic as VFSM hiding ((++))
     accumulator at the end because it doesn't seem to be possible to do
     this with the Stream datatype, making this function pretty useless.
 -}
-mapAccumMV :: (Monad m) => (acc -> x -> m (acc, y)) -> acc -> Stream m x -> Stream m y
+mapAccumMV :: (Monad m) 
+           => (acc -> x -> m (acc, y)) -- ^ The function
+           -> acc                      -- ^ The initial accumulator
+           -> Stream m x               -- ^ The input stream
+           -> Stream m y               -- ^ The output stream
 mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
     where
     step' (s, acc) = do
@@ -36,7 +40,10 @@ mapAccumMV func z (Stream step s sz) = Stream step' (s, z) sz
     occur every stride elements in the source vector.
 -}
 {-# INLINE stride #-}
-stride :: VG.Vector v a => Int -> v a -> v a
+stride :: VG.Vector v a 
+       => Int -- ^ The stride
+       -> v a -- ^ The input Vector
+       -> v a -- ^ The output Vector
 stride str inv = VG.unstream $ VFS.unfoldr func 0
     where
     len = VG.length inv
@@ -45,7 +52,10 @@ stride str inv = VG.unstream $ VFS.unfoldr func 0
 
 -- | Fill a mutable vector from a monadic stream
 {-# INLINE fill #-}
-fill :: (PrimMonad m, Functor m, VGM.MVector vm a) => VFS.MStream m a -> vm (PrimState m) a -> m ()
+fill :: (PrimMonad m, Functor m, VGM.MVector vm a) 
+     => VFS.MStream m a    -- ^ The input Stream
+     -> vm (PrimState m) a -- ^ The mutable Vector to stream into
+     -> m ()
 fill str outBuf = void $ VFSM.foldM' put 0 str
     where 
     put i x = do

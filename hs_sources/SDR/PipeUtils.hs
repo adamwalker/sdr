@@ -8,7 +8,6 @@ module SDR.PipeUtils (
 
 import Data.Time.Clock
 import Pipes
-import qualified Pipes.Prelude as P
 import Control.Monad
 
 -- | Fork a pipe 

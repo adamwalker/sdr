@@ -6,7 +6,6 @@ module SDR.Pulse (
 
 import Foreign.ForeignPtr
 import Foreign.C.Types
-import Control.Monad
 import Control.Concurrent
 import Data.ByteString.Internal
 import Data.Vector.Storable as VS

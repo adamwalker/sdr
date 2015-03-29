@@ -23,7 +23,6 @@ module SDR.Serialize (
     fromHandle
     ) where
 
-import Foreign.C.Types
 import Foreign.ForeignPtr
 import Foreign.Storable
 import Data.ByteString.Internal 
@@ -31,12 +30,7 @@ import Data.ByteString as BS
 import System.IO
 
 import Data.Vector.Generic                         as VG   hiding ((++))
-import qualified Data.Vector.Generic.Mutable       as VGM
 import Data.Vector.Storable                        as VS   hiding ((++))
-import Data.Vector.Storable.Mutable                as VSM  hiding ((++))
-import Data.Vector.Fusion.Stream.Monadic                   hiding ((++))
-import qualified Data.Vector.Fusion.Stream         as VFS  hiding ((++))
-import qualified Data.Vector.Fusion.Stream.Monadic as VFSM hiding ((++))
 
 import Pipes
 import qualified Pipes.Prelude as P
