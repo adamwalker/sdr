@@ -1,3 +1,9 @@
+/*
+ * Scaling of Vectors.
+ * These exist because the pure Haskell implementations are slow.
+ * Uses SIMD instructions for performance.
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <x86intrin.h>

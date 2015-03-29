@@ -1,3 +1,9 @@
+/*
+ * Conversion of byte IQ data from RTLSDR device to complex floats.
+ * These exist because the pure Haskell implementations are slow.
+ * Uses SIMD instructions for performance.
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <x86intrin.h>
