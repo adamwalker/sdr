@@ -11,17 +11,13 @@ module SDR.Plot (
 
 import Control.Monad
 import Control.Monad.Trans.Either
-import Foreign.Marshal.Array
-import Foreign.ForeignPtr
 import qualified Data.Vector.Storable as VS
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW as G
 import Graphics.Rendering.Cairo
 import Control.Concurrent hiding (yield)
-import Control.Concurrent.MVar
 
 import Pipes 
-import qualified Pipes.Prelude as P
 
 import Data.Colour.Names
 import Graphics.Rendering.Pango
