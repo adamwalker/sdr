@@ -55,3 +55,7 @@ main = eitherT putStrLn return $ do
                      >-> P.map (VG.map ((* 0.2))) 
                      >-> sink
 ```
+
+# Disclaimer
+I started this project to learn about signal processing. I still have no idea what I'm doing.
+
