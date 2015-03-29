@@ -10,14 +10,10 @@ module SDR.FFT (
     ) where
 
 import Control.Monad as CM
-import Data.Bits
 import Foreign.Storable
 import Foreign.Storable.Complex
 import Foreign.C.Types
-import Foreign.Ptr
 import Data.Complex
-import Foreign.Marshal.Utils
-import Foreign.Marshal.Array
 import Foreign.ForeignPtr
 
 import Data.Vector.Generic as VG
@@ -27,10 +23,7 @@ import Data.Vector.Storable.Mutable as VSM
 import Data.Vector.Fusion.Stream as VFS
 
 import Control.Concurrent hiding (yield)
-import Control.Concurrent.Chan
-import Control.Concurrent.MVar
 
-import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Pipes
@@ -56,8 +49,8 @@ fftFixup :: (VG.Vector v n, Num n)
 fftFixup size = VG.generate size func
     where
     func idx 
-        | even idx = 1
-        | odd  idx = -1
+        | even idx  = 1
+        | otherwise = -1
 
 -- | Creates a Pipe that performs a complex to complex DFT.
 fftw :: (VG.Vector v (Complex CDouble)) 
