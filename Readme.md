@@ -56,6 +56,18 @@ main = eitherT putStrLn return $ do
                      >-> sink
 ```
 
+# Installation
+Building with cabal sandboxes is recommended:
+
+```
+cabal sandbox init
+git clone https://github.com/adamwalker/dynamic-graph
+git clone https://github.com/adamwalker/haskell-fftw-simple
+git clone https://github.com/adamwalker/sdr
+cabal sandbox add-source dynamic-graph haskell-fftw-simple sdr
+cabal install sdr
+```
+
 # Disclaimer
 I started this project to learn about signal processing. I still have no idea what I'm doing.
 
