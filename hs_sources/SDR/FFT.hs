@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
+
+{-| Fast FFTs using FFTW -}
 module SDR.FFT (
     hanning,
     fftFixup,
     fftw,
-    fftwParallel,
-    fftwReal
+    fftwReal,
+    fftwParallel
     ) where
 
 import Control.Monad as CM
@@ -39,19 +41,28 @@ mallocForeignBufferAligned elems = do
     ptr <- fftwMalloc $ fromIntegral $ elems * sizeOf (undefined :: a)
     newForeignPtr fftwFreePtr ptr
 
-hanning :: (Floating n, VG.Vector v n) => Int -> v n
+-- | Compute a Hanning window. You probably want to multiply your buffers by one of these before you perform a DFT.
+hanning :: (Floating n, VG.Vector v n) 
+        => Int -- ^ The length of the window
+        -> v n
 hanning size = VG.generate size func
     where
     func idx = 0.5 * (1 - cos((2 * pi * fromIntegral idx) / (fromIntegral size - 1)))
 
-fftFixup :: (VG.Vector v n, Num n) => Int -> v n
+-- | Compute a vector of alternating 1s and 0s of the given size.
+fftFixup :: (VG.Vector v n, Num n) 
+         => Int -- ^ The length of the Vector
+         -> v n
 fftFixup size = VG.generate size func
     where
     func idx 
         | even idx = 1
         | odd  idx = -1
 
-fftw :: (VG.Vector v (Complex CDouble)) => Int -> IO (Pipe (v (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ())
+-- | Creates a Pipe that performs a complex to complex DFT.
+fftw :: (VG.Vector v (Complex CDouble)) 
+     => Int -- ^ The size of the input and output buffers
+     -> IO (Pipe (v (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ())
 fftw samples = do
     ina <- mallocForeignBufferAligned samples
     out <- mallocForeignBufferAligned samples
@@ -75,7 +86,42 @@ fftw samples = do
 
         yield $ VS.unsafeFromForeignPtr0 out samples
 
-fftwParallel :: (VG.Vector v (Complex CDouble)) => Int -> Int -> IO (Pipe (v (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ())
+-- | Creates a pipe that performs a real to complex DFT.
+fftwReal :: (VG.Vector v CDouble) 
+         => Int -- ^ The size of the input Vector
+         -> IO (Pipe (v CDouble) (VS.Vector (Complex CDouble)) IO ())
+fftwReal samples = do
+    --Allocate in and out buffers that wont be used because there doesnt seem to be a way to create a plan without them
+    ina <- mallocForeignBufferAligned samples
+    out <- mallocForeignBufferAligned samples
+
+    plan <- withForeignPtr ina $ \ip -> 
+        withForeignPtr out $ \op -> 
+            planDFTR2C1d samples ip op fftwEstimate
+
+    return $ for cat $ \inv' -> do
+        out <- lift $ mallocForeignBufferAligned ((samples `quot` 2) + 1)
+        ina <- lift $ mallocForeignBufferAligned samples
+        let inv = VSM.unsafeFromForeignPtr0 ina samples
+
+        lift $ VGM.fill inv $ VFS.mapM return $ VG.stream inv'
+        let (fp, offset, length) = VSM.unsafeToForeignPtr inv
+
+        lift $ withForeignPtr fp  $ \fpp -> 
+            withForeignPtr out $ \op -> 
+                executeDFTR2C plan fpp op
+
+        yield $ VS.unsafeFromForeignPtr0 out samples
+
+{-| Creates a pipe that uses multiple threads to perform complex to complex DFTs in
+    a pipelined fashion. Each time a buffer is consumed, it is given to
+    a pool of threads to perform the DFT. Then, if a thread has finished
+    performing a previous DFT, the result is yielded.
+-}
+fftwParallel :: (VG.Vector v (Complex CDouble)) 
+             => Int -- ^ The number of threads to use
+             -> Int -- ^ The size of the input Vector
+             -> IO (Pipe (v (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ())
 fftwParallel threads samples = do
     --plan the DFT
     ina <- mallocForeignBufferAligned samples
@@ -123,28 +169,4 @@ fftwParallel threads samples = do
                     pipe (nextIn + 1) (nextOut + 1)
 
     return $ pipe 0 0
-
-fftwReal :: (VG.Vector v CDouble) => Int -> IO (Pipe (v CDouble) (VS.Vector (Complex CDouble)) IO ())
-fftwReal samples = do
-    --Allocate in and out buffers that wont be used because there doesnt seem to be a way to create a plan without them
-    ina <- mallocForeignBufferAligned samples
-    out <- mallocForeignBufferAligned samples
-
-    plan <- withForeignPtr ina $ \ip -> 
-        withForeignPtr out $ \op -> 
-            planDFTR2C1d samples ip op fftwEstimate
-
-    return $ for cat $ \inv' -> do
-        out <- lift $ mallocForeignBufferAligned ((samples `quot` 2) + 1)
-        ina <- lift $ mallocForeignBufferAligned samples
-        let inv = VSM.unsafeFromForeignPtr0 ina samples
-
-        lift $ VGM.fill inv $ VFS.mapM return $ VG.stream inv'
-        let (fp, offset, length) = VSM.unsafeToForeignPtr inv
-
-        lift $ withForeignPtr fp  $ \fpp -> 
-            withForeignPtr out $ \op -> 
-                executeDFTR2C plan fpp op
-
-        yield $ VS.unsafeFromForeignPtr0 out samples
 
