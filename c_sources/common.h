@@ -1,4 +1,10 @@
 /*
+ * Common functions used by filters, decimators and resamplers. 
+ * Includes real and complex dot products and SIMD horizontal additions.
+ * TODO: better performance might be possible by avoiding unaligned memory accesses.
+ */
+
+/*
  * Real horizontal addition
  */
 static inline __m128 sse_hadd_R(__m128 in){
