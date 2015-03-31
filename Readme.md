@@ -56,7 +56,9 @@ main = eitherT putStrLn return $ do
                      >-> sink
 ```
 
-# Installation
+# Getting Started
+
+## Installation
 Building with cabal sandboxes is recommended:
 
 ```
@@ -66,6 +68,13 @@ git clone https://github.com/adamwalker/haskell-fftw-simple
 git clone https://github.com/adamwalker/sdr
 cabal sandbox add-source dynamic-graph haskell-fftw-simple sdr
 cabal install sdr
+```
+
+## Example Applications
+```
+git clone https://github.com/adamwalker/sdr-apps  
+cabal sandbox add-source sdr-apps
+cabal install sdr-apps
 ```
 
 # Disclaimer
