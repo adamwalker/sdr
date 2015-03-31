@@ -4,19 +4,19 @@ A Software Defined Radio library written in Haskell
 
 # Features
 * Write software defined radio applications in Haskell
-* Signal processing blocks can be chained together using the Pipes library
+* Signal processing blocks can be chained together using the [Pipes](https://hackage.haskell.org/package/pipes) library
 * Haskell and C implementations of signal processing functions
     * Optimised C implementations of signal processing functions that utilise SIMD instructions
     * Performance of Haskell signal processing functions within a factor of 2 of C (without SIMD) thanks to the vector library, stream fusion and ghc's LLVM backend
 * Can filter, decimate and resample
-* FFTs using FFTW
+* FFTs using [FFTW](http://www.fftw.org)
 * Line and waterfall plots using OpenGL
 * FM demodulation
 * PulseAudio sound sink
-* rtl-sdr based radio source supported and other sources are easily added
+* [rtl-sdr](http://sdr.osmocom.org/trac/wiki/rtl-sdr) based radio source supported and other sources are easily added
 * Extensive benchmark and test suites of signal processing functions
 
-See https://github.com/adamwalker/sdr-demo for a demo FM receiver and https://github.com/adamwalker/sdr-apps for a collection of simple apps built on the library.
+See https://github.com/adamwalker/sdr-apps for a collection of simple apps built on the library.
 
 # Getting Started
 
