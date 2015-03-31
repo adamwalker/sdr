@@ -30,10 +30,22 @@ cabal install sdr
 ```
 
 ## Example Applications
+Clone and build:
+
 ```
 git clone https://github.com/adamwalker/sdr-apps  
 cabal sandbox add-source sdr-apps
 cabal install sdr-apps
+```
+
+To run the FM receiver:
+```
+.cabal-sandbox/bin/fm -f <your favourite station, e.g. 90.2M>  
+```
+
+To run the waterfall plot:
+```
+.cabal-sandbox/bin/waterfall -f <center frequency, e.g. 90.2M> -r <sample rate, e.g. 1280M>
 ```
 
 # Usage
