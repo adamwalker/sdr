@@ -18,6 +18,12 @@ A Software Defined Radio library written in Haskell
 
 See https://github.com/adamwalker/sdr-apps for a collection of simple apps built on the library.
 
+# Screenshot
+A chunk of the FM broadcast spectrum:
+
+![Screenshot](../screenshots/screenshots/screenshot.png?raw=true)
+
+
 # Getting Started
 
 ## Installation
