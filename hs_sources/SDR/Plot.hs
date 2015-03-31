@@ -1,3 +1,4 @@
+{-| Create graphical plots of signals and their spectrums. Uses OpenGL. -}
 module SDR.Plot (
     plotLine,
     plotLineAxes,
@@ -34,10 +35,19 @@ replaceMVar mv val = do
     tryTakeMVar mv
     putMVar mv val
 
-plotLine :: Int -> Int -> Int -> Int -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+plotLine :: Int -- ^ Window width
+         -> Int -- ^ Window height
+         -> Int -- ^ Number of samples in each buffer
+         -> Int -- ^ Number of vertices in graph
+         -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotLine width height samples resolution = window width height $ fmap (for cat . (lift . )) $ renderLine samples resolution
 
-plotLineAxes :: Int -> Int -> Int -> Int -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+plotLineAxes :: Int       -- ^ Window width
+             -> Int       -- ^ Window height
+             -> Int       -- ^ Number of samples in each buffer
+             -> Int       -- ^ Number of vertices in graph
+             -> Render () -- ^ Cairo Render object that draws the axes
+             -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotLineAxes width height samples xResolution rm = do
     mv <- lift newEmptyMVar 
 
@@ -74,11 +84,22 @@ plotLineAxes width height samples xResolution rm = do
 
     return $ for cat (lift . replaceMVar mv)
 
-plotWaterfall :: Int -> Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotWaterfall width height x y z = window width height $ renderWaterfall x y z
+plotWaterfall :: Int       -- ^ Window width
+              -> Int       -- ^ Window height
+              -> Int       -- ^ Number of columns
+              -> Int       -- ^ Number of rows 
+              -> [GLfloat] -- ^ The color map
+              -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+plotWaterfall windowWidth windowHeight width height colorMap = window windowWidth windowHeight $ renderWaterfall width height colorMap 
 
 --TODO: doesnt work
-plotWaterfallAxes :: Int -> Int -> Int -> Int -> [GLfloat] -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+plotWaterfallAxes :: Int       -- ^ Window width   
+                  -> Int       -- ^ Window height
+                  -> Int       -- ^ Number of columns
+                  -> Int       -- ^ Number of rows
+                  -> [GLfloat] -- ^ The color map
+                  -> Render () -- ^ Cairo Render object that draws the axes
+                  -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotWaterfallAxes windowWidth windowHeight width height colorMap rm = do
     mv <- lift newEmptyMVar
 
@@ -106,10 +127,19 @@ plotWaterfallAxes windowWidth windowHeight width height colorMap rm = do
 
     return $ for cat (lift . replaceMVar mv)
 
-plotFill :: Int -> Int -> Int -> [GLfloat] -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+plotFill :: Int       -- ^ Window width
+         -> Int       -- ^ Window height
+         -> Int       -- ^ Number of samples in each buffer
+         -> [GLfloat] -- ^ The color map
+         -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFill width height samples colorMap = window width height $ fmap (for cat . (lift . )) $ renderFilledLine samples colorMap
 
-plotFillAxes :: Int -> Int -> Int -> [GLfloat] -> Render () -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+plotFillAxes :: Int       -- ^ Window width
+             -> Int       -- ^ Window height
+             -> Int       -- ^ Number of samples in each buffer
+             -> [GLfloat] -- ^ The color map
+             -> Render () -- ^ Cairo Render object that draws the axes
+             -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFillAxes width height samples colorMap rm = do
     mv <- lift newEmptyMVar 
 
