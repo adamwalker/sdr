@@ -15,6 +15,27 @@ A Software Defined Radio library written in Haskell
 
 See https://github.com/adamwalker/sdr-demo for a demo FM receiver and https://github.com/adamwalker/sdr-apps for a collection of simple apps built on the library.
 
+# Getting Started
+
+## Installation
+Building with cabal sandboxes is recommended:
+
+```
+cabal sandbox init
+git clone https://github.com/adamwalker/dynamic-graph
+git clone https://github.com/adamwalker/haskell-fftw-simple
+git clone https://github.com/adamwalker/sdr
+cabal sandbox add-source dynamic-graph haskell-fftw-simple sdr
+cabal install sdr
+```
+
+## Example Applications
+```
+git clone https://github.com/adamwalker/sdr-apps  
+cabal sandbox add-source sdr-apps
+cabal install sdr-apps
+```
+
 # Usage
 
 An FM receiver:
@@ -54,27 +75,6 @@ main = eitherT putStrLn return $ do
                      >-> filterr (VG.fromList coeffsAudioFilter) sqd sqd
                      >-> P.map (VG.map ((* 0.2))) 
                      >-> sink
-```
-
-# Getting Started
-
-## Installation
-Building with cabal sandboxes is recommended:
-
-```
-cabal sandbox init
-git clone https://github.com/adamwalker/dynamic-graph
-git clone https://github.com/adamwalker/haskell-fftw-simple
-git clone https://github.com/adamwalker/sdr
-cabal sandbox add-source dynamic-graph haskell-fftw-simple sdr
-cabal install sdr
-```
-
-## Example Applications
-```
-git clone https://github.com/adamwalker/sdr-apps  
-cabal sandbox add-source sdr-apps
-cabal install sdr-apps
 ```
 
 # Disclaimer
