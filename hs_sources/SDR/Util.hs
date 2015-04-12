@@ -2,12 +2,17 @@
 
 {-| Various utiliy signal processing functions -}
 module SDR.Util (
+    -- * Classes
     Mult,
     mult,
+
+    -- * Conversion to Floating Point
     makeComplexBufferVect,
     convertC, 
     convertCSSE,
     convertCAVX,
+
+    -- * Scaling
     scaleC,
     scaleCSSE,
     scaleCAVX

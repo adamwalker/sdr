@@ -1,22 +1,55 @@
 {-# LANGUAGE RecordWildCards #-}
 
-{-| Filtering, decimation and resampling -}
+{-| FIR filtering, decimation and resampling.
+
+    FIR filters (and decimators, resamplers) work by taking successive dot products between the filter coefficients and the input data at increasing offsets. Sometimes the dot product fits entirely within one input buffer and other times it spans two input buffers (but never more because we assume that the filter length is less than the buffer size).
+
+    We divide the filtering code by these two cases. Each filter (or decimator, resampler) is described by a data structure such as `Filter` with two functions, one for filtering within a single buffer and one that crosses buffers. 
+
+    The user must first create one of these data structures using the helper functions and pass this data structure to one of `filterr`, `decimate`, or `resample` to create the `Pipe` that does the filtering. For example:
+
+    > decimatorStruct   <- fastDecimatorC decimation coeffs
+    > let decimatorPipe :: Pipe (Vector (Complex Float)) (Vector (Complex Float)) IO ()
+    >     decimatorPipe =  decimate decimatorStruct decimation inputSize outputSize
+
+    There are polymorphic Haskell only implementations of filtering, decimation and resampling, for example, `haskellFilter`. In addition, there are optimised C implementations that use SIMD instructions on x86 machines, such as `fastFilterR`. These are always specialized to either real or complex numbers. There are also even faster implementations specialized for the case where the filter coefficients are symmetric as in a linear phase filter such as `fastSymmetricFilterR`.
+
+    The Haskell implementations are reasonably fast due to the Vector library and GHC's LLVM backend, however, if speed is important you are much better off with the C implementations.
+
+    In the future we may avoid the cross buffer filtering function by mapping the buffers consecutively in memory as (I believe) GNU Radio does.
+
+    TODO: interpolation not implemented.
+-}
 module SDR.Filter (
+    -- * Types
     Filter(..),
     Decimator(..),
     Resampler(..),
+
+    -- * Helper Functions
+    -- ** Filters
     haskellFilter,
     fastFilterR,
     fastFilterC,
     fastSymmetricFilterR,
+
+    -- ** Decimators
     haskellDecimator,
     fastDecimatorR,
     fastDecimatorC,
     fastSymmetricDecimatorR,
+
+    -- ** Resamplers
     haskellResampler,
     fastResampler,
+
+    -- * Filter
     filterr,
+
+    -- * Decimate
     decimate,
+
+    -- * Resample
     resample
     ) where
 
@@ -135,7 +168,7 @@ haskellDecimator factor coeffs = do
     let decimateOne   = decimateHighLevel      factor vCoeffs
         decimateCross = decimateCrossHighLevel factor vCoeffs
         numCoeffsD    = length coeffs
-    return $ (Decimator {..})
+    return $ Decimator {..}
 
 {-# INLINE fastDecimatorR #-}
 -- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating real data with real coefficients.
@@ -185,7 +218,7 @@ fastSymmetricDecimatorR factor coeffs = do
     return $ Decimator {..}
 
 {-# INLINE haskellResampler #-}
--- | Returns a slow Decimator data structure entirely implemented in Haskell
+-- | Returns a slow Resampler data structure entirely implemented in Haskell
 haskellResampler :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) 
                   => Int                     -- ^ The interpolation factor
                   -> Int                     -- ^ The decimation factor
@@ -200,7 +233,7 @@ haskellResampler interpolation decimation coeffs = do
     return $ Resampler {..}
 
 {-# INLINE fastResampler #-}
--- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
+-- | Returns a fast Resampler data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
 fastResampler :: Int                                          -- ^ The interpolation factor
               -> Int                                          -- ^ The decimation factor
               -> [Float]                                      -- ^ The filter coefficients
@@ -388,8 +421,7 @@ resample Resampler{..} interpolation decimation blockSizeIn blockSizeOut = do
             offsetIn' = offsetIn + usedInput
 
         case spaceIn' * interpolation < numCoeffsR - endOffset of
-            False -> do
-                simple (Buffer bufIn offsetIn' spaceIn') bufferOut' endOffset
+            False -> simple (Buffer bufIn offsetIn' spaceIn') bufferOut' endOffset
             True  -> do
                 next <- await
                 case spaceIn' == 0 of

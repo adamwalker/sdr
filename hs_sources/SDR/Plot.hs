@@ -1,11 +1,19 @@
 {-| Create graphical plots of signals and their spectrums. Uses OpenGL. -}
 module SDR.Plot (
+
+    -- * Line Graphs
     plotLine,
     plotLineAxes,
+
+    -- * Waterfalls
     plotWaterfall,
     plotWaterfallAxes,
+
+    -- * Filled In Line Graphs
     plotFill,
     plotFillAxes,
+
+    -- * Axes
     zeroAxes,
     centeredAxes
     ) where
@@ -30,11 +38,7 @@ import Graphics.DynamicGraph.Axis
 import Graphics.DynamicGraph.RenderCairo
 import Graphics.DynamicGraph.Window
 
-replaceMVar :: MVar a -> a -> IO ()
-replaceMVar mv val = do
-    tryTakeMVar mv
-    putMVar mv val
-
+-- | Create a window and plot a dynamic line graph of the incoming data.
 plotLine :: Int -- ^ Window width
          -> Int -- ^ Window height
          -> Int -- ^ Number of samples in each buffer
@@ -42,6 +46,7 @@ plotLine :: Int -- ^ Window width
          -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotLine width height samples resolution = window width height $ fmap (for cat . (lift . )) $ renderLine samples resolution
 
+-- | Create a window and plot a dynamic line graph of the incoming data. With Axes.
 plotLineAxes :: Int       -- ^ Window width
              -> Int       -- ^ Window height
              -> Int       -- ^ Number of samples in each buffer
@@ -84,6 +89,7 @@ plotLineAxes width height samples xResolution rm = do
 
     return $ for cat (lift . replaceMVar mv)
 
+-- | Create a window and plot a waterfall of the incoming data.
 plotWaterfall :: Int       -- ^ Window width
               -> Int       -- ^ Window height
               -> Int       -- ^ Number of columns
@@ -92,7 +98,7 @@ plotWaterfall :: Int       -- ^ Window width
               -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotWaterfall windowWidth windowHeight width height colorMap = window windowWidth windowHeight $ renderWaterfall width height colorMap 
 
---TODO: doesnt work
+-- | Create a window and plot a waterfall of the incoming data. With Axes. TODO: doesnt work.
 plotWaterfallAxes :: Int       -- ^ Window width   
                   -> Int       -- ^ Window height
                   -> Int       -- ^ Number of columns
@@ -127,6 +133,7 @@ plotWaterfallAxes windowWidth windowHeight width height colorMap rm = do
 
     return $ for cat (lift . replaceMVar mv)
 
+-- | Create a window and plot a dynamic filled in line graph of the incoming data.
 plotFill :: Int       -- ^ Window width
          -> Int       -- ^ Window height
          -> Int       -- ^ Number of samples in each buffer
@@ -134,6 +141,7 @@ plotFill :: Int       -- ^ Window width
          -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFill width height samples colorMap = window width height $ fmap (for cat . (lift . )) $ renderFilledLine samples colorMap
 
+-- | Create a window and plot a dynamic filled in line graph of the incoming data. With Axes.
 plotFillAxes :: Int       -- ^ Window width
              -> Int       -- ^ Window height
              -> Int       -- ^ Number of samples in each buffer
@@ -171,7 +179,12 @@ plotFillAxes width height samples colorMap rm = do
 
     return $ for cat (lift . replaceMVar mv)
 
-zeroAxes :: Int -> Int -> Double -> Double -> Render ()
+-- | Create a Cairo `Render` monad that draws a set of axes with 0 at the bottom left.
+zeroAxes :: Int       -- ^ Image width
+         -> Int       -- ^ Image height
+         -> Double    -- ^ X axis span
+         -> Double    -- ^ X axis grid interval
+         -> Render ()
 zeroAxes width height bandwidth interval = do
     blankCanvasAlpha black 0 (fromIntegral width) (fromIntegral height) 
     let xSeparation = (interval / bandwidth) * (fromIntegral width - 100)
@@ -184,7 +197,13 @@ zeroAxes width height bandwidth interval = do
     xAxisGrid gray 1 [] 50 (fromIntegral height - 50) xCoords
     yAxisGrid gray 1 [4, 2] 50 (fromIntegral width - 50)  yCoords
 
-centeredAxes :: Int -> Int -> Double -> Double -> Double -> Render ()
+-- | Create a Cairo `Render` monad that draws a set of axes witb the X axis centered on a specified value.
+centeredAxes :: Int       -- ^ Image width
+             -> Int       -- ^ Image height
+             -> Double    -- ^ Center X value
+             -> Double    -- ^ X axis span
+             -> Double    -- ^ X axis grid interval
+             -> Render ()
 centeredAxes width height cFreq bandwidth interval = do
     blankCanvasAlpha black 0 (fromIntegral width) (fromIntegral height) 
     let xSeparation = (interval / bandwidth) * (fromIntegral width - 100)

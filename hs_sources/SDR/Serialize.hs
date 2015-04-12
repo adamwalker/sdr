@@ -3,40 +3,42 @@
 {-| Utility functions for serializing and deserializing samples. -}
 module SDR.Serialize (
 
-    {-| Slow functions for serializing\/deserializing vectors to\/from
-        bytestrings using the Cereal library. There must be a better 
-        way to do this that doesn't involve copying.
-    -}
-
+    -- * Slow Serialization\/Deserialization
+    -- | Slow functions for serializing\/deserializing vectors to\/from bytestrings using the Cereal library. There must be a better way to do this that doesn't involve copying.
+    
+    -- ** Floats
     floatVecToByteString,
-    doubleVecToByteString,
     floatVecFromByteString,
+
+    -- ** Doubles
+    doubleVecToByteString,
     doubleVecFromByteString,
 
-    {-| Fast functions for serializing\/deserializing storable vectors to\/from
-        bytestrings.
-    -}
-
+    -- * Fast Serialization\/Deserialization
+    -- | Fast functions for serializing\/deserializing storable vectors to\/from bytestrings.
     toByteString,
     fromByteString,
+
+    -- * Pipes
+    -- | Pipes that perform fast serialization/deserialization.
     toHandle,
     fromHandle
     ) where
 
-import Foreign.ForeignPtr
-import Foreign.Storable
-import Data.ByteString.Internal 
-import Data.ByteString as BS
-import System.IO
+import           Foreign.ForeignPtr
+import           Foreign.Storable
+import           Data.ByteString.Internal 
+import           Data.ByteString          as BS
+import           System.IO
 
-import Data.Vector.Generic                         as VG   hiding ((++))
-import Data.Vector.Storable                        as VS   hiding ((++))
+import           Data.Vector.Generic      as VG hiding ((++))
+import           Data.Vector.Storable     as VS hiding ((++))
 
-import Pipes
-import qualified Pipes.Prelude as P
-import qualified Pipes.ByteString as PB
-import Data.Serialize hiding (Done)
-import qualified Data.Serialize as S
+import           Pipes
+import qualified Pipes.Prelude            as P
+import qualified Pipes.ByteString         as PB
+import           Data.Serialize                 hiding (Done)
+import qualified Data.Serialize           as S
 
 -- | Convert a Vector of Floats to a ByteString.
 floatVecToByteString    :: VG.Vector v Float  => v Float -> ByteString

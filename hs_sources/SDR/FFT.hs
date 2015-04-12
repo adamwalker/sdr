@@ -2,8 +2,11 @@
 
 {-| Fast FFTs using FFTW -}
 module SDR.FFT (
+    -- * Windows
     hanning,
     fftFixup,
+
+    -- * FFTs
     fftw,
     fftwReal,
     fftwParallel
