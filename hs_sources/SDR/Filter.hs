@@ -18,6 +18,8 @@
 
     In the future we may avoid the cross buffer filtering function by mapping the buffers consecutively in memory as (I believe) GNU Radio does.
 
+    An extensive benchmark suite exists in the /benchmarks subdirectory of this package.
+
     TODO: interpolation not implemented.
 -}
 module SDR.Filter (
@@ -273,40 +275,37 @@ advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count =
 {-| Create a pipe that performs filtering -}
 filterr :: (PrimMonad m, Functor m, VG.Vector v a, Num a) 
         => Filter m v (VG.Mutable v) a -- ^ The `Filter` data structure
-        -> Int                         -- ^ The input block size
         -> Int                         -- ^ The output block size
         -> Pipe (v a) (v a) m ()       -- ^ The `Pipe` that does the filtering
-filterr Filter{..} blockSizeIn blockSizeOut = do
+filterr Filter{..} blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
-    simple (Buffer inBuf 0 blockSizeIn) outBuf 
+    simple inBuf outBuf 
 
     where
 
-    simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) = do
-        let count = min (spaceIn - numCoeffsF + 1) spaceOut
-        lift $ filterOne count (VG.unsafeDrop offsetIn bufIn) (VGM.unsafeDrop offsetOut bufOut)
+    simple bufIn bufferOut@(Buffer bufOut offsetOut spaceOut) = do
+        let count = min (VG.length bufIn - numCoeffsF + 1) spaceOut
+        lift $ filterOne count bufIn (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
+        let bufIn' = VG.drop count bufIn
 
-        let spaceIn'  = spaceIn - count
-            offsetIn' = offsetIn + count
-
-        case spaceIn' < numCoeffsF of
-            False -> simple (Buffer bufIn offsetIn' spaceIn') bufferOut'
+        case VG.length bufIn' < numCoeffsF of
+            False -> simple bufIn' bufferOut'
             True  -> do
                 next <- await
-                crossover (Buffer bufIn offsetIn' spaceIn') next bufferOut'
+                crossover bufIn' next bufferOut'
 
-    crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
-        let count = min (spaceLast - 1) spaceOut
-        lift $ filterCross count (VG.unsafeDrop offsetLast bufLast) bufNext (VGM.unsafeDrop offsetOut bufOut)
+    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
+        let count = min (VG.length bufLast - 1) spaceOut
+        lift $ filterCross count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
-        case spaceLast - 1 == count of 
-            True  -> simple (Buffer bufNext 0 blockSizeIn) bufferOut'
-            False -> crossover (Buffer bufLast (offsetLast + count) (spaceLast - count)) bufNext bufferOut'
+        case VG.length bufLast - 1 == count of 
+            True  -> simple bufNext bufferOut'
+            False -> crossover (VG.drop count bufLast) bufNext bufferOut'
 
 --Decimation
 {-# INLINE decimate #-}
