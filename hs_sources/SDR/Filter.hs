@@ -313,46 +313,43 @@ filterr Filter{..} blockSizeOut = do
 decimate :: (PrimMonad m, Functor m, VG.Vector v a, Num a) 
          => Decimator m v (VG.Mutable v) a -- ^ The `Decimator` data structure
          -> Int                            -- ^ The decimation factor
-         -> Int                            -- ^ The input block size
          -> Int                            -- ^ The output block size
          -> Pipe (v a) (v a) m ()          -- ^ The `Pipe` that does the decimation
-decimate Decimator{..} factor blockSizeIn blockSizeOut = do
+decimate Decimator{..} factor blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
-    simple (Buffer inBuf 0 blockSizeIn) outBuf
+    simple inBuf outBuf
 
     where
 
-    simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) = do
+    simple bufIn bufferOut@(Buffer bufOut offsetOut spaceOut) = do
 
-        assert (spaceIn >= numCoeffsD) $ return ()
+        assert (VG.length bufIn >= numCoeffsD) $ return ()
 
-        let count = min (((spaceIn - numCoeffsD) `quot` factor) + 1) spaceOut
-        lift $ decimateOne count (VG.unsafeDrop offsetIn bufIn) (VGM.unsafeDrop offsetOut bufOut)
+        let count = min (((VG.length bufIn - numCoeffsD) `quot` factor) + 1) spaceOut
+        lift $ decimateOne count bufIn (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
+        let bufIn' = VG.drop (count * factor) bufIn
 
-        let spaceIn'  = spaceIn - count * factor
-            offsetIn' = offsetIn + count * factor
-
-        case spaceIn' < numCoeffsD of
-            False -> simple (Buffer bufIn offsetIn' spaceIn') bufferOut'
+        case VG.length bufIn < numCoeffsD of
+            False -> simple bufIn' bufferOut'
             True  -> do
                 next <- await
-                crossover (Buffer bufIn offsetIn' spaceIn') next bufferOut'
+                crossover bufIn' next bufferOut'
 
-    crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
+    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
 
-        assert (spaceLast < numCoeffsD) $ return ()
+        assert (VG.length bufLast < numCoeffsD) $ return ()
 
-        let count = min (((spaceLast - 1) `quot` factor) + 1) spaceOut
-        lift $ decimateCross count (VG.unsafeDrop offsetLast bufLast) bufNext (VGM.unsafeDrop offsetOut bufOut)
+        let count = min (((VG.length bufLast - 1) `quot` factor) + 1) spaceOut
+        lift $ decimateCross count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
-        case ((spaceLast - 1) `quot` factor) + 1 == count of 
-            True  -> simple (Buffer bufNext (offsetLast + count * factor - blockSizeIn) (blockSizeIn - (offsetLast + count * factor - blockSizeIn))) bufferOut'
-            False -> crossover (Buffer bufLast (offsetLast + count * factor) (spaceLast - count * factor)) bufNext bufferOut'
+        case ((VG.length bufLast - 1) `quot` factor) + 1 == count of 
+            True  -> simple (VG.drop (count * factor - VG.length bufLast) bufNext) bufferOut'
+            False -> crossover (VG.drop (count * factor) bufLast) bufNext bufferOut'
 
 {-
 
