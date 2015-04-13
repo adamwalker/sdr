@@ -1,4 +1,4 @@
-{-| Utilities for parsing command line arguments that might be useful when writing a SDR application. Based on the optparse-applicative library. -}
+{-| Utilities for parsing command line arguments that might be useful when writing a SDR application. Uses the optparse-applicative library. -}
 module SDR.ArgUtils (
     parseSize
     ) where

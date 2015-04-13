@@ -20,7 +20,7 @@ module SDR.Serialize (
     fromByteString,
 
     -- * Pipes
-    -- | Pipes that perform fast serialization/deserialization.
+    -- | Pipes that perform fast serialization/deserialization to a Handle.
     toHandle,
     fromHandle
     ) where
