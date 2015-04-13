@@ -387,25 +387,23 @@ resample :: (PrimMonad m, VG.Vector v a, Num a)
          => Resampler m v (VG.Mutable v) a -- ^ The `Resampler` data structure
          -> Int                            -- ^ The interpolation factor
          -> Int                            -- ^ The decimation factor
-         -> Int                            -- ^ The input block size
          -> Int                            -- ^ The output block size
          -> Pipe (v a) (v a) m ()          -- ^ The `Pipe` that does the resampling
-resample Resampler{..} interpolation decimation blockSizeIn blockSizeOut = do
+resample Resampler{..} interpolation decimation blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
-    simple (Buffer inBuf 0 blockSizeIn) outBuf 0
+    simple inBuf outBuf 0
 
     where
 
-    simple (Buffer bufIn offsetIn spaceIn) bufferOut@(Buffer bufOut offsetOut spaceOut) filterOffset = do
+    simple bufIn bufferOut@(Buffer bufOut offsetOut spaceOut) filterOffset = do
         --Check consistency
-        assert (spaceIn * interpolation >= numCoeffsR - filterOffset) $ return ()
-        assert (offsetIn + spaceIn == blockSizeIn) $ return ()
+        assert (VG.length bufIn * interpolation >= numCoeffsR - filterOffset) $ return ()
         --available number of samples == interpolation * num_input
         --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
-        let count = min (((spaceIn * interpolation - numCoeffsR + filterOffset) `quot` decimation) + 1) spaceOut
+        let count = min (((VG.length bufIn * interpolation - numCoeffsR + filterOffset) `quot` decimation) + 1) spaceOut
         --Run filter
-        endOffset <- lift $ resampleOne filterOffset count (VG.unsafeDrop offsetIn bufIn) (VGM.unsafeDrop offsetOut bufOut)
+        endOffset <- lift $ resampleOne filterOffset count bufIn (VGM.unsafeDrop offsetOut bufOut)
         --Check consistency
         assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
         --Advance the output buffer
@@ -413,29 +411,27 @@ resample Resampler{..} interpolation decimation blockSizeIn blockSizeOut = do
         --samples no longer needed starting from filterOffset == count * decimation - filterOffset
         --inputs lying in this region                         == (count * decimation - filterOffset) / interpolation (rounding up)
         let usedInput = (count * decimation - filterOffset) `quotUp` interpolation 
-            spaceIn'  = spaceIn  - usedInput
-            offsetIn' = offsetIn + usedInput
+            bufIn'    = VG.drop usedInput bufIn
 
-        case spaceIn' * interpolation < numCoeffsR - endOffset of
-            False -> simple (Buffer bufIn offsetIn' spaceIn') bufferOut' endOffset
+        case VG.length bufIn' * interpolation < numCoeffsR - endOffset of
+            False -> simple bufIn' bufferOut' endOffset
             True  -> do
                 next <- await
-                case spaceIn' == 0 of
-                    True ->  simple    (Buffer next 0 blockSizeIn) bufferOut' endOffset
-                    False -> crossover (Buffer bufIn offsetIn' spaceIn') next bufferOut' endOffset
+                case VG.length bufIn' == 0 of
+                    True ->  simple    next bufferOut' endOffset
+                    False -> crossover bufIn' next bufferOut' endOffset
 
-    crossover (Buffer bufLast offsetLast spaceLast) bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) filterOffset = do
+    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) filterOffset = do
         --Check conssitency
-        assert (spaceLast > 0) $ return ()
-        assert (spaceLast * interpolation < numCoeffsR - filterOffset) $ return ()
-        assert (offsetLast + spaceLast == blockSizeIn) $ return ()
+        assert (VG.length bufLast > 0) $ return ()
+        assert (VG.length bufLast * interpolation < numCoeffsR - filterOffset) $ return ()
         --outputsComputable is the number of outputs that need to be computed for the last buffer to no longer be needed
         --outputsComputable * decimation == numInput * interpolation + filterOffset + k
-        let outputsComputable = (spaceLast * interpolation + filterOffset) `quotUp` decimation
+        let outputsComputable = (VG.length bufLast * interpolation + filterOffset) `quotUp` decimation
             count = min outputsComputable spaceOut
         assert (count /= 0) $ return ()
         --Run the filter
-        endOffset <- lift $ resampleCross filterOffset count (VG.unsafeDrop offsetLast bufLast) bufNext (VGM.unsafeDrop offsetOut bufOut)
+        endOffset <- lift $ resampleCross filterOffset count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
         --Check consistency
         assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
         --Advance the output buffer
@@ -443,7 +439,7 @@ resample Resampler{..} interpolation decimation blockSizeIn blockSizeOut = do
 
         let inputUsed = (count * decimation - filterOffset) `quotUp` interpolation
 
-        case inputUsed >= spaceLast of 
-            True  -> simple (Buffer bufNext (offsetLast + inputUsed - blockSizeIn) (2 * blockSizeIn - (offsetLast + inputUsed))) bufferOut' endOffset
-            False -> crossover (Buffer bufLast (offsetLast + inputUsed) (spaceLast - inputUsed)) bufNext bufferOut' endOffset
+        case inputUsed >= VG.length bufLast of 
+            True  -> simple (VG.drop (inputUsed - VG.length bufLast) bufNext) bufferOut' endOffset
+            False -> crossover (VG.drop inputUsed bufLast) bufNext bufferOut' endOffset
 
