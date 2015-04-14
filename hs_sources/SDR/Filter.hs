@@ -57,9 +57,9 @@ module SDR.Filter (
 
 import           Data.Complex
 import           Control.Exception 
-import qualified Data.Vector.Generic               as VG
-import qualified Data.Vector.Generic.Mutable       as VGM
-import qualified Data.Vector.Storable              as VS
+import qualified Data.Vector.Generic         as VG
+import qualified Data.Vector.Generic.Mutable as VGM
+import qualified Data.Vector.Storable        as VS
 import           Control.Monad.Primitive
 
 import           Pipes
@@ -251,24 +251,24 @@ fastResampler interpolation decimation coeffs = do
 
 data Buffer v a = Buffer {
     buffer :: v a,
-    offset :: Int,
-    size   :: Int
+    offset :: Int
 }
+
+space Buffer{..} = VGM.length buffer - offset
 
 newBuffer :: (PrimMonad m, VGM.MVector vm a) => Int -> m (Buffer (vm (PrimState m)) a)
 newBuffer size = do
     buf <- VGM.new size
-    return $ Buffer buf 0 size
+    return $ Buffer buf 0
 
 advanceOutBuf :: (PrimMonad m, VG.Vector v a) => Int -> Buffer (VG.Mutable v (PrimState m)) a -> Int -> Pipe b (v a) m (Buffer (VG.Mutable v (PrimState m)) a)
-advanceOutBuf blockSizeOut (Buffer bufOut offsetOut spaceOut) count = 
-    if count == spaceOut then do
+advanceOutBuf blockSizeOut buf@(Buffer bufOut offsetOut) count = 
+    if count == space buf then do
         bufOutF <- lift $ VG.unsafeFreeze bufOut
         yield bufOutF
-        outBuf' <- lift $ VGM.new blockSizeOut
-        return $ Buffer outBuf' 0 blockSizeOut
+        lift $ newBuffer blockSizeOut
     else 
-        return $ Buffer bufOut (offsetOut + count) (spaceOut - count) 
+        return $ Buffer bufOut (offsetOut + count) 
 
 --Filtering
 {-# INLINE filterr #-}
@@ -284,8 +284,8 @@ filterr Filter{..} blockSizeOut = do
 
     where
 
-    simple bufIn bufferOut@(Buffer bufOut offsetOut spaceOut) = do
-        let count = min (VG.length bufIn - numCoeffsF + 1) spaceOut
+    simple bufIn bufferOut@(Buffer bufOut offsetOut) = do
+        let count = min (VG.length bufIn - numCoeffsF + 1) (space bufferOut)
         lift $ filterOne count bufIn (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
@@ -297,8 +297,8 @@ filterr Filter{..} blockSizeOut = do
                 next <- await
                 crossover bufIn' next bufferOut'
 
-    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
-        let count = min (VG.length bufLast - 1) spaceOut
+    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut) = do
+        let count = min (VG.length bufLast - 1) (space bufferOut)
         lift $ filterCross count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
@@ -322,11 +322,11 @@ decimate Decimator{..} factor blockSizeOut = do
 
     where
 
-    simple bufIn bufferOut@(Buffer bufOut offsetOut spaceOut) = do
+    simple bufIn bufferOut@(Buffer bufOut offsetOut) = do
 
         assert (VG.length bufIn >= numCoeffsD) $ return ()
 
-        let count = min (((VG.length bufIn - numCoeffsD) `quot` factor) + 1) spaceOut
+        let count = min (((VG.length bufIn - numCoeffsD) `quot` factor) + 1) (space bufferOut)
         lift $ decimateOne count bufIn (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
@@ -338,11 +338,11 @@ decimate Decimator{..} factor blockSizeOut = do
                 next <- await
                 crossover bufIn' next bufferOut'
 
-    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) = do
+    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut) = do
 
         assert (VG.length bufLast < numCoeffsD) $ return ()
 
-        let count = min (((VG.length bufLast - 1) `quot` factor) + 1) spaceOut
+        let count = min (((VG.length bufLast - 1) `quot` factor) + 1) (space bufferOut)
         lift $ decimateCross count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
@@ -396,12 +396,12 @@ resample Resampler{..} interpolation decimation blockSizeOut = do
 
     where
 
-    simple bufIn bufferOut@(Buffer bufOut offsetOut spaceOut) filterOffset = do
+    simple bufIn bufferOut@(Buffer bufOut offsetOut) filterOffset = do
         --Check consistency
         assert (VG.length bufIn * interpolation >= numCoeffsR - filterOffset) $ return ()
         --available number of samples == interpolation * num_input
         --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
-        let count = min (((VG.length bufIn * interpolation - numCoeffsR + filterOffset) `quot` decimation) + 1) spaceOut
+        let count = min (((VG.length bufIn * interpolation - numCoeffsR + filterOffset) `quot` decimation) + 1) (space bufferOut)
         --Run filter
         endOffset <- lift $ resampleOne filterOffset count bufIn (VGM.unsafeDrop offsetOut bufOut)
         --Check consistency
@@ -421,14 +421,13 @@ resample Resampler{..} interpolation decimation blockSizeOut = do
                     True ->  simple    next bufferOut' endOffset
                     False -> crossover bufIn' next bufferOut' endOffset
 
-    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut spaceOut) filterOffset = do
+    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut) filterOffset = do
         --Check conssitency
-        assert (VG.length bufLast > 0) $ return ()
         assert (VG.length bufLast * interpolation < numCoeffsR - filterOffset) $ return ()
         --outputsComputable is the number of outputs that need to be computed for the last buffer to no longer be needed
         --outputsComputable * decimation == numInput * interpolation + filterOffset + k
         let outputsComputable = (VG.length bufLast * interpolation + filterOffset) `quotUp` decimation
-            count = min outputsComputable spaceOut
+            count = min outputsComputable (space bufferOut)
         assert (count /= 0) $ return ()
         --Run the filter
         endOffset <- lift $ resampleCross filterOffset count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
