@@ -83,6 +83,7 @@ data Filter m v vm a = Filter {
 -}
 data Decimator m v vm a = Decimator {
     numCoeffsD    :: Int,
+    decimationD   :: Int,
     decimateOne   :: Int -> v a -> vm (PrimState m) a -> m (),
     decimateCross :: Int -> v a -> v a -> vm (PrimState m) a -> m ()
 }
@@ -92,9 +93,11 @@ data Decimator m v vm a = Decimator {
      and pointers to the functions to do the actual resampling.
 -}
 data Resampler m v vm a = Resampler {
-    numCoeffsR    :: Int,
-    resampleOne   :: Int -> Int -> v a -> vm (PrimState m) a -> m Int,
-    resampleCross :: Int -> Int -> v a -> v a -> vm (PrimState m) a -> m Int
+    numCoeffsR     :: Int,
+    decimationR    :: Int,
+    interpolationR :: Int,
+    resampleOne    :: Int -> Int -> v a -> vm (PrimState m) a -> m Int,
+    resampleCross  :: Int -> Int -> v a -> v a -> vm (PrimState m) a -> m Int
 }
 
 duplicate :: [a] -> [a]
@@ -164,11 +167,11 @@ haskellDecimator :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.
                  => Int                     -- ^ The decimation factor
                  -> [b]                     -- ^ The filter coefficients
                  -> IO (Decimator m v vm a) -- ^ The `Decimator` data structure
-haskellDecimator factor coeffs = do
+haskellDecimator decimationD coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
-    let decimateOne   = decimateHighLevel      factor vCoeffs
-        decimateCross = decimateCrossHighLevel factor vCoeffs
+    let decimateOne   = decimateHighLevel      decimationD vCoeffs
+        decimateCross = decimateCrossHighLevel decimationD vCoeffs
         numCoeffsD    = length coeffs
     return $ Decimator {..}
 
@@ -177,15 +180,15 @@ haskellDecimator factor coeffs = do
 fastDecimatorR :: Int                                          -- ^ The decimation factor
                -> [Float]                                      -- ^ The filter coefficients
                -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
-fastDecimatorR factor coeffs = do
+fastDecimatorR decimationD coeffs = do
     let l          = length coeffs
         ru         = (l + 8 - 1) `quot` 8
         numCoeffsD = ru * 8 
         diff       = numCoeffsD - l
         vCoeffs    = VG.fromList $ coeffs ++ replicate diff 0
     evaluate vCoeffs
-    let decimateOne   = decimateCAVXRR         factor vCoeffs
-        decimateCross = decimateCrossHighLevel factor vCoeffs
+    let decimateOne   = decimateCAVXRR         decimationD vCoeffs
+        decimateCross = decimateCrossHighLevel decimationD vCoeffs
     return $ Decimator {..}
 
 {-# INLINE fastDecimatorC #-}
@@ -193,15 +196,15 @@ fastDecimatorR factor coeffs = do
 fastDecimatorC :: Int                                                    -- ^ The decimation factor
                -> [Float]                                                -- ^ The filter coefficients
                -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
-fastDecimatorC factor coeffs = do
+fastDecimatorC decimationD coeffs = do
     let l          = length coeffs
         ru         = (l + 8 - 1) `quot` 8
         numCoeffsD = ru * 8 
         diff       = numCoeffsD - l
         vCoeffs    = VG.fromList $ duplicate $ coeffs ++ replicate diff 0
     evaluate vCoeffs
-    let decimateOne   = decimateCAVXRC         factor vCoeffs
-        decimateCross = decimateCrossHighLevel factor vCoeffs
+    let decimateOne   = decimateCAVXRC         decimationD vCoeffs
+        decimateCross = decimateCrossHighLevel decimationD vCoeffs
     return $ Decimator {..}
 
 {-# INLINE fastSymmetricDecimatorR #-}
@@ -209,13 +212,13 @@ fastDecimatorC factor coeffs = do
 fastSymmetricDecimatorR :: Int                                          -- ^ The decimation factor
                         -> [Float]                                      -- ^ The first half of the filter coefficients
                         -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
-fastSymmetricDecimatorR factor coeffs = do
+fastSymmetricDecimatorR decimationD coeffs = do
     let vCoeffs    = VG.fromList coeffs
     let vCoeffs2   = VG.fromList $ coeffs ++ reverse coeffs
     evaluate vCoeffs
     evaluate vCoeffs2
-    let decimateOne   = decimateCAVXSymmetricRR factor vCoeffs
-        decimateCross = decimateCrossHighLevel  factor vCoeffs2
+    let decimateOne   = decimateCAVXSymmetricRR decimationD vCoeffs
+        decimateCross = decimateCrossHighLevel  decimationD vCoeffs2
         numCoeffsD    = length coeffs * 2
     return $ Decimator {..}
 
@@ -226,11 +229,11 @@ haskellResampler :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.
                   -> Int                     -- ^ The decimation factor
                   -> [b]                     -- ^ The filter coefficients
                   -> IO (Resampler m v vm a) -- ^ The `Resampler` data structure
-haskellResampler interpolation decimation coeffs = do
+haskellResampler interpolationR decimationR coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
-    let resampleOne   = resampleHighLevel      interpolation decimation vCoeffs
-        resampleCross = resampleCrossHighLevel interpolation decimation vCoeffs
+    let resampleOne   = resampleHighLevel      interpolationR decimationR vCoeffs
+        resampleCross = resampleCrossHighLevel interpolationR decimationR vCoeffs
         numCoeffsR  = length coeffs
     return $ Resampler {..}
 
@@ -240,12 +243,12 @@ fastResampler :: Int                                          -- ^ The interpola
               -> Int                                          -- ^ The decimation factor
               -> [Float]                                      -- ^ The filter coefficients
               -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
-fastResampler interpolation decimation coeffs = do
+fastResampler interpolationR decimationR coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
-    resamp <- resampleCAVXRR interpolation decimation coeffs
+    resamp <- resampleCAVXRR interpolationR decimationR coeffs
     let resampleOne   = resamp
-        resampleCross = resampleCrossHighLevel interpolation decimation vCoeffs
+        resampleCross = resampleCrossHighLevel interpolationR decimationR vCoeffs
         numCoeffsR    = length coeffs
     return $ Resampler {..}
 
@@ -312,10 +315,9 @@ filterr Filter{..} blockSizeOut = do
 {-| Create a pipe that performs decimation -}
 decimate :: (PrimMonad m, Functor m, VG.Vector v a, Num a) 
          => Decimator m v (VG.Mutable v) a -- ^ The `Decimator` data structure
-         -> Int                            -- ^ The decimation factor
          -> Int                            -- ^ The output block size
          -> Pipe (v a) (v a) m ()          -- ^ The `Pipe` that does the decimation
-decimate Decimator{..} factor blockSizeOut = do
+decimate Decimator{..} blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
     simple inBuf outBuf
@@ -326,11 +328,11 @@ decimate Decimator{..} factor blockSizeOut = do
 
         assert (VG.length bufIn >= numCoeffsD) $ return ()
 
-        let count = min (((VG.length bufIn - numCoeffsD) `quot` factor) + 1) (space bufferOut)
+        let count = min (((VG.length bufIn - numCoeffsD) `quot` decimationD) + 1) (space bufferOut)
         lift $ decimateOne count bufIn (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
-        let bufIn' = VG.drop (count * factor) bufIn
+        let bufIn' = VG.drop (count * decimationD) bufIn
 
         case VG.length bufIn < numCoeffsD of
             False -> simple bufIn' bufferOut'
@@ -342,14 +344,14 @@ decimate Decimator{..} factor blockSizeOut = do
 
         assert (VG.length bufLast < numCoeffsD) $ return ()
 
-        let count = min (((VG.length bufLast - 1) `quot` factor) + 1) (space bufferOut)
+        let count = min (((VG.length bufLast - 1) `quot` decimationD) + 1) (space bufferOut)
         lift $ decimateCross count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
-        case ((VG.length bufLast - 1) `quot` factor) + 1 == count of 
-            True  -> simple (VG.drop (count * factor - VG.length bufLast) bufNext) bufferOut'
-            False -> crossover (VG.drop (count * factor) bufLast) bufNext bufferOut'
+        case ((VG.length bufLast - 1) `quot` decimationD) + 1 == count of 
+            True  -> simple (VG.drop (count * decimationD - VG.length bufLast) bufNext) bufferOut'
+            False -> crossover (VG.drop (count * decimationD) bufLast) bufNext bufferOut'
 
 {-
 
@@ -385,11 +387,9 @@ quotUp q d = (q + (d - 1)) `quot` d
 {-| Create a pipe that performs resampling -}
 resample :: (PrimMonad m, VG.Vector v a, Num a) 
          => Resampler m v (VG.Mutable v) a -- ^ The `Resampler` data structure
-         -> Int                            -- ^ The interpolation factor
-         -> Int                            -- ^ The decimation factor
          -> Int                            -- ^ The output block size
          -> Pipe (v a) (v a) m ()          -- ^ The `Pipe` that does the resampling
-resample Resampler{..} interpolation decimation blockSizeOut = do
+resample Resampler{..} blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
     simple inBuf outBuf 0
@@ -398,22 +398,22 @@ resample Resampler{..} interpolation decimation blockSizeOut = do
 
     simple bufIn bufferOut@(Buffer bufOut offsetOut) filterOffset = do
         --Check consistency
-        assert (VG.length bufIn * interpolation >= numCoeffsR - filterOffset) $ return ()
+        assert (VG.length bufIn * interpolationR >= numCoeffsR - filterOffset) $ return ()
         --available number of samples == interpolation * num_input
         --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
-        let count = min (((VG.length bufIn * interpolation - numCoeffsR + filterOffset) `quot` decimation) + 1) (space bufferOut)
+        let count = min (((VG.length bufIn * interpolationR - numCoeffsR + filterOffset) `quot` decimationR) + 1) (space bufferOut)
         --Run filter
         endOffset <- lift $ resampleOne filterOffset count bufIn (VGM.unsafeDrop offsetOut bufOut)
         --Check consistency
-        assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
+        assert ((count * decimationR + endOffset - filterOffset) `rem` interpolationR == 0) $ return ()
         --Advance the output buffer
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
         --samples no longer needed starting from filterOffset == count * decimation - filterOffset
         --inputs lying in this region                         == (count * decimation - filterOffset) / interpolation (rounding up)
-        let usedInput = (count * decimation - filterOffset) `quotUp` interpolation 
+        let usedInput = (count * decimationR - filterOffset) `quotUp` interpolationR 
             bufIn'    = VG.drop usedInput bufIn
 
-        case VG.length bufIn' * interpolation < numCoeffsR - endOffset of
+        case VG.length bufIn' * interpolationR < numCoeffsR - endOffset of
             False -> simple bufIn' bufferOut' endOffset
             True  -> do
                 next <- await
@@ -423,20 +423,20 @@ resample Resampler{..} interpolation decimation blockSizeOut = do
 
     crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut) filterOffset = do
         --Check conssitency
-        assert (VG.length bufLast * interpolation < numCoeffsR - filterOffset) $ return ()
+        assert (VG.length bufLast * interpolationR < numCoeffsR - filterOffset) $ return ()
         --outputsComputable is the number of outputs that need to be computed for the last buffer to no longer be needed
         --outputsComputable * decimation == numInput * interpolation + filterOffset + k
-        let outputsComputable = (VG.length bufLast * interpolation + filterOffset) `quotUp` decimation
+        let outputsComputable = (VG.length bufLast * interpolationR + filterOffset) `quotUp` decimationR
             count = min outputsComputable (space bufferOut)
         assert (count /= 0) $ return ()
         --Run the filter
         endOffset <- lift $ resampleCross filterOffset count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
         --Check consistency
-        assert ((count * decimation + endOffset - filterOffset) `rem` interpolation == 0) $ return ()
+        assert ((count * decimationR + endOffset - filterOffset) `rem` interpolationR == 0) $ return ()
         --Advance the output buffer
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
-        let inputUsed = (count * decimation - filterOffset) `quotUp` interpolation
+        let inputUsed = (count * decimationR - filterOffset) `quotUp` interpolationR
 
         case inputUsed >= VG.length bufLast of 
             True  -> simple (VG.drop (inputUsed - VG.length bufLast) bufNext) bufferOut' endOffset
