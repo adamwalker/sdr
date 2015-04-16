@@ -18,16 +18,12 @@ module SDR.Plot (
     centeredAxes
     ) where
 
-import           Control.Monad
 import           Control.Monad.Trans.Either
 import qualified Data.Vector.Storable       as VS
 import           Graphics.Rendering.OpenGL
-import           Graphics.UI.GLFW           as G
 import           Graphics.Rendering.Cairo
-import           Control.Concurrent         hiding (yield)
 
 import           Pipes 
-
 import           Data.Colour.Names
 import           Graphics.Rendering.Pango
 
