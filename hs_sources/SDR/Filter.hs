@@ -352,12 +352,12 @@ decimate Decimator{..} blockSizeOut = do
         assert "decimate 2" (VG.length bufLast < numCoeffsD) 
         assert "decimate 3" (VG.length bufLast > 0) 
 
-        let count = min (((VG.length bufLast - 1) `quot` decimationD) + 1) (space bufferOut)
+        let count = min (VG.length bufLast `quotUp` decimationD) (space bufferOut)
         lift $ decimateCross count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
-        case ((VG.length bufLast - 1) `quot` decimationD) + 1 == count of 
+        case (VG.length bufLast `quotUp` decimationD) == count of 
             True  -> simple (VG.drop (count * decimationD - VG.length bufLast) bufNext) bufferOut'
             False -> crossover (VG.drop (count * decimationD) bufLast) bufNext bufferOut'
 
@@ -435,7 +435,6 @@ resample Resampler{..} blockSizeOut = do
         assert "resample 3" (VG.length bufLast * interpolationR < numCoeffsR - filterOffset)
         --outputsComputable is the number of outputs that need to be computed for the last buffer to no longer be needed
         --outputsComputable * decimation == numInput * interpolation + filterOffset + k
-        --TODO: differs from decimator
         let outputsComputable = (VG.length bufLast * interpolationR + filterOffset) `quotUp` decimationR
             count = min outputsComputable (space bufferOut)
         assert "resample 4" (count /= 0)
@@ -446,7 +445,10 @@ resample Resampler{..} blockSizeOut = do
         --Advance the output buffer
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
+        --TODO: differs from decimator
         let inputUsed = (count * decimationR - filterOffset) `quotUp` interpolationR
+        --TODO: why does assertion below fail
+        --assert "resample 6" $ inputUsed <= VG.length bufLast
 
         --TODO: differs from decimator
         case inputUsed >= VG.length bufLast of 
