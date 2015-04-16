@@ -18,25 +18,25 @@ module SDR.Plot (
     centeredAxes
     ) where
 
-import Control.Monad
-import Control.Monad.Trans.Either
-import qualified Data.Vector.Storable as VS
-import Graphics.Rendering.OpenGL
-import Graphics.UI.GLFW as G
-import Graphics.Rendering.Cairo
-import Control.Concurrent hiding (yield)
+import           Control.Monad
+import           Control.Monad.Trans.Either
+import qualified Data.Vector.Storable       as VS
+import           Graphics.Rendering.OpenGL
+import           Graphics.UI.GLFW           as G
+import           Graphics.Rendering.Cairo
+import           Control.Concurrent         hiding (yield)
 
-import Pipes 
+import           Pipes 
 
-import Data.Colour.Names
-import Graphics.Rendering.Pango
+import           Data.Colour.Names
+import           Graphics.Rendering.Pango
 
-import Graphics.DynamicGraph.Line
-import Graphics.DynamicGraph.Waterfall  
-import Graphics.DynamicGraph.FillLine   
-import Graphics.DynamicGraph.Axis
-import Graphics.DynamicGraph.RenderCairo
-import Graphics.DynamicGraph.Window
+import           Graphics.DynamicGraph.Line
+import           Graphics.DynamicGraph.Waterfall  
+import           Graphics.DynamicGraph.FillLine   
+import           Graphics.DynamicGraph.Axis
+import           Graphics.DynamicGraph.RenderCairo
+import           Graphics.DynamicGraph.Window
 
 -- | Create a window and plot a dynamic line graph of the incoming data.
 plotLine :: Int -- ^ Window width
@@ -44,7 +44,7 @@ plotLine :: Int -- ^ Window width
          -> Int -- ^ Number of samples in each buffer
          -> Int -- ^ Number of vertices in graph
          -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotLine width height samples resolution = window width height $ fmap (for cat . (lift . )) $ renderLine samples resolution
+plotLine width height samples resolution = window width height $ fmap pipeify $ renderLine samples resolution
 
 -- | Create a window and plot a dynamic line graph of the incoming data. With Axes.
 plotLineAxes :: Int       -- ^ Window width
@@ -139,7 +139,7 @@ plotFill :: Int       -- ^ Window width
          -> Int       -- ^ Number of samples in each buffer
          -> [GLfloat] -- ^ The color map
          -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotFill width height samples colorMap = window width height $ fmap (for cat . (lift . )) $ renderFilledLine samples colorMap
+plotFill width height samples colorMap = window width height $ fmap pipeify $ renderFilledLine samples colorMap
 
 -- | Create a window and plot a dynamic filled in line graph of the incoming data. With Axes.
 plotFillAxes :: Int       -- ^ Window width
