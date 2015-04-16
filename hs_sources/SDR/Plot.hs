@@ -53,41 +53,24 @@ plotLineAxes :: Int       -- ^ Window width
              -> Int       -- ^ Number of vertices in graph
              -> Render () -- ^ Cairo Render object that draws the axes
              -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotLineAxes width height samples xResolution rm = do
-    mv <- lift newEmptyMVar 
+plotLineAxes width height samples xResolution rm = window width height $ do
+    --render the graph
+    renderFunc <- renderLine samples xResolution
 
-    lift $ forkOS $ void $ runEitherT $ do
-        --create a window
-        res' <- lift $ createWindow width height "" Nothing Nothing
-        win <- maybe (left "error creating window") return res'
-        lift $ makeContextCurrent (Just win)
-        
-        --render the graph
-        renderFunc <- lift $ renderLine samples xResolution
+    --render the axes
+    renderAxisFunc <- renderCairo rm width height
 
-        --render the axes
-        renderAxisFunc <- lift $ renderCairo rm width height
+    return $ for cat $ \dat -> lift $ do
+        blend $= Disabled
 
-        lift $ forever $ do
-            dat <- takeMVar mv
+        viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
+        renderFunc dat
 
-            makeContextCurrent (Just win)
-            clear [ColorBuffer]
+        blend $= Enabled
+        blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
 
-            blend $= Disabled
-
-            viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
-            renderFunc dat
-
-            blend $= Enabled
-            blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
-
-            viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
-            renderAxisFunc
-
-            swapBuffers win
-
-    return $ for cat (lift . replaceMVar mv)
+        viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
+        renderAxisFunc
 
 -- | Create a window and plot a waterfall of the incoming data.
 plotWaterfall :: Int       -- ^ Window width
@@ -106,32 +89,18 @@ plotWaterfallAxes :: Int       -- ^ Window width
                   -> [GLfloat] -- ^ The color map
                   -> Render () -- ^ Cairo Render object that draws the axes
                   -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotWaterfallAxes windowWidth windowHeight width height colorMap rm = do
-    mv <- lift newEmptyMVar
+plotWaterfallAxes windowWidth windowHeight width height colorMap rm = window windowWidth windowHeight $ do
+    renderPipe <- renderWaterfall width height colorMap
+    
+    renderAxisFunc <- renderCairo rm width height
 
-    lift $ forkOS $ void $ runEitherT $ do
-        res' <- lift $ createWindow windowWidth windowHeight "" Nothing Nothing
-        win <- maybe (left "error creating window") return res'
-        lift $ makeContextCurrent (Just win)
+    return $ (>-> renderPipe) $ for cat $ \dat -> do
+            lift $ viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
+            lift renderAxisFunc
 
-        renderPipe <- lift $ renderWaterfall width height colorMap
-        
-        renderAxisFunc <- lift $ renderCairo rm width height
+            lift $ viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
 
-        let thePipe = (<-<) renderPipe $ forever $ do
-                dat <- lift $ takeMVar mv
-                lift $ makeContextCurrent (Just win)
-
-                lift $ viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
-                lift renderAxisFunc
-
-                lift $ viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
-
-                yield dat
-                lift $ swapBuffers win
-        lift $ runEffect thePipe
-
-    return $ for cat (lift . replaceMVar mv)
+            yield dat
 
 -- | Create a window and plot a dynamic filled in line graph of the incoming data.
 plotFill :: Int       -- ^ Window width
@@ -148,36 +117,20 @@ plotFillAxes :: Int       -- ^ Window width
              -> [GLfloat] -- ^ The color map
              -> Render () -- ^ Cairo Render object that draws the axes
              -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
-plotFillAxes width height samples colorMap rm = do
-    mv <- lift newEmptyMVar 
+plotFillAxes width height samples colorMap rm = window width height $ do
+    renderFunc <- renderFilledLine samples colorMap
+    
+    renderAxisFunc <- renderCairo rm width height
 
-    lift $ forkOS $ void $ runEitherT $ do
-        res' <- lift $ createWindow width height "" Nothing Nothing
-        win <- maybe (left "error creating window") return res'
-        lift $ makeContextCurrent (Just win)
+    return $ for cat $ \dat -> lift $ do
+        viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
+        renderFunc dat
 
-        renderFunc <- lift $ renderFilledLine samples colorMap
-        
-        renderAxisFunc <- lift $ renderCairo rm width height
+        blend $= Enabled
+        blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
 
-        lift $ forever $ do
-            dat <- takeMVar mv
-
-            makeContextCurrent (Just win)
-            clear [ColorBuffer]
-
-            viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
-            renderFunc dat
-
-            blend $= Enabled
-            blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
-
-            viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
-            renderAxisFunc
-
-            swapBuffers win
-
-    return $ for cat (lift . replaceMVar mv)
+        viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
+        renderAxisFunc
 
 -- | Create a Cairo `Render` monad that draws a set of axes with 0 at the bottom left.
 zeroAxes :: Int       -- ^ Image width
