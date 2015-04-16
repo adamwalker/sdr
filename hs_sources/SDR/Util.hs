@@ -18,17 +18,17 @@ module SDR.Util (
     scaleCAVX
     ) where
 
-import Foreign.C.Types
-import Data.Complex
-import Data.Vector.Generic                         as VG   hiding ((++))
-import qualified Data.Vector.Generic.Mutable       as VGM
-import Data.Vector.Storable                        as VS   hiding ((++))
-import Data.Vector.Storable.Mutable                as VSM  
-import Control.Monad.Primitive
-import Unsafe.Coerce
-import Foreign.Ptr
-import System.IO.Unsafe
-import Foreign.Storable.Complex
+import           Foreign.C.Types
+import           Data.Complex
+import           Data.Vector.Generic          as VG   hiding ((++))
+import qualified Data.Vector.Generic.Mutable  as VGM
+import           Data.Vector.Storable         as VS   hiding ((++))
+import           Data.Vector.Storable.Mutable as VSM  
+import           Control.Monad.Primitive
+import           Unsafe.Coerce
+import           Foreign.Ptr
+import           System.IO.Unsafe
+import           Foreign.Storable.Complex
 
 -- | A class for things that can be multiplied by a scalar.
 class Mult a b where

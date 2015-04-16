@@ -3,18 +3,18 @@ module SDR.RTLSDRStream (
     sdrStream
     ) where
 
-import Control.Monad
-import Control.Monad.Trans.Either
-import Data.Word
-import Foreign.ForeignPtr
-import Foreign.C.Types
-import Control.Concurrent hiding (yield)
-import Foreign.Marshal.Utils
-import qualified Data.Vector.Storable as VS
+import           Control.Monad
+import           Control.Monad.Trans.Either
+import           Data.Word
+import           Foreign.ForeignPtr
+import           Foreign.C.Types
+import           Control.Concurrent         hiding (yield)
+import           Foreign.Marshal.Utils
+import qualified Data.Vector.Storable       as VS
 
-import Pipes
-import Pipes.Concurrent 
-import RTLSDR
+import           Pipes
+import           Pipes.Concurrent 
+import           RTLSDR
 
 -- | Returns a producer that streams data from a Realtek RTL2832U based device. You probably want to use `makeComplexBufferVect` to turn it into a list of complex Floats.
 sdrStream :: Word32                                                -- ^ Frequency

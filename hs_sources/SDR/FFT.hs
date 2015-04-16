@@ -12,25 +12,23 @@ module SDR.FFT (
     fftwParallel
     ) where
 
-import Control.Monad as CM
-import Foreign.Storable
-import Foreign.Storable.Complex
-import Foreign.C.Types
-import Data.Complex
-import Foreign.ForeignPtr
+import           Control.Monad                as CM
+import           Foreign.Storable
+import           Foreign.Storable.Complex
+import           Foreign.C.Types
+import           Data.Complex
+import           Foreign.ForeignPtr
+import           Control.Concurrent           hiding (yield)
+import qualified Data.Map                     as Map
 
-import Data.Vector.Generic as VG
-import Data.Vector.Generic.Mutable as VGM
-import Data.Vector.Storable as VS
-import Data.Vector.Storable.Mutable as VSM
-import Data.Vector.Fusion.Stream as VFS
+import           Data.Vector.Generic          as VG
+import           Data.Vector.Generic.Mutable  as VGM
+import           Data.Vector.Storable         as VS
+import           Data.Vector.Storable.Mutable as VSM
+import           Data.Vector.Fusion.Stream    as VFS
 
-import Control.Concurrent hiding (yield)
-
-import qualified Data.Map as Map
-
-import Pipes
-import Numeric.FFTW
+import           Pipes
+import           Numeric.FFTW
 
 mallocForeignBufferAligned :: forall a. Storable a => Int -> IO (ForeignPtr a)
 mallocForeignBufferAligned elems = do

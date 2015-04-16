@@ -8,7 +8,7 @@ import Foreign.ForeignPtr
 import Foreign.C.Types
 import Control.Concurrent
 import Data.ByteString.Internal
-import Data.Vector.Storable as VS
+import Data.Vector.Storable     as VS
 
 import Sound.Pulse.Simple
 import Pipes

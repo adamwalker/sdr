@@ -10,9 +10,9 @@ module SDR.VectorUtils (
 import Control.Monad
 import Control.Monad.Primitive
 
-import Data.Vector.Generic                         as VG   hiding ((++))
+import           Data.Vector.Generic               as VG   hiding ((++))
 import qualified Data.Vector.Generic.Mutable       as VGM
-import Data.Vector.Fusion.Stream.Monadic                   hiding ((++))
+import           Data.Vector.Fusion.Stream.Monadic         hiding ((++))
 import qualified Data.Vector.Fusion.Stream         as VFS  hiding ((++))
 import qualified Data.Vector.Fusion.Stream.Monadic as VFSM hiding ((++))
 
