@@ -357,7 +357,7 @@ decimate Decimator{..} blockSizeOut = do
 
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
-        case (VG.length bufLast `quotUp` decimationD) == count of 
+        case VG.length bufLast <= count * decimationD of 
             True  -> simple (VG.drop (count * decimationD - VG.length bufLast) bufNext) bufferOut'
             False -> crossover (VG.drop (count * decimationD) bufLast) bufNext bufferOut'
 
@@ -445,12 +445,8 @@ resample Resampler{..} blockSizeOut = do
         --Advance the output buffer
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
-        --TODO: differs from decimator
         let inputUsed = (count * decimationR - filterOffset) `quotUp` interpolationR
-        --TODO: why does assertion below fail
-        --assert "resample 6" $ inputUsed <= VG.length bufLast
 
-        --TODO: differs from decimator
         case inputUsed >= VG.length bufLast of 
             True  -> simple (VG.drop (inputUsed - VG.length bufLast) bufNext) bufferOut' endOffset
             False -> crossover (VG.drop inputUsed bufLast) bufNext bufferOut' endOffset
