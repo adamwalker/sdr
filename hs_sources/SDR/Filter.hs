@@ -10,7 +10,7 @@
 
     > decimatorStruct   <- fastDecimatorC decimation coeffs
     > let decimatorPipe :: Pipe (Vector (Complex Float)) (Vector (Complex Float)) IO ()
-    >     decimatorPipe =  decimate decimatorStruct decimation inputSize outputSize
+    >     decimatorPipe =  decimate decimatorStruct outputSize
 
     There are polymorphic Haskell only implementations of filtering, decimation and resampling, for example, `haskellFilter`. In addition, there are optimised C implementations that use SIMD instructions on x86 machines, such as `fastFilterR`. These are always specialized to either real or complex numbers. There are also even faster implementations specialized for the case where the filter coefficients are symmetric as in a linear phase filter such as `fastSymmetricFilterR`.
 
