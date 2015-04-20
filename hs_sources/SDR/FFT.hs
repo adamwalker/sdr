@@ -3,11 +3,10 @@
 {-| Fast FFTs using FFTW -}
 module SDR.FFT (
     -- * Windows
-    sinc,
-    hanning,
-    hamming,
-    blackman,
     fftFixup,
+    hamming,
+    hanning,
+    blackman,
 
     -- * FFTs
     fftw,
@@ -33,44 +32,12 @@ import           Data.Vector.Fusion.Stream    as VFS
 import           Pipes
 import           Numeric.FFTW
 
+import           SDR.FilterDesign
+
 mallocForeignBufferAligned :: forall a. Storable a => Int -> IO (ForeignPtr a)
 mallocForeignBufferAligned elems = do
     ptr <- fftwMalloc $ fromIntegral $ elems * sizeOf (undefined :: a)
     newForeignPtr fftwFreePtr ptr
-
--- | Compute a sinc function
-sinc :: (Floating n, VG.Vector v n)
-     => Int -- ^ The length. Must be odd.
-     -> n   -- ^ The cutoff frequency (from 0 to 1)
-     -> v n
-sinc size cutoff  = VG.generate size (func . (-) ((size - 1) `quot` 2))
-    where
-    func 0   = 1
-    func idx = sin (pi * cutoff * fromIntegral idx) / (fromIntegral idx * pi)
-
--- | Compute a Hanning window.
-hanning :: (Floating n, VG.Vector v n) 
-        => Int -- ^ The length of the window
-        -> v n
-hanning size = VG.generate size func
-    where
-    func idx = 0.5 * (1 - cos((2 * pi * fromIntegral idx) / (fromIntegral size - 1)))
-  
--- | Compute a Hamming window. 
-hamming :: (Floating n, VG.Vector v n) 
-        => Int -- ^ The length of the window
-        -> v n
-hamming size = VG.generate size func
-    where
-    func idx = 0.54 - 0.46 * cos((2 * pi * fromIntegral idx) / (fromIntegral size - 1))
-   
--- | Compute a Blackman window.
-blackman :: (Floating n, VG.Vector v n) 
-        => Int -- ^ The length of the window
-        -> v n
-blackman size = VG.generate size func
-    where
-    func idx = 0.42 - 0.5 * cos((2 * pi * fromIntegral idx) / (fromIntegral size - 1)) - 0.08 * cos((4 * pi * fromIntegral idx) / (fromIntegral size - 1))
 
 -- | Compute a vector of alternating 1s and 0s of the given size.
 fftFixup :: (VG.Vector v n, Num n) 
