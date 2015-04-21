@@ -256,7 +256,7 @@ resampleHighLevel interpolation decimation coeffs filterOffset count inBuf outBu
         | i < count = do
             let dp = dotProd filterOffset inputOffset
             VGM.unsafeWrite outBuf i dp
-            let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
+            let (q, r)        = divMod (decimation - filterOffset - 1) interpolation
                 inputOffset'  = inputOffset + q + 1
                 filterOffset' = interpolation - 1 - r
             filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
@@ -313,7 +313,7 @@ prepareCoeffs n interpolation decimation coeffs = Coeffs {..}
         func :: Int -> [(Int, [Float])]
         func offset = (increment, strideList interpolation $ drop offset coeffs) : func' offset'
             where
-            (q, r)    = quotRem (decimation - offset - 1) interpolation
+            (q, r)    = divMod (decimation - offset - 1) interpolation
             increment = q + 1
             offset'   = interpolation - 1 - r
 
@@ -377,7 +377,7 @@ resampleCrossHighLevel interpolation decimation coeffs filterOffset count lastBu
         | i < count = do
             let dp = dotProd filterOffset inputOffset
             VGM.unsafeWrite outBuf i dp
-            let (q, r)        = quotRem (decimation - filterOffset - 1) interpolation
+            let (q, r)        = divMod (decimation - filterOffset - 1) interpolation
                 inputOffset'  = inputOffset + q + 1
                 filterOffset' = interpolation - 1 - r
             filterOffset' `seq` inputOffset' `seq` fill (i + 1) filterOffset' inputOffset'
