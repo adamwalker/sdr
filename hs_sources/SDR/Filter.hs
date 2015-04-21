@@ -362,6 +362,7 @@ decimate Decimator{..} blockSizeOut = do
             False -> crossover (VG.drop (count * decimationD) bufLast) bufNext bufferOut'
 
 {-
+Rational Downsampling:
 
 Input upsampled by 3:    |**|**|**|**|**|**|**|**|**|**|**|
 Output downsampled by 7: |******|******|******|******|*****
@@ -370,6 +371,8 @@ Output downsampled by 7: |******|******|******|******|*****
                   Next output is here  ^
 
 Filter offset is 2
+
+k is number of used inputs
 
 filterOffset + k*interpolation = decimation + filterOffset'
 where
@@ -385,6 +388,37 @@ k             = (decimation - filterOffset - 1) / interpolation + 1
 filterOffset' = interpolation - 1 - (decimation - filterOffset - 1) % interpolation
 
 Only works if decimation > interpolation
+
+-}
+
+{-
+Rational Upsampling:
+
+Input upsampled by 7:    |******|******|******|******|*****
+Output downsampled by 3: |**|**|**|**|**|**|**|**|**|**|**|
+
+              Consider Here ^  
+              Next sample is   ^
+
+Filter offset is 4
+
+filterOffset + k * interpolation = decimation + filterOffset'
+where
+    k = {0, 1}
+    0 <= filterOffset, filterOffset' < interpolation
+
+k * interpolation + (interpolation - filterOffset' - 1) = decimation - filterOffset + interpolation - 1
+
+k = (decimation - filterOffset + interpolation - 1) / interpolation
+
+============================
+
+Or, equivalently, 
+
+k = 0 | filterOffset >= decimation
+    1 | otherwise
+
+o = o - decimation + k * interpolation
 
 -}
 
