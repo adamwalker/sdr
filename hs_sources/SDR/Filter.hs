@@ -405,16 +405,12 @@ resample Resampler{..} blockSizeOut = do
     where
 
     simple bufIn bufferOut@(Buffer bufOut offsetOut) filterOffset = do
-        --Check consistency
         assert "resample 1" (VG.length bufIn * interpolationR >= numCoeffsR - filterOffset)
         --available number of samples == interpolation * num_input
         --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
         let count = min (((VG.length bufIn * interpolationR - numCoeffsR + filterOffset) `quot` decimationR) + 1) (space bufferOut)
-        --Run filter
         endOffset <- lift $ resampleOne filterOffset count bufIn (VGM.unsafeDrop offsetOut bufOut)
-        --Check consistency
         assert "resample 2" ((count * decimationR + endOffset - filterOffset) `rem` interpolationR == 0)
-        --Advance the output buffer
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
         --samples no longer needed starting from filterOffset == count * decimation - filterOffset
         --inputs lying in this region                         == (count * decimation - filterOffset) / interpolation (rounding up)
@@ -431,18 +427,14 @@ resample Resampler{..} blockSizeOut = do
                     False -> crossover bufIn' next bufferOut' endOffset
 
     crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut) filterOffset = do
-        --Check conssitency
         assert "resample 3" (VG.length bufLast * interpolationR < numCoeffsR - filterOffset)
         --outputsComputable is the number of outputs that need to be computed for the last buffer to no longer be needed
         --outputsComputable * decimation == numInput * interpolation + filterOffset + k
         let outputsComputable = (VG.length bufLast * interpolationR + filterOffset) `quotUp` decimationR
             count = min outputsComputable (space bufferOut)
         assert "resample 4" (count /= 0)
-        --Run the filter
         endOffset <- lift $ resampleCross filterOffset count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
-        --Check consistency
         assert "resample 5" ((count * decimationR + endOffset - filterOffset) `rem` interpolationR == 0)
-        --Advance the output buffer
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
         let inputUsed = (count * decimationR - filterOffset) `quotUp` interpolationR
