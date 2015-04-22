@@ -5,10 +5,11 @@ A Software Defined Radio library written in Haskell
 # Features
 * Write software defined radio applications in Haskell
 * Signal processing blocks can be chained together using the [Pipes](https://hackage.haskell.org/package/pipes) library
-* Signal processing functions are implemented in both Haskell and C
+* Signal processing functions are implemented in both Haskell and C:
     * Optimised C implementations of signal processing functions that utilise SIMD instructions
     * Performance of Haskell signal processing functions within a factor of 2 of C (without SIMD) thanks to the vector library, stream fusion and ghc's LLVM backend
 * Can filter, decimate and resample
+* Helper functions for FIR filter design using window functions and plotting of the frequency response 
 * FFTs using [FFTW](http://www.fftw.org)
 * Line and waterfall plots using OpenGL
 * FM demodulation
