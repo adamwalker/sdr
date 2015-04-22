@@ -20,7 +20,7 @@ A Software Defined Radio library written in Haskell
 See https://github.com/adamwalker/sdr-apps for a collection of simple apps built on the library.
 
 # Screenshot
-A chunk of the FM broadcast spectrum. Captured with an RTLSDR device and drawn as a waterfall using the Plot module.
+A chunk of the FM broadcast spectrum. Captured with an RTLSDR device and drawn as a waterfall using the [Plot](https://github.com/adamwalker/sdr/blob/master/hs_sources/SDR/Plot.hs) module.
 
 ![Screenshot](../screenshots/screenshots/screenshot.png?raw=true)
 
