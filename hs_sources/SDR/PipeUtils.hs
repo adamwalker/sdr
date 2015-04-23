@@ -1,6 +1,7 @@
 {-| Pipes utility functions -}
 module SDR.PipeUtils (
     fork, 
+    combine,
     printStream,
     devnull,
     rate,
@@ -18,6 +19,13 @@ fork prod = runEffect $ hoist (lift . lift) prod >-> fork'
         res <- await
         lift $ yield res
         lift $ lift $ yield res
+
+-- | Combime two consumers into a single consumer
+combine :: Monad m => Consumer a m r -> Consumer a m r -> Consumer a m r
+combine x y = runEffect $ runEffect (fork func >-> hoist (lift . lift) x) >-> hoist lift y
+    where
+    func :: Monad m => Producer a (Consumer a m) r
+    func = forever $ lift await >>= yield
 
 -- | A consumer that prints everything to stdout
 printStream :: (Show a) => Int -> Consumer a IO ()
