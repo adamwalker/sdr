@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, BangPatterns, ScopedTypeVariables, MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, ScopedTypeVariables, MultiParamTypeClasses, FlexibleInstances #-}
 
 {-| Various utiliy signal processing functions -}
 module SDR.Util (
@@ -15,7 +15,11 @@ module SDR.Util (
     -- * Scaling
     scaleC,
     scaleCSSE,
-    scaleCAVX
+    scaleCAVX,
+
+    -- * Misc Utils
+    cplxMap,
+    quarterBandUp
     ) where
 
 import           Foreign.C.Types
@@ -118,4 +122,20 @@ scaleCAVX num factor inBuf outBuf =
     VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             scaleAVX_c (fromIntegral num) (unsafeCoerce factor) iPtr oPtr
+
+cplxMap :: (a -> b) -> Complex a -> Complex b
+cplxMap f (x :+ y) = f x :+ f y
+
+quarterBandUp :: (VG.Vector v (Complex n), Num n) 
+              => Int -- ^ The length of the Vector
+              -> v (Complex n)
+quarterBandUp size = VG.generate size func
+    where
+    func idx 
+        | m == 0 = 1    :+ 0
+        | m == 1 = 0    :+ 1
+        | m == 2 = (-1) :+ 0
+        | m == 3 = 0    :+ (-1)
+        where
+        m = idx `mod` 4
 
