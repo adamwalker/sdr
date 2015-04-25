@@ -8,6 +8,9 @@ module SDR.FilterDesign (
     hanning,
     hamming,
     blackman,
+
+    -- * Convenience Functions
+    windowedSinc,
     
     -- * Frequency Response Plot
     plotFrequency
@@ -52,6 +55,13 @@ blackman :: (Floating n, VG.Vector v n)
 blackman size = VG.generate size func
     where
     func idx = 0.42 - 0.5 * cos((2 * pi * fromIntegral idx) / (fromIntegral size - 1)) + 0.08 * cos((4 * pi * fromIntegral idx) / (fromIntegral size - 1))
+
+windowedSinc :: (Floating n, VG.Vector v n)
+             => Int          -- ^ The length
+             -> n            -- ^ The cutoff frequency (from 0 to 1)
+             -> (Int -> v n) -- ^ The window function
+             -> v n
+windowedSinc size cutoff window = VG.zipWith (*) (sinc size cutoff) (window size)
 
 signal :: [Double] -> [Double] -> [(Double, Double)]
 signal coeffs xs = [ (x / pi, func x) | x <- xs ]
