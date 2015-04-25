@@ -13,6 +13,8 @@ import           Foreign.Ptr
 import           Unsafe.Coerce
 import           Data.Complex
 import           Foreign.Marshal.Array
+import           Foreign.Marshal.Alloc
+import           Foreign.Storable
 
 import qualified Data.Vector.Generic               as VG
 import qualified Data.Vector.Generic.Mutable       as VGM
@@ -384,3 +386,16 @@ resampleCrossHighLevel interpolation decimation coeffs filterOffset count lastBu
         | otherwise = return filterOffset
     dotProd filterOffset i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) (stride interpolation (VG.unsafeDrop filterOffset coeffs))
 
+foreign import ccall unsafe "dcBlocker"
+    c_dcBlocker :: CInt -> CFloat -> CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+dcBlocker :: Int -> Float -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO (Float, Float)
+dcBlocker num lastSample lastOutput inBuf outBuf = 
+    alloca $ \fsp -> 
+        alloca $ \fop -> 
+            VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+                VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> do
+                    c_dcBlocker (fromIntegral num) (realToFrac lastSample) (realToFrac lastOutput) fsp fop iPtr oPtr
+                    r1 <- peek fsp
+                    r2 <- peek fop
+                    return (realToFrac r1, realToFrac r2)

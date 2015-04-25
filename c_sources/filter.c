@@ -145,3 +145,18 @@ void filterAVXSymmetricRC(int num, int numCoeffs, float *coeffs, float *inBuf, f
         store_complex(outBuf + i, accum1);
     }
 }
+
+/*
+ * DC blocker
+ */
+void dcBlocker(int num, float lastSample, float lastOutput, float *finalSample, float *finalOutput, float *inBuf, float *outBuf){
+    int i;
+    for(i=0; i<num; i++){
+        lastOutput = inBuf[i] - lastSample + 0.997 * lastOutput;
+        outBuf[i]  = lastOutput;
+        lastSample = inBuf[i];
+    }
+    *finalSample = lastSample;
+    *finalOutput = lastOutput;
+}
+

@@ -52,7 +52,10 @@ module SDR.Filter (
     decimate,
 
     -- * Resample
-    resample
+    resample,
+
+    -- * DC Blocking Filter
+    dcBlockingFilter
     ) where
 
 import           Data.Complex
@@ -478,4 +481,16 @@ resample Resampler{..} blockSizeOut = do
         case inputUsed >= VG.length bufLast of 
             True  -> simple (VG.drop (inputUsed - VG.length bufLast) bufNext) bufferOut' endOffset
             False -> crossover (VG.drop inputUsed bufLast) bufNext bufferOut' endOffset
+
+-- | A DC blocking filter
+dcBlockingFilter :: Pipe (VS.Vector Float) (VS.Vector Float) IO ()
+dcBlockingFilter = func 0 0 
+    where
+    func lastSample lastOutput = do
+        dat <- await
+        out <- lift $ VGM.new (VG.length dat)
+        (lastSample, lastOutput) <- lift $ dcBlocker (VG.length dat) lastSample lastOutput dat out
+        outF <- lift $ VG.unsafeFreeze out
+        yield outF
+        func lastSample lastOutput
 
