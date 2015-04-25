@@ -138,8 +138,8 @@ fastFilterC :: [Float]                                             -- ^ The filt
             -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
 fastFilterC coeffs = do
     let l           = length coeffs
-        ru          = (l + 8 - 1) `quot` 8
-        numCoeffsF  = ru * 8 
+        ru          = (l + 4 - 1) `quot` 4
+        numCoeffsF  = ru * 4 
         diff        = numCoeffsF - l
         vCoeffs     = VG.fromList $ duplicate $ coeffs ++ replicate diff 0
         vCoeffs2    = VG.fromList $ coeffs ++ replicate diff 0
@@ -199,8 +199,8 @@ fastDecimatorC :: Int                                                    -- ^ Th
                -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
 fastDecimatorC decimationD coeffs = do
     let l          = length coeffs
-        ru         = (l + 8 - 1) `quot` 8
-        numCoeffsD = ru * 8 
+        ru         = (l + 4 - 1) `quot` 4
+        numCoeffsD = ru * 4 
         diff       = numCoeffsD - l
         vCoeffs    = VG.fromList $ duplicate $ coeffs ++ replicate diff 0
         vCoeffs2   = VG.fromList $ coeffs ++ replicate diff 0
