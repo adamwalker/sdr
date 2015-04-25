@@ -142,9 +142,10 @@ fastFilterC coeffs = do
         numCoeffsF  = ru * 8 
         diff        = numCoeffsF - l
         vCoeffs     = VG.fromList $ duplicate $ coeffs ++ replicate diff 0
+        vCoeffs2    = VG.fromList $ coeffs ++ replicate diff 0
     evaluate vCoeffs
     let filterOne   = filterCAVXRC         vCoeffs
-        filterCross = filterCrossHighLevel vCoeffs
+        filterCross = filterCrossHighLevel vCoeffs2
     return $ Filter {..}
 
 {-# INLINE fastSymmetricFilterR #-}
@@ -202,9 +203,10 @@ fastDecimatorC decimationD coeffs = do
         numCoeffsD = ru * 8 
         diff       = numCoeffsD - l
         vCoeffs    = VG.fromList $ duplicate $ coeffs ++ replicate diff 0
+        vCoeffs2   = VG.fromList $ coeffs ++ replicate diff 0
     evaluate vCoeffs
     let decimateOne   = decimateCAVXRC         decimationD vCoeffs
-        decimateCross = decimateCrossHighLevel decimationD vCoeffs
+        decimateCross = decimateCrossHighLevel decimationD vCoeffs2
     return $ Decimator {..}
 
 {-# INLINE fastSymmetricDecimatorR #-}
