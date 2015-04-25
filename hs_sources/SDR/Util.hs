@@ -48,8 +48,8 @@ instance (Num a) => Mult (Complex a) a where
 
 -- | Create a vector of complex float samples from a vector of interleaved I Q component bytes.
 {-# INLINE makeComplexBufferVect #-}
-makeComplexBufferVect :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a, VG.Vector v2 (Complex b)) => Int -> v1 a -> v2 (Complex b)
-makeComplexBufferVect samples input = VG.generate samples convert
+makeComplexBufferVect :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a, VG.Vector v2 (Complex b)) => v1 a -> v2 (Complex b)
+makeComplexBufferVect input = VG.generate (VG.length input `quot` 2) convert
     where
     {-# INLINE convert #-}
     convert idx  = convert' (input `VG.unsafeIndex` (2 * idx)) :+ convert' (input `VG.unsafeIndex` (2 * idx + 1))
@@ -60,36 +60,36 @@ foreign import ccall unsafe "convertC"
     convertC_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
 -- | Same as `makeComplexBufferVect` but written in C
-convertC :: Int -> VS.Vector CUChar -> VS.Vector (Complex Float)
-convertC num inBuf = unsafePerformIO $ do
-    outBuf <- VGM.new num
+convertC :: VS.Vector CUChar -> VS.Vector (Complex Float)
+convertC inBuf = unsafePerformIO $ do
+    outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            convertC_c (2 * fromIntegral num) iPtr oPtr
+            convertC_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
 foreign import ccall unsafe "convertCSSE"
     convertCSSE_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
 -- | Same as `makeComplexBufferVect` but written in C using SSE intrinsics
-convertCSSE :: Int -> VS.Vector CUChar -> VS.Vector (Complex Float)
-convertCSSE num inBuf = unsafePerformIO $ do
-    outBuf <- VGM.new num
+convertCSSE :: VS.Vector CUChar -> VS.Vector (Complex Float)
+convertCSSE inBuf = unsafePerformIO $ do
+    outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            convertCSSE_c (2 * fromIntegral num) iPtr oPtr
+            convertCSSE_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
 foreign import ccall unsafe "convertCAVX"
     convertCAVX_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
 -- | Same as `makeComplexBufferVect` but written in C using AVX intrinsics
-convertCAVX :: Int -> VS.Vector CUChar -> VS.Vector (Complex Float)
-convertCAVX num inBuf = unsafePerformIO $ do
-    outBuf <- VGM.new num
+convertCAVX :: VS.Vector CUChar -> VS.Vector (Complex Float)
+convertCAVX inBuf = unsafePerformIO $ do
+    outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            convertCAVX_c (2 * fromIntegral num) iPtr oPtr
+            convertCAVX_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
 -- | Scaling
