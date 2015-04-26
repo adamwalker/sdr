@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, FlexibleContexts, GADTs #-}
 
 {-| FIR filtering, decimation and resampling.
 
