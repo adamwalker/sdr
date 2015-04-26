@@ -17,7 +17,7 @@ A Software Defined Radio library written in Haskell
 * [rtl-sdr](http://sdr.osmocom.org/trac/wiki/rtl-sdr) based radio source supported and other sources are easily added
 * Extensive benchmark and test suites of signal processing functions
 
-See https://github.com/adamwalker/sdr-apps for a collection of simple apps built on the library.
+See https://github.com/adamwalker/sdr-apps for a collection of simple apps built on the library and https://github.com/adamwalker/sdr-demo for a demo application.
 
 # Screenshot
 A chunk of the FM broadcast spectrum. Captured with an RTLSDR device and drawn as a waterfall using the [Plot](https://github.com/adamwalker/sdr/blob/master/hs_sources/SDR/Plot.hs) module.
