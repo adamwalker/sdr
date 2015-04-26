@@ -63,11 +63,11 @@ To run the waterfall plot:
 An FM receiver:
 
 ```haskell
-import Control.Monad.Trans.Either
-import Data.Vector.Generic as VG 
-import Pipes
-import qualified Pipes.Prelude as P
-import Foreign.Storable.Complex
+import           Control.Monad.Trans.Either
+import           Data.Vector.Generic        as VG 
+import           Pipes
+import qualified Pipes.Prelude              as P
+import           Foreign.Storable.Complex
 
 import SDR.Filter 
 import SDR.RTLSDRStream
@@ -78,25 +78,29 @@ import SDR.Pulse
 --The filter coefficients are stored in another module
 import Coeffs
 
-bufLen     = 16384
-samples    = fromIntegral bufLen `quot` 2
-decimation = 8
-sqd        = samples `quot` decimation
-frequency  = 90200000
+samples    = 8192
+frequency  = 105700000
 
 main = eitherT putStrLn return $ do
 
-    str  <- sdrStream frequency 1280000 1 bufLen
-    sink <- lift pulseAudioSink 
+    str  <- sdrStream frequency 1280000 1 (fromIntegral samples * 2)
 
-    lift $ runEffect $   str 
-                     >-> P.map (makeComplexBufferVect samples) 
-                     >-> decimate decimation (VG.fromList coeffsRFDecim) samples sqd 
-                     >-> P.map (fmDemodVec 0) 
-                     >-> resample 3 10 (VG.fromList coeffsAudioResampler) sqd sqd 
-                     >-> filterr (VG.fromList coeffsAudioFilter) sqd sqd
-                     >-> P.map (VG.map ((* 0.2))) 
-                     >-> sink
+    lift $ do
+
+        sink <- pulseAudioSink
+
+        deci <- fastDecimatorC 8 coeffsRFDecim 
+        resp <- haskellResampler 3 10 coeffsAudioResampler
+        filt <- fastSymmetricFilterR  coeffsAudioFilter
+
+        runEffect $   str
+                  >-> P.map convertCAVX 
+                  >-> decimate deci samples 
+                  >-> P.map (fmDemodVec 0) 
+                  >-> resample resp samples 
+                  >-> filterr filt samples
+                  >-> P.map (VG.map (* 0.2)) 
+                  >-> sink
 ```
 
 # Disclaimer
