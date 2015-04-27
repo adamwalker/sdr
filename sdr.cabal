@@ -80,12 +80,12 @@ Test-Suite test
     type:                exitcode-stdio-1.0
     main-is:             TestSuite.hs
     build-depends:       
-        base, 
-        QuickCheck, 
-        vector, 
-        sdr, 
-        primitive, 
-        storable-complex
+        base             >=4.6  && <4.9, 
+        QuickCheck       >=2.8  && <2.9, 
+        vector           >=0.10 && <0.11, 
+        sdr              ==0.1.0.0, 
+        primitive        >=0.5  && <0.7, 
+        storable-complex >=0.2  && <0.3
     hs-source-dirs:      tests
     ghc-options:         -O2
     default-language:    Haskell2010
@@ -94,12 +94,12 @@ benchmark benchmark
     type:                exitcode-stdio-1.0
     main-is:             Benchmarks.hs
     build-depends:       
-        base, 
-        criterion, 
-        vector, 
-        sdr, 
-        primitive, 
-        storable-complex
+        base             >=4.6  && <4.9, 
+        criterion        >=1.0  && <1.2,
+        vector           >=0.10 && <0.11, 
+        sdr              ==0.1.0.0, 
+        primitive        >=0.5  && <0.7, 
+        storable-complex >=0.2  && <0.3
     hs-source-dirs:      benchmarks
     ghc-options:         -O2
     default-language:    Haskell2010
