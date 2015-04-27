@@ -170,10 +170,10 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
     testConversion size inBuf = monadicIO $ do
         let vInput = VS.fromList $ map fromIntegral inBuf
 
-        let r1 = VG.toList $ (makeComplexBufferVect size vInput :: VS.Vector (Complex Float))
-            r2 = VG.toList $ convertC              size vInput
-            r3 = VG.toList $ convertCSSE           size vInput
-            r4 = VG.toList $ convertCAVX           size vInput
+        let r1 = VG.toList $ (makeComplexBufferVect vInput :: VS.Vector (Complex Float))
+            r2 = VG.toList $ convertC              vInput
+            r3 = VG.toList $ convertCSSE           vInput
+            r4 = VG.toList $ convertCAVX           vInput
 
         assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4]
 
