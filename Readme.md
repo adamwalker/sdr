@@ -40,6 +40,9 @@ cabal install sdr
 ```
 
 ## Example Applications
+
+A collection of simple apps can be found [here](https://github.com/adamwalker/sdr-apps). These include an FM radio receiver, an OpenGL waterfall plotter and an AM radio receiver that can be used to listen to [Airband](https://en.wikipedia.org/wiki/Airband).
+
 Clone and build:
 
 ```
