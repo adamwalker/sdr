@@ -58,6 +58,11 @@ To run the waterfall plot:
 .cabal-sandbox/bin/waterfall -f <center frequency, e.g. 90.2M> -r <sample rate, e.g. 1280M>
 ```
 
+To run the AM receiver:
+```
+.cabal-sandbox/bin/am -f <center frequency, e.g. 124.4M> 
+```
+
 # Usage
 
 An FM receiver:
