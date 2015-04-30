@@ -4,6 +4,8 @@
  * TODO: better performance might be possible by avoiding unaligned memory accesses.
  */
 
+#include <x86intrin.h>
+
 /*
  * Real horizontal addition
  */
