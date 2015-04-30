@@ -47,7 +47,7 @@ library
         rtlsdr               >=0.1   && <0.2, 
         storable-complex     >=0.2   && <0.3, 
         pipes-bytestring     >=2.0   && <2.2, 
-        dynamic-graph        ==0.1.0.7,
+        dynamic-graph        ==0.1.0.8,
         array                >=0.4   && <0.6, 
         vector               >=0.10  && <0.11,
         tuple                >=0.2   && <0.4, 
