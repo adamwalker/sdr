@@ -59,7 +59,7 @@ makeComplexBufferVect input = VG.generate (VG.length input `quot` 2) convert
 foreign import ccall unsafe "convertC"
     convertC_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
--- | Same as `makeComplexBufferVect` but written in C
+-- | Same as `makeComplexBufferVect` but written in C and specialized for Floats
 convertC :: VS.Vector CUChar -> VS.Vector (Complex Float)
 convertC inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
@@ -71,7 +71,7 @@ convertC inBuf = unsafePerformIO $ do
 foreign import ccall unsafe "convertCSSE"
     convertCSSE_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
--- | Same as `makeComplexBufferVect` but written in C using SSE intrinsics
+-- | Same as `makeComplexBufferVect` but written in C using SSE intrinsics and specialized for Floats
 convertCSSE :: VS.Vector CUChar -> VS.Vector (Complex Float)
 convertCSSE inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
@@ -83,7 +83,7 @@ convertCSSE inBuf = unsafePerformIO $ do
 foreign import ccall unsafe "convertCAVX"
     convertCAVX_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
--- | Same as `makeComplexBufferVect` but written in C using AVX intrinsics
+-- | Same as `makeComplexBufferVect` but written in C using AVX intrinsics and specialized for Floats
 convertCAVX :: VS.Vector CUChar -> VS.Vector (Complex Float)
 convertCAVX inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
@@ -97,7 +97,10 @@ foreign import ccall unsafe "scale"
     scale_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
 -- | Scale a vector, written in C
-scaleC :: Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleC :: Float                      -- ^ Scale factor
+       -> VS.Vector Float            -- ^ Input vector
+       -> VS.MVector RealWorld Float -- ^ Output vector
+       -> IO ()
 scaleC factor inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
@@ -107,7 +110,10 @@ foreign import ccall unsafe "scaleSSE"
     scaleSSE_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat-> IO ()
 
 -- | Scale a vector, written in C using SSE intrinsics
-scaleCSSE :: Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleCSSE :: Float                      -- ^ Scale factor
+          -> VS.Vector Float            -- ^ Input vector
+          -> VS.MVector RealWorld Float -- ^ Output vector
+          -> IO ()
 scaleCSSE factor inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
@@ -117,15 +123,22 @@ foreign import ccall unsafe "scaleAVX"
     scaleAVX_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
 -- | Scale a vector, written in C using AVX intrinsics
-scaleCAVX :: Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleCAVX :: Float                      -- ^ Scale factor
+          -> VS.Vector Float            -- ^ Input vector
+          -> VS.MVector RealWorld Float -- ^ Output vector
+          -> IO ()
 scaleCAVX factor inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             scaleAVX_c (fromIntegral (VG.length inBuf)) (unsafeCoerce factor) iPtr oPtr
 
-cplxMap :: (a -> b) -> Complex a -> Complex b
+-- | Apply a function to both parts of a complex number
+cplxMap :: (a -> b)  -- ^ The function
+        -> Complex a -- ^ Input complex number
+        -> Complex b -- ^ Output complex number
 cplxMap f (x :+ y) = f x :+ f y
 
+-- | Multiplication by this vector shifts all frequencies up by 1/4 of the sampling frequency
 quarterBandUp :: (VG.Vector v (Complex n), Num n) 
               => Int -- ^ The length of the Vector
               -> v (Complex n)
