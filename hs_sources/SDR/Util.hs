@@ -97,31 +97,31 @@ foreign import ccall unsafe "scale"
     scale_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
 -- | Scale a vector, written in C
-scaleC :: Int -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-scaleC num factor inBuf outBuf = 
+scaleC :: Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleC factor inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            scale_c (fromIntegral num) (unsafeCoerce factor) iPtr oPtr
+            scale_c (fromIntegral (VG.length inBuf)) (unsafeCoerce factor) iPtr oPtr
 
 foreign import ccall unsafe "scaleSSE"
     scaleSSE_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat-> IO ()
 
 -- | Scale a vector, written in C using SSE intrinsics
-scaleCSSE :: Int -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-scaleCSSE num factor inBuf outBuf = 
+scaleCSSE :: Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleCSSE factor inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            scaleSSE_c (fromIntegral num) (unsafeCoerce factor) iPtr oPtr
+            scaleSSE_c (fromIntegral (VG.length inBuf)) (unsafeCoerce factor) iPtr oPtr
 
 foreign import ccall unsafe "scaleAVX"
     scaleAVX_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
 -- | Scale a vector, written in C using AVX intrinsics
-scaleCAVX :: Int -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
-scaleCAVX num factor inBuf outBuf = 
+scaleCAVX :: Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleCAVX factor inBuf outBuf = 
     VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            scaleAVX_c (fromIntegral num) (unsafeCoerce factor) iPtr oPtr
+            scaleAVX_c (fromIntegral (VG.length inBuf)) (unsafeCoerce factor) iPtr oPtr
 
 cplxMap :: (a -> b) -> Complex a -> Complex b
 cplxMap f (x :+ y) = f x :+ f y
