@@ -1,12 +1,38 @@
 name:                sdr
 version:             0.1.0.0
-synopsis:            Software defined radio library
-description:         A Software Defined Radio Library. 
+synopsis:            A software defined radio library
+description:         
+    Write software defined radio applications in Haskell.
+    .
+    Features:
+    .
+    * Signal processing blocks can be chained together using the <https://hackage.haskell.org/package/pipes Pipes> library
+    .
+    * Signal processing functions are implemented in both Haskell and C (with SIMD acceleration)
+    .
+    * Can FIR filter, decimate and resample
+    .
+    * Helper functions for FIR filter design using window functions and plotting of the frequency response
+    .
+    * FFTs using <http://www.fftw.org/ FFTW>
+    .
+    * Line and waterfall plots using OpenGL
+    .
+    * FM demodulation
+    .
+    * PulseAudio sound sink
+    .
+    * <http://sdr.osmocom.org/trac/wiki/rtl-sdr rtl-sdr> based radio source supported and other sources are easily added
+    .
+    See <https://github.com/adamwalker/sdr> for more features and screenshots.
+    .
+    A collection of simple apps that use this library can be found <https://github.com/adamwalker/sdr-apps here>. These include an FM radio receiver, an OpenGL waterfall plotter and an AM radio receiver.
+
 license:             BSD3
 license-file:        LICENSE
 author:              Adam Walker
 maintainer:          adamwalker10@gmail.com
-copyright:           2014 Adam Walker
+copyright:           2015 Adam Walker
 category:            Software Defined Radio
 homepage:            https://github.com/adamwalker/sdr
 bug-reports:         https://github.com/adamwalker/sdr/issues
