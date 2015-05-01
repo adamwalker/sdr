@@ -3,14 +3,16 @@
 {-| FM demodulation pipes -}
 module SDR.Demod (
     fmDemodStr,
-    fmDemodVec
+    fmDemodVec,
+    fmDemod
     ) where
 
 import Data.Complex
-import Data.Vector.Generic
+import Data.Vector.Generic       as VG
 import Data.Vector.Fusion.Stream
 
 import SDR.VectorUtils
+import Pipes
 
 -- | FM demodulate a stream of complex samples
 {-# INLINE fmDemodStr #-}
@@ -31,3 +33,11 @@ fmDemodVec :: (RealFloat a, Vector v (Complex a), Vector v a)
            -> v a           -- ^ The output Vector
 fmDemodVec init = unstream . fmDemodStr init . stream
 
+{-# INLINE fmDemod #-}
+fmDemod :: (RealFloat a, Vector v (Complex a), Vector v a) => Pipe (v (Complex a)) (v a) IO ()
+fmDemod = func 0
+    where
+    func lastSample = do
+        dat <- await
+        yield $ fmDemodVec lastSample dat
+        func $ VG.unsafeIndex dat (VG.length dat - 1)

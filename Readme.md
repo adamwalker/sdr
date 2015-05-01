@@ -105,7 +105,7 @@ main = eitherT putStrLn return $ do
         runEffect $   str
                   >-> P.map convertCAVX 
                   >-> firDecimator deci samples 
-                  >-> P.map (fmDemodVec 0) 
+                  >-> fmDemod
                   >-> firResampler resp samples 
                   >-> firFilter filt samples
                   >-> P.map (VG.map (* 0.2)) 
