@@ -116,3 +116,6 @@ main = eitherT putStrLn return $ do
 I started this project to learn about signal processing. I still have no idea what I'm doing.
 
 Only tested on Arch Linux.
+
+If you actually use this library for anything, let me know: adamwalker10@gmail.com
+
