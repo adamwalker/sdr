@@ -8,6 +8,8 @@ description:
     .
     * Signal processing blocks can be chained together using the <https://hackage.haskell.org/package/pipes Pipes> library
     .
+    * Zero copy design
+    .
     * Signal processing functions are implemented in both Haskell and C (with SIMD acceleration)
     .
     * Can FIR filter, decimate and resample
