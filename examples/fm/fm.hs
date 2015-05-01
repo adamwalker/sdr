@@ -30,10 +30,10 @@ main = eitherT putStrLn return $ do
 
         runEffect $   str
                   >-> P.map convertCAVX 
-                  >-> decimate deci samples 
+                  >-> firDecimator deci samples 
                   >-> P.map (fmDemodVec 0) 
-                  >-> resample resp samples 
-                  >-> filterr filt samples
+                  >-> firResampler resp samples 
+                  >-> firFilter filt samples
                   >-> P.map (VG.map (* 0.2)) 
                   >-> sink
 

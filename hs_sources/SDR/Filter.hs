@@ -46,13 +46,13 @@ module SDR.Filter (
     fastResampler,
 
     -- * Filter
-    filterr,
+    firFilter,
 
     -- * Decimate
-    decimate,
+    firDecimator,
 
     -- * Resample
-    resample,
+    firResampler,
 
     -- * DC Blocking Filter
     dcBlockingFilter
@@ -283,13 +283,13 @@ assert loc False = error loc
 assert loc True  = return ()
 
 --Filtering
-{-# INLINE filterr #-}
+{-# INLINE firFilter #-}
 {-| Create a pipe that performs filtering -}
-filterr :: (PrimMonad m, Functor m, VG.Vector v a, Num a) 
+firFilter :: (PrimMonad m, Functor m, VG.Vector v a, Num a) 
         => Filter m v (VG.Mutable v) a -- ^ The `Filter` data structure
         -> Int                         -- ^ The output block size
         -> Pipe (v a) (v a) m ()       -- ^ The `Pipe` that does the filtering
-filterr Filter{..} blockSizeOut = do
+firFilter Filter{..} blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
     simple inBuf outBuf 
@@ -325,13 +325,13 @@ filterr Filter{..} blockSizeOut = do
             False -> crossover (VG.drop count bufLast) bufNext bufferOut'
 
 --Decimation
-{-# INLINE decimate #-}
+{-# INLINE firDecimator #-}
 {-| Create a pipe that performs decimation -}
-decimate :: (PrimMonad m, Functor m, VG.Vector v a, Num a) 
+firDecimator :: (PrimMonad m, Functor m, VG.Vector v a, Num a) 
          => Decimator m v (VG.Mutable v) a -- ^ The `Decimator` data structure
          -> Int                            -- ^ The output block size
          -> Pipe (v a) (v a) m ()          -- ^ The `Pipe` that does the decimation
-decimate Decimator{..} blockSizeOut = do
+firDecimator Decimator{..} blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
     simple inBuf outBuf
@@ -430,13 +430,13 @@ o = o - decimation + k * interpolation
 --Rational resampling
 quotUp q d = (q + (d - 1)) `quot` d
 
-{-# INLINE resample #-}
+{-# INLINE firResampler #-}
 {-| Create a pipe that performs resampling -}
-resample :: (PrimMonad m, VG.Vector v a, Num a) 
+firResampler :: (PrimMonad m, VG.Vector v a, Num a) 
          => Resampler m v (VG.Mutable v) a -- ^ The `Resampler` data structure
          -> Int                            -- ^ The output block size
          -> Pipe (v a) (v a) m ()          -- ^ The `Pipe` that does the resampling
-resample Resampler{..} blockSizeOut = do
+firResampler Resampler{..} blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
     simple inBuf outBuf 0
