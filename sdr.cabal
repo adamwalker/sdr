@@ -65,7 +65,7 @@ library
     other-extensions:    ScopedTypeVariables, GADTs
     build-depends:       
         base                 >=4.6   && <4.9, 
-        fftw                 >=0.1   && <0.2, 
+        fftwRaw              >=0.1   && <0.2, 
         bytestring           >=0.10  && <0.11, 
         pulse-simple         >=0.1   && <0.2, 
         pipes                >=4.1   && <4.2, 
