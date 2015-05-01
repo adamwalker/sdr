@@ -1,29 +1,36 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import           System.Exit
 import           Control.Monad.Primitive 
-import           Control.Monad
-import           Foreign.C.Types
-import           Foreign.Ptr
-import           Unsafe.Coerce
 import           Data.Complex
 
 import qualified Data.Vector.Generic               as VG
 import qualified Data.Vector.Generic.Mutable       as VGM
 import qualified Data.Vector.Storable              as VS
 import qualified Data.Vector.Storable.Mutable      as VSM
-import qualified Data.Vector.Fusion.Stream         as VFS
-import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic
-
-import           Foreign.Storable.Complex
+import           Test.Framework (defaultMain, testGroup)
+import           Test.Framework.Providers.QuickCheck2 (testProperty)
 
 import           SDR.FilterInternal
 import           SDR.Util
 
-theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, counterexample "Complex Filters" propFiltersComplex, counterexample "Real Decimators" propDecimationReal, counterexample "Complex Decimators" propDecimationComplex, counterexample "Conversion" propConversion, counterexample "Scale" propScaleReal]
+tests = [
+        testGroup "filters" [
+            testProperty "real"    propFiltersReal,
+            testProperty "complex" propFiltersComplex
+        ],
+        testGroup "decimators" [
+            testProperty "real"    propDecimationReal,
+            testProperty "complex" propDecimationComplex
+        ],
+        testGroup "resamplers" [
+            testProperty "real" propResamplingReal
+        ],
+        testProperty "conversion" propConversion,
+        testProperty "scaling"    propScaleReal
+    ]
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
@@ -202,5 +209,5 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
     duplicate = concat . map func 
         where func x = [x, x]
 
-main = theTest >> exitSuccess
+main = defaultMain tests
 
