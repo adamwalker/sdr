@@ -39,7 +39,7 @@ sdrStream frequency sampleRate bufNum bufLen = do
 
         resetBuffer dev
 
-        (output, input) <- spawn Unbounded
+        (output, input) <- spawn unbounded
 
         forkOS $ void $ readAsync dev bufNum bufLen $ \dat num -> void $ do
             let numBytes = fromIntegral $ bufNum * bufLen

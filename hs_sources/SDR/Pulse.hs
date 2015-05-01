@@ -17,7 +17,7 @@ import Pipes.Concurrent
 -- | Returns a consumer that sends all incoming data to pulseaudio. Runs Pulse Audio output writing in a different thread. This is probably what you want as it does not block the entire pipline while the data is being played.
 pulseAudioSink :: IO (Consumer (VS.Vector Float) IO ())
 pulseAudioSink = do
-    (output, input) <- spawn Single
+    (output, input) <- spawn $ bounded 1
     doIt <- doPulse 
     forkOS $ runEffect $ fromInput input >-> doIt
     return $ toOutput output
