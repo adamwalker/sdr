@@ -186,9 +186,9 @@ theTest = quickCheck $ conjoin [counterexample "Real Filters" propFiltersReal, c
     testScaleReal size inBuf factor = monadicIO $ do
         let vInput = VS.fromList inBuf
 
-        r1 <- run $ getResult size $ scaleC    size factor vInput
-        r2 <- run $ getResult size $ scaleCSSE size factor vInput
-        r3 <- run $ getResult size $ scaleCAVX size factor vInput
+        r1 <- run $ getResult size $ scaleC    factor vInput
+        r2 <- run $ getResult size $ scaleCSSE factor vInput
+        r3 <- run $ getResult size $ scaleCAVX factor vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3]
 
