@@ -7,7 +7,7 @@ module SDR.Plot (
 
     -- * Waterfalls
     plotWaterfall,
-    plotWaterfallAxes,
+    --plotWaterfallAxes,
 
     -- * Filled In Line Graphs
     plotFill,
@@ -77,6 +77,7 @@ plotWaterfall :: Int       -- ^ Window width
               -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotWaterfall windowWidth windowHeight width height colorMap = window windowWidth windowHeight $ renderWaterfall width height colorMap 
 
+{-
 -- | Create a window and plot a waterfall of the incoming data. With Axes. TODO: doesnt work.
 plotWaterfallAxes :: Int       -- ^ Window width   
                   -> Int       -- ^ Window height
@@ -97,6 +98,7 @@ plotWaterfallAxes windowWidth windowHeight width height colorMap rm = window win
             lift $ viewport $= (Position 50 50, Size (fromIntegral width - 100) (fromIntegral height - 100))
 
             yield dat
+-}
 
 -- | Create a window and plot a dynamic filled in line graph of the incoming data.
 plotFill :: Int       -- ^ Window width
