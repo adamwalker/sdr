@@ -6,11 +6,11 @@
 
     We divide the filtering code by these two cases. Each filter (or decimator, resampler) is described by a data structure such as `Filter` with two functions, one for filtering within a single buffer and one that crosses buffers. 
 
-    The user must first create one of these data structures using the helper functions and pass this data structure to one of `filterr`, `decimate`, or `resample` to create the `Pipe` that does the filtering. For example:
+    The user must first create one of these data structures using the helper functions and pass this data structure to one of `firFilter`, `firDecimator`, or `firResampler` to create the `Pipe` that does the filtering. For example:
 
     > decimatorStruct   <- fastDecimatorC decimation coeffs
     > let decimatorPipe :: Pipe (Vector (Complex Float)) (Vector (Complex Float)) IO ()
-    >     decimatorPipe =  decimate decimatorStruct outputSize
+    >     decimatorPipe =  firDecimator decimatorStruct outputSize
 
     There are polymorphic Haskell only implementations of filtering, decimation and resampling, for example, `haskellFilter`. In addition, there are optimised C implementations that use SIMD instructions on x86 machines, such as `fastFilterR`. These are always specialized to either real or complex numbers. There are also even faster implementations specialized for the case where the filter coefficients are symmetric as in a linear phase filter such as `fastSymmetricFilterR`.
 
