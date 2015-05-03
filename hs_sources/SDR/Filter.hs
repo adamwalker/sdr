@@ -19,8 +19,6 @@
     In the future we may avoid the cross buffer filtering function by mapping the buffers consecutively in memory as (I believe) GNU Radio does.
 
     An extensive benchmark suite exists in the /benchmarks subdirectory of this package.
-
-    TODO: interpolation not implemented.
 -}
 module SDR.Filter (
     -- * Types
@@ -43,7 +41,7 @@ module SDR.Filter (
 
     -- ** Resamplers
     haskellResampler,
-    fastResampler,
+    --fastResampler,
 
     -- * Filter
     firFilter,
@@ -242,6 +240,7 @@ haskellResampler interpolationR decimationR coeffs = do
         numCoeffsR  = length coeffs
     return $ Resampler {..}
 
+{-
 {-# INLINE fastResampler #-}
 -- | Returns a fast Resampler data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
 fastResampler :: Int                                          -- ^ The interpolation factor
@@ -256,6 +255,7 @@ fastResampler interpolationR decimationR coeffs = do
         resampleCross = resampleCrossHighLevel interpolationR decimationR vCoeffs
         numCoeffsR    = length coeffs
     return $ Resampler {..}
+-}
 
 data Buffer v a = Buffer {
     buffer :: v a,
