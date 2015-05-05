@@ -39,7 +39,7 @@ category:            Software Defined Radio
 homepage:            https://github.com/adamwalker/sdr
 bug-reports:         https://github.com/adamwalker/sdr/issues
 build-type:          Simple
--- extra-source-files:  
+extra-source-files:  Readme.md
 cabal-version:       >=1.10
 
 source-repository head
