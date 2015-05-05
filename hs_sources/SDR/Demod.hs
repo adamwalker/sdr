@@ -33,6 +33,7 @@ fmDemodVec :: (RealFloat a, Vector v (Complex a), Vector v a)
            -> v a           -- ^ The output Vector
 fmDemodVec init = unstream . fmDemodStr init . stream
 
+-- | Pipe that performs FM demodulation
 {-# INLINE fmDemod #-}
 fmDemod :: (RealFloat a, Vector v (Complex a), Vector v a) => Pipe (v (Complex a)) (v a) IO ()
 fmDemod = func 0

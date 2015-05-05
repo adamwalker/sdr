@@ -148,7 +148,7 @@ zeroAxes width height bandwidth interval = do
     xAxisGrid gray 1 [] 50 (fromIntegral height - 50) xCoords
     yAxisGrid gray 1 [4, 2] 50 (fromIntegral width - 50)  yCoords
 
--- | Create a Cairo `Render` monad that draws a set of axes witb the X axis centered on a specified value.
+-- | Create a Cairo `Render` monad that draws a set of axes with the X axis centered on a specified value.
 centeredAxes :: Int       -- ^ Image width
              -> Int       -- ^ Image height
              -> Double    -- ^ Center X value
