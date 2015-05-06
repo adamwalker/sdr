@@ -332,7 +332,7 @@ mkResampler func n interpolation decimation coeffs = do
     groupsP     <- mapM newArray $ map (map realToFrac) groups
     groupsPP    <- newArray groupsP
     incrementsP <- newArray $ map fromIntegral increments
-    return $ \num offset -> resampleFFIR $ func (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsPP
+    return $ \offset num -> resampleFFIR $ func (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsPP
     where
     Coeffs {..} = prepareCoeffs n interpolation decimation coeffs
 

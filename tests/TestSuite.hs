@@ -34,8 +34,8 @@ tests = [
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
-    factors         = elements [1, 2, 3, 4, 7, 9, 12, 15, 21]
-    factors'        = [1, 2, 3, 4, 7, 9, 12, 15, 21]
+    factors         = elements [1, 2, 3, 5, 7, 11, 13, 17, 23]
+    factors'        = [1, 2, 3, 5, 7, 11, 13, 17, 23]
 
     propFiltersReal = forAll sizes $ \size -> 
                           forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
@@ -142,10 +142,11 @@ tests = [
                                      forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
                                         forAll (elements $ tail factors') $ \decimation -> 
                                             forAll (elements $ filter (< decimation) factors') $ \interpolation -> 
-                                                 testResamplingReal size numCoeffs interpolation decimation coeffs inBuf
+                                                forAll (elements [0..interpolation - 1]) $ \group -> 
+                                                    testResamplingReal size group numCoeffs interpolation decimation coeffs inBuf
 
-    testResamplingReal :: Int -> Int -> Int -> Int -> [Float] -> [Float] -> Property
-    testResamplingReal size numCoeffs interpolation decimation coeffs inBuf = monadicIO $ do
+    testResamplingReal :: Int -> Int -> Int -> Int -> Int -> [Float] -> [Float] -> Property
+    testResamplingReal size group numCoeffs interpolation decimation coeffs inBuf = monadicIO $ do
         let vCoeffsHalf = VS.fromList coeffs
             vCoeffs     = VS.fromList $ coeffs ++ reverse coeffs
             vInput      = VS.fromList inBuf
@@ -155,11 +156,13 @@ tests = [
         resampler4 <- run $ resampleCSSERR interpolation decimation (coeffs ++ reverse coeffs)
         resampler5 <- run $ resampleCAVXRR interpolation decimation (coeffs ++ reverse coeffs)
 
-        r1 <- run $ getResult num $ resampleHighLevel       interpolation decimation vCoeffs 0 num vInput
-        r2 <- run $ getResult num $ resampleCRR             num interpolation decimation 0 vCoeffs vInput
-        r3 <- run $ getResult num $ resampler3              num 0 vInput
-        r4 <- run $ getResult num $ resampler4              num 0 vInput
-        r5 <- run $ getResult num $ resampler5              num 0 vInput
+        let offset = interpolation - 1 - ((interpolation + group * decimation - 1) `mod` interpolation) 
+
+        r1 <- run $ getResult num $ resampleHighLevel       interpolation decimation vCoeffs offset num vInput
+        r2 <- run $ getResult num $ resampleCRR             num interpolation decimation offset vCoeffs vInput
+        r3 <- run $ getResult num $ resampler3              group num vInput
+        r4 <- run $ getResult num $ resampler4              group num vInput
+        r5 <- run $ getResult num $ resampler5              group num vInput
 
         assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5]
 
