@@ -252,12 +252,12 @@ fastResampler :: Int                                          -- ^ The interpola
 fastResampler interpolationR decimationR coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
-    resamp <- resampleCRR2 interpolationR decimationR coeffs
+    resamp <- resampleCAVXRR interpolationR decimationR coeffs
     let resampleOne   v w x y   = func1 <$> resamp (fst v) w x y
         resampleCross (group, offset) count x y z = do 
             offset' <- resampleCrossHighLevel interpolationR decimationR vCoeffs offset count x y z
             return (((group + count) `mod` interpolationR, offset'), offset')
-        numCoeffsR              = roundUp (length coeffs) interpolationR
+        numCoeffsR              = roundUp (length coeffs) (interpolationR * 8)
         func1 group             = let offset = interpolationR - 1 - ((interpolationR + group * decimationR - 1) `mod` interpolationR) in ((group, offset), offset)
         startDat                = (0, 0)
     return $ Resampler {..}
