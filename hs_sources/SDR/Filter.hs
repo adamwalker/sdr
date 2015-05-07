@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, FlexibleContexts, GADTs #-}
+{-# LANGUAGE RecordWildCards, FlexibleContexts, GADTs, ExistentialQuantification #-}
 
 {-| FIR filtering, decimation and resampling.
 
@@ -41,7 +41,7 @@ module SDR.Filter (
 
     -- ** Resamplers
     haskellResampler,
-    --fastResampler,
+    fastResampler,
 
     -- * Filter
     firFilter,
@@ -93,12 +93,13 @@ data Decimator m v vm a = Decimator {
      function to perform resampling i.e. it contains the filter coefficients 
      and pointers to the functions to do the actual resampling.
 -}
-data Resampler m v vm a = Resampler {
+data Resampler m v vm a = forall dat. Resampler {
     numCoeffsR     :: Int,
     decimationR    :: Int,
     interpolationR :: Int,
-    resampleOne    :: Int -> Int -> v a -> vm (PrimState m) a -> m Int,
-    resampleCross  :: Int -> Int -> v a -> v a -> vm (PrimState m) a -> m Int
+    startDat       :: dat,
+    resampleOne    :: dat -> Int -> v a -> vm (PrimState m) a -> m (dat, Int),
+    resampleCross  :: dat -> Int -> v a -> v a -> vm (PrimState m) a -> m (dat, Int)
 }
 
 duplicate :: [a] -> [a]
@@ -235,12 +236,13 @@ haskellResampler :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.
 haskellResampler interpolationR decimationR coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
-    let resampleOne   = resampleHighLevel      interpolationR decimationR vCoeffs
-        resampleCross = resampleCrossHighLevel interpolationR decimationR vCoeffs
-        numCoeffsR  = length coeffs
+    let resampleOne   v w x y   = func <$> resampleHighLevel      interpolationR decimationR vCoeffs v w x y   
+        resampleCross v w x y z = func <$> resampleCrossHighLevel interpolationR decimationR vCoeffs v w x y z 
+        numCoeffsR            = length coeffs
+        func          x       = (x, x)
+        startDat              = 0
     return $ Resampler {..}
 
-{-
 {-# INLINE fastResampler #-}
 -- | Returns a fast Resampler data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
 fastResampler :: Int                                          -- ^ The interpolation factor
@@ -250,12 +252,15 @@ fastResampler :: Int                                          -- ^ The interpola
 fastResampler interpolationR decimationR coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
-    resamp <- resampleCAVXRR interpolationR decimationR coeffs
-    let resampleOne   = resamp
-        resampleCross = resampleCrossHighLevel interpolationR decimationR vCoeffs
-        numCoeffsR    = length coeffs
+    resamp <- resampleCRR2 interpolationR decimationR coeffs
+    let resampleOne   v w x y   = func1 <$> resamp (fst v) w x y
+        resampleCross (group, offset) count x y z = do 
+            offset' <- resampleCrossHighLevel interpolationR decimationR vCoeffs offset count x y z
+            return (((group + count) `mod` interpolationR, offset'), offset')
+        numCoeffsR              = roundUp (length coeffs) interpolationR
+        func1 group             = let offset = interpolationR - 1 - ((interpolationR + group * decimationR - 1) `mod` interpolationR) in ((group, offset), offset)
+        startDat                = (0, 0)
     return $ Resampler {..}
--}
 
 data Buffer v a = Buffer {
     buffer :: v a,
@@ -439,16 +444,16 @@ firResampler :: (PrimMonad m, VG.Vector v a, Num a)
 firResampler Resampler{..} blockSizeOut = do
     inBuf  <- await
     outBuf <- lift $ newBuffer blockSizeOut
-    simple inBuf outBuf 0
+    simple inBuf outBuf startDat 0
 
     where
 
-    simple bufIn bufferOut@(Buffer bufOut offsetOut) filterOffset = do
+    simple bufIn bufferOut@(Buffer bufOut offsetOut) dat filterOffset = do
         assert "resample 1" (VG.length bufIn * interpolationR >= numCoeffsR - filterOffset)
         --available number of samples == interpolation * num_input
         --required number of samples  == decimation * (num_output - 1) + filter_length - filter_offset
         let count = min (((VG.length bufIn * interpolationR - numCoeffsR + filterOffset) `quot` decimationR) + 1) (space bufferOut)
-        endOffset <- lift $ resampleOne filterOffset count bufIn (VGM.unsafeDrop offsetOut bufOut)
+        (dat, endOffset) <- lift $ resampleOne dat count bufIn (VGM.unsafeDrop offsetOut bufOut)
         assert "resample 2" ((count * decimationR + endOffset - filterOffset) `rem` interpolationR == 0)
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
         --samples no longer needed starting from filterOffset == count * decimation - filterOffset
@@ -457,30 +462,30 @@ firResampler Resampler{..} blockSizeOut = do
             bufIn'    = VG.drop usedInput bufIn
 
         case VG.length bufIn' * interpolationR < numCoeffsR - endOffset of
-            False -> simple bufIn' bufferOut' endOffset
+            False -> simple bufIn' bufferOut' dat endOffset
             True  -> do
                 next <- await
                 --TODO: why is this not needed in filter and decimator
                 case VG.length bufIn' == 0 of
-                    True ->  simple    next bufferOut' endOffset
-                    False -> crossover bufIn' next bufferOut' endOffset
+                    True ->  simple    next bufferOut' dat endOffset
+                    False -> crossover bufIn' next bufferOut' dat endOffset
 
-    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut) filterOffset = do
+    crossover bufLast bufNext bufferOut@(Buffer bufOut offsetOut) dat filterOffset = do
         assert "resample 3" (VG.length bufLast * interpolationR < numCoeffsR - filterOffset)
         --outputsComputable is the number of outputs that need to be computed for the last buffer to no longer be needed
         --outputsComputable * decimation == numInput * interpolation + filterOffset + k
         let outputsComputable = (VG.length bufLast * interpolationR + filterOffset) `quotUp` decimationR
             count = min outputsComputable (space bufferOut)
         assert "resample 4" (count /= 0)
-        endOffset <- lift $ resampleCross filterOffset count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
+        (dat, endOffset) <- lift $ resampleCross dat count bufLast bufNext (VGM.unsafeDrop offsetOut bufOut)
         assert "resample 5" ((count * decimationR + endOffset - filterOffset) `rem` interpolationR == 0)
         bufferOut' <- advanceOutBuf blockSizeOut bufferOut count
 
         let inputUsed = (count * decimationR - filterOffset) `quotUp` interpolationR
 
         case inputUsed >= VG.length bufLast of 
-            True  -> simple (VG.drop (inputUsed - VG.length bufLast) bufNext) bufferOut' endOffset
-            False -> crossover (VG.drop inputUsed bufLast) bufNext bufferOut' endOffset
+            True  -> simple (VG.drop (inputUsed - VG.length bufLast) bufNext) bufferOut' dat endOffset
+            False -> crossover (VG.drop inputUsed bufLast) bufNext bufferOut' dat endOffset
 
 -- | A DC blocking filter
 dcBlockingFilter :: Pipe (VS.Vector Float) (VS.Vector Float) IO ()
