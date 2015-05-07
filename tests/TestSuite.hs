@@ -138,7 +138,7 @@ tests = [
 
     propResamplingReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
-                                 forAll numCoeffs $ \numCoeffs -> 
+                                 forAll (elements [32 .. 512]) $ \numCoeffs -> 
                                      forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
                                         forAll (elements $ tail factors') $ \decimation -> 
                                             forAll (elements $ filter (< decimation) factors') $ \interpolation -> 
