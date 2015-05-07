@@ -118,9 +118,9 @@ theBench = do
                 ]
             ],
             bgroup "scaling" [
-                bench "c"               $ nfIO $ scaleC    size 0.3 inBuf outBuf,
-                bench "cSSE"            $ nfIO $ scaleCSSE size 0.3 inBuf outBuf,
-                bench "cAVX"            $ nfIO $ scaleCAVX size 0.3 inBuf outBuf
+                bench "c"               $ nfIO $ scaleC    0.3 inBuf outBuf,
+                bench "cSSE"            $ nfIO $ scaleCSSE 0.3 inBuf outBuf,
+                bench "cAVX"            $ nfIO $ scaleCAVX 0.3 inBuf outBuf
             ]
         ]
 
