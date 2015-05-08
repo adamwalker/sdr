@@ -181,7 +181,7 @@ fastFilterAVXR :: [Float]                                -- ^ The filter coeffic
             -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
 fastFilterAVXR = mkFilter 8 filterCAVXRR
 
--- | Returns a fast Filter data structure implemented in C using whatever SIMD instructions your processor has available. For filtering real data with real coefficients.
+-- | Returns a fast Filter data structure implemented in C using the fastest SIMD instruction set your processor supports. For filtering real data with real coefficients.
 fastFilterR :: CPUInfo                                   -- ^ The CPU's capabilities
             -> [Float]                                   -- ^ The filter coefficients
             -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
@@ -220,7 +220,7 @@ fastFilterAVXC :: [Float]                                          -- ^ The filt
                -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
 fastFilterAVXC = mkFilterC 4 filterCAVXRC
 
--- | Returns a fast Filter data structure implemented in C using whatever SIMD instructions your processor has available. For filtering complex data with real coefficients.
+-- | Returns a fast Filter data structure implemented in C using the fastest SIMD instruction set your processor supports. For filtering complex data with real coefficients.
 fastFilterC :: CPUInfo                                             -- ^ The CPU's capabilities
             -> [Float]                                             -- ^ The filter coefficients
             -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
@@ -290,7 +290,7 @@ fastDecimatorAVXR :: Int                                          -- ^ The decim
                   -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
 fastDecimatorAVXR = mkDecimator 8 decimateCAVXRR
 
--- | Returns a fast Decimator data structure implemented in C using whatever SIMD instructions your processor has available. For decimating real data with real coefficients.
+-- | Returns a fast Decimator data structure implemented in C using the fastest SIMD instruction set your processor supports. For decimating real data with real coefficients.
 fastDecimatorR :: CPUInfo                                      -- ^ The CPU's capabilities
                -> Int                                          -- ^ The decimation factor
                -> [Float]                                      -- ^ The filter coefficients
@@ -334,7 +334,7 @@ fastDecimatorAVXC :: Int                                                 -- ^ Th
                -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
 fastDecimatorAVXC = mkDecimatorC 4 decimateCAVXRC
 
--- | Returns a fast Decimator data structure implemented in C using whatever SIMD instructions your processor has available. For decimating complex data with real coefficients.
+-- | Returns a fast Decimator data structure implemented in C using the fastest SIMD instruction set your processor supports. For decimating complex data with real coefficients.
 fastDecimatorC :: CPUInfo                                                -- ^ The CPU's capabilities
                -> Int                                                    -- ^ The decimation factor
                -> [Float]                                                -- ^ The filter coefficients
@@ -416,7 +416,7 @@ fastResamplerAVXR :: Int                                          -- ^ The inter
                   -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
 fastResamplerAVXR = mkResampler 8 resampleCAVXRR
 
--- | Returns a fast Resampler data structure implemented in C using whatever SIMD instructions your processor has available. For resampling real data with real coefficients.
+-- | Returns a fast Resampler data structure implemented in C using the fastest SIMD instruction set your processor supports. For resampling real data with real coefficients.
 fastResamplerR :: CPUInfo                                      -- ^ The CPU's capabilities
                -> Int                                          -- ^ The interpolation factor
                -> Int                                          -- ^ The decimation factor
