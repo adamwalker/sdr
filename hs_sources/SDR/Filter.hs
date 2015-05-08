@@ -47,8 +47,20 @@ module SDR.Filter (
 
     -- ** Decimators
     haskellDecimator,
+
+    -- *** Real Data
+    fastDecimatorCR,
+    fastDecimatorSSER,
+    fastDecimatorAVXR,
     fastDecimatorR,
+
+    -- *** Complex Data
+    fastDecimatorCC,
+    fastDecimatorSSEC,
+    fastDecimatorAVXC,
     fastDecimatorC,
+
+    -- *** Linear Phase
     fastSymmetricDecimatorR,
 
     -- ** Resamplers
@@ -169,9 +181,9 @@ fastFilterR :: CPUInfo -> [Float] -> IO (Filter IO VS.Vector VS.MVector Float)
 fastFilterR info = featureSelect info fastFilterCR [(hasAVX, fastFilterAVXR), (hasSSE42, fastFilterSSER)]
 
 mkFilterC :: Int
-            -> FilterRC
-            -> [Float]                                             
-            -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) 
+          -> FilterRC
+          -> [Float]                                             
+          -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) 
 mkFilterC sizeMultiple filterFunc coeffs = do
     let l           = length coeffs
         numCoeffsF  = roundUp sizeMultiple l
@@ -233,36 +245,86 @@ haskellDecimator decimationD coeffs = do
         numCoeffsD    = length coeffs
     return $ Decimator {..}
 
-{-# INLINE fastDecimatorR #-}
--- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating real data with real coefficients.
-fastDecimatorR :: Int                                          -- ^ The decimation factor
-               -> [Float]                                      -- ^ The filter coefficients
-               -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
-fastDecimatorR decimationD coeffs = do
+mkDecimator :: Int                                          
+            -> DecimateRR
+            -> Int
+            -> [Float]                                      
+            -> IO (Decimator IO VS.Vector VS.MVector Float) 
+mkDecimator sizeMultiple filterFunc decimationD coeffs = do
     let l          = length coeffs
-        numCoeffsD = roundUp l 8
+        numCoeffsD = roundUp l sizeMultiple
         diff       = numCoeffsD - l
         vCoeffs    = VG.fromList $ coeffs ++ replicate diff 0
     evaluate vCoeffs
-    let decimateOne   = decimateCAVXRR         decimationD vCoeffs
+    let decimateOne   = filterFunc             decimationD vCoeffs
         decimateCross = decimateCrossHighLevel decimationD vCoeffs
     return $ Decimator {..}
 
-{-# INLINE fastDecimatorC #-}
--- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating complex data with real coefficients.
-fastDecimatorC :: Int                                                    -- ^ The decimation factor
-               -> [Float]                                                -- ^ The filter coefficients
-               -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
-fastDecimatorC decimationD coeffs = do
+{-# INLINE fastDecimatorCR #-}
+-- | Returns a fast Decimator data structure implemented in C. For decimating real data with real coefficients.
+fastDecimatorCR :: Int                                          -- ^ The decimation factor
+                -> [Float]                                      -- ^ The filter coefficients
+                -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
+fastDecimatorCR = mkDecimator 1 decimateCRR
+
+{-# INLINE fastDecimatorSSER #-}
+-- | Returns a fast Decimator data structure implemented in C using SSE instructions. For decimating real data with real coefficients.
+fastDecimatorSSER :: Int                                          -- ^ The decimation factor
+                  -> [Float]                                      -- ^ The filter coefficients
+                  -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
+fastDecimatorSSER = mkDecimator 4 decimateCSSERR
+
+{-# INLINE fastDecimatorAVXR #-}
+-- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating real data with real coefficients.
+fastDecimatorAVXR :: Int                                          -- ^ The decimation factor
+                  -> [Float]                                      -- ^ The filter coefficients
+                  -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
+fastDecimatorAVXR = mkDecimator 8 decimateCAVXRR
+
+-- | Returns a fast Decimator data structure implemented in C using whatever SIMD instructions your processor has available. For decimating real data with real coefficients.
+fastDecimatorR :: CPUInfo -> Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector Float)
+fastDecimatorR info = featureSelect info fastDecimatorCR [(hasAVX, fastDecimatorAVXR), (hasSSE42, fastDecimatorSSER)]
+
+mkDecimatorC :: Int
+             -> DecimateRC
+             -> Int 
+             -> [Float]
+             -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) 
+mkDecimatorC sizeMultiple filterFunc decimationD coeffs = do
     let l          = length coeffs
-        numCoeffsD = roundUp l 4
+        numCoeffsD = roundUp l sizeMultiple
         diff       = numCoeffsD - l
         vCoeffs    = VG.fromList $ duplicate $ coeffs ++ replicate diff 0
         vCoeffs2   = VG.fromList $ coeffs ++ replicate diff 0
     evaluate vCoeffs
-    let decimateOne   = decimateCAVXRC         decimationD vCoeffs
+    let decimateOne   = filterFunc             decimationD vCoeffs
         decimateCross = decimateCrossHighLevel decimationD vCoeffs2
     return $ Decimator {..}
+
+{-# INLINE fastDecimatorCC #-}
+-- | Returns a fast Decimator data structure implemented in C. For decimating complex data with real coefficients.
+fastDecimatorCC :: Int                                                    -- ^ The decimation factor
+                -> [Float]                                                -- ^ The filter coefficients
+                -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
+fastDecimatorCC = mkDecimatorC 1 decimateCRC 
+
+{-# INLINE fastDecimatorSSEC #-}
+-- | Returns a fast Decimator data structure implemented in C using SSE instructions. For decimating complex data with real coefficients.
+fastDecimatorSSEC :: Int                                                    -- ^ The decimation factor
+                  -> [Float]                                                -- ^ The filter coefficients
+                  -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
+fastDecimatorSSEC = mkDecimatorC 2 decimateCSSERC
+
+{-# INLINE fastDecimatorAVXC #-}
+-- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating complex data with real coefficients.
+fastDecimatorAVXC :: Int                                                 -- ^ The decimation factor
+               -> [Float]                                                -- ^ The filter coefficients
+               -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
+fastDecimatorAVXC = mkDecimatorC 4 decimateCAVXRC
+
+-- | Returns a fast Decimator data structure implemented in C using whatever SIMD instructions your processor has available. For decimating complex data with real coefficients.
+fastDecimatorC :: CPUInfo -> Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector (Complex Float))
+fastDecimatorC info = featureSelect info fastDecimatorCC [(hasAVX, fastDecimatorAVXC), (hasSSE42, fastDecimatorSSEC)]
 
 {-# INLINE fastSymmetricDecimatorR #-}
 -- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating real data with real coefficients. For decimators with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
