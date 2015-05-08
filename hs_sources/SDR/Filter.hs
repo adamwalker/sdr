@@ -29,8 +29,20 @@ module SDR.Filter (
     -- * Helper Functions
     -- ** Filters
     haskellFilter,
+
+    -- *** Real Data
+    fastFilterCR,
+    fastFilterSSER,
+    fastFilterAVXR,
     fastFilterR,
+
+    -- *** Complex Data
+    fastFilterCC,
+    fastFilterSSEC,
+    fastFilterAVXC,
     fastFilterC,
+
+    -- *** Linear Phase
     fastSymmetricFilterR,
 
     -- ** Decimators
@@ -67,6 +79,7 @@ import           Pipes
 
 import           SDR.Util
 import           SDR.FilterInternal
+import           SDR.CPUID
 
 {- | A `Filter` contains all of the information needed by the `filterr` 
      function to perform filtering. i.e. it contains the filter coefficients 
@@ -119,36 +132,78 @@ haskellFilter coeffs = do
         numCoeffsF  = length coeffs
     return $ Filter {..}
 
-{-# INLINE fastFilterR #-}
--- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
-fastFilterR :: [Float]                                   -- ^ The filter coefficients
-            -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
-fastFilterR coeffs = do
+mkFilter :: Int
+         -> FilterRR
+         -> [Float]   
+         -> IO (Filter IO VS.Vector VS.MVector Float)
+mkFilter sizeMultiple filterFunc coeffs = do
     let l          = length coeffs
-        ru         = (l + 8 - 1) `quot` 8
-        numCoeffsF = ru * 8 
+        numCoeffsF = roundUp l sizeMultiple
         diff       = numCoeffsF - l
         vCoeffs    = VG.fromList $ coeffs ++ replicate diff 0
     evaluate vCoeffs
-    let filterOne   = filterCAVXRR         vCoeffs
+    let filterOne   = filterFunc           vCoeffs
         filterCross = filterCrossHighLevel vCoeffs
     return $ Filter {..}
 
-{-# INLINE fastFilterC #-}
--- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering complex data with real coefficients.
-fastFilterC :: [Float]                                             -- ^ The filter coefficients
-            -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
-fastFilterC coeffs = do
+{-# INLINE fastFilterCR #-}
+-- | Returns a fast Filter data structure implemented in C. For filtering real data with real coefficients.
+fastFilterCR :: [Float]                                   -- ^ The filter coefficients
+             -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
+fastFilterCR = mkFilter 1 filterCRR
+
+{-# INLINE fastFilterSSER #-}
+-- | Returns a fast Filter data structure implemented in C using SSE instructions. For filtering real data with real coefficients.
+fastFilterSSER :: [Float]                                -- ^ The filter coefficients
+            -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
+fastFilterSSER = mkFilter 4 filterCSSERR
+
+{-# INLINE fastFilterAVXR #-}
+-- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
+fastFilterAVXR :: [Float]                                -- ^ The filter coefficients
+            -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
+fastFilterAVXR = mkFilter 8 filterCAVXRR
+
+-- | Returns a fast Filter data structure implemented in C using whatever SIMD instructions your processor has available. For filtering real data with real coefficients.
+fastFilterR :: CPUInfo -> [Float] -> IO (Filter IO VS.Vector VS.MVector Float)
+fastFilterR info = featureSelect info fastFilterCR [(hasAVX, fastFilterAVXR), (hasSSE42, fastFilterSSER)]
+
+mkFilterC :: Int
+            -> FilterRC
+            -> [Float]                                             
+            -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) 
+mkFilterC sizeMultiple filterFunc coeffs = do
     let l           = length coeffs
-        ru          = (l + 4 - 1) `quot` 4
-        numCoeffsF  = ru * 4 
+        numCoeffsF  = roundUp sizeMultiple l
         diff        = numCoeffsF - l
         vCoeffs     = VG.fromList $ duplicate $ coeffs ++ replicate diff 0
         vCoeffs2    = VG.fromList $ coeffs ++ replicate diff 0
     evaluate vCoeffs
-    let filterOne   = filterCAVXRC         vCoeffs
+    let filterOne   = filterFunc           vCoeffs
         filterCross = filterCrossHighLevel vCoeffs2
     return $ Filter {..}
+
+{-# INLINE fastFilterCC #-}
+-- | Returns a fast Filter data structure implemented in C For filtering complex data with real coefficients.
+fastFilterCC :: [Float]                                             -- ^ The filter coefficients
+             -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
+fastFilterCC = mkFilterC 1 filterCRC
+
+{-# INLINE fastFilterSSEC #-}
+-- | Returns a fast Filter data structure implemented in C using SSE instructions. For filtering complex data with real coefficients.
+fastFilterSSEC :: [Float]                                          -- ^ The filter coefficients
+               -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
+fastFilterSSEC = mkFilterC 2 filterCSSERC
+
+{-# INLINE fastFilterAVXC #-}
+-- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering complex data with real coefficients.
+fastFilterAVXC :: [Float]                                          -- ^ The filter coefficients
+               -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
+fastFilterAVXC = mkFilterC 4 filterCAVXRC
+
+-- | Returns a fast Filter data structure implemented in C using whatever SIMD instructions your processor has available. For filtering complex data with real coefficients.
+fastFilterC :: CPUInfo -> [Float] -> IO (Filter IO VS.Vector VS.MVector (Complex Float))
+fastFilterC info = featureSelect info fastFilterCC [(hasAVX, fastFilterAVXC), (hasSSE42, fastFilterSSEC)]
 
 {-# INLINE fastSymmetricFilterR #-}
 -- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering real data with real coefficients. For filters with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
@@ -185,8 +240,7 @@ fastDecimatorR :: Int                                          -- ^ The decimati
                -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
 fastDecimatorR decimationD coeffs = do
     let l          = length coeffs
-        ru         = (l + 8 - 1) `quot` 8
-        numCoeffsD = ru * 8 
+        numCoeffsD = roundUp l 8
         diff       = numCoeffsD - l
         vCoeffs    = VG.fromList $ coeffs ++ replicate diff 0
     evaluate vCoeffs
@@ -201,8 +255,7 @@ fastDecimatorC :: Int                                                    -- ^ Th
                -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
 fastDecimatorC decimationD coeffs = do
     let l          = length coeffs
-        ru         = (l + 4 - 1) `quot` 4
-        numCoeffsD = ru * 4 
+        numCoeffsD = roundUp l 4
         diff       = numCoeffsD - l
         vCoeffs    = VG.fromList $ duplicate $ coeffs ++ replicate diff 0
         vCoeffs2   = VG.fromList $ coeffs ++ replicate diff 0
