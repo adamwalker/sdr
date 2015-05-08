@@ -96,6 +96,7 @@ convertCAVX inBuf = unsafePerformIO $ do
             convertCAVX_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
+-- | Create a vector of complex float samples from a vector of interleaved I Q component bytes. Uses the fastest SIMD instruction set your processor supports.
 convertFast :: CPUInfo -> VS.Vector CUChar -> VS.Vector (Complex Float)
 convertFast info = featureSelect info convertC [(hasAVX2, convertCAVX), (hasSSE42, convertCSSE)]
 
@@ -139,6 +140,7 @@ scaleCAVX factor inBuf outBuf =
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             scaleAVX_c (fromIntegral (VG.length inBuf)) (unsafeCoerce factor) iPtr oPtr
 
+-- | Scale a vector. Uses the fastest SIMD instruction set your processor supports.
 scaleFast :: CPUInfo -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
 scaleFast info = featureSelect info scaleC [(hasAVX, scaleCAVX), (hasSSE42, scaleCSSE)]
 
