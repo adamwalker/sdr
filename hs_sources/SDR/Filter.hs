@@ -177,7 +177,9 @@ fastFilterAVXR :: [Float]                                -- ^ The filter coeffic
 fastFilterAVXR = mkFilter 8 filterCAVXRR
 
 -- | Returns a fast Filter data structure implemented in C using whatever SIMD instructions your processor has available. For filtering real data with real coefficients.
-fastFilterR :: CPUInfo -> [Float] -> IO (Filter IO VS.Vector VS.MVector Float)
+fastFilterR :: CPUInfo                                   -- ^ The CPU's capabilities
+            -> [Float]                                   -- ^ The filter coefficients
+            -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
 fastFilterR info = featureSelect info fastFilterCR [(hasAVX, fastFilterAVXR), (hasSSE42, fastFilterSSER)]
 
 mkFilterC :: Int
@@ -214,7 +216,9 @@ fastFilterAVXC :: [Float]                                          -- ^ The filt
 fastFilterAVXC = mkFilterC 4 filterCAVXRC
 
 -- | Returns a fast Filter data structure implemented in C using whatever SIMD instructions your processor has available. For filtering complex data with real coefficients.
-fastFilterC :: CPUInfo -> [Float] -> IO (Filter IO VS.Vector VS.MVector (Complex Float))
+fastFilterC :: CPUInfo                                             -- ^ The CPU's capabilities
+            -> [Float]                                             -- ^ The filter coefficients
+            -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
 fastFilterC info = featureSelect info fastFilterCC [(hasAVX, fastFilterAVXC), (hasSSE42, fastFilterSSEC)]
 
 {-# INLINE fastSymmetricFilterR #-}
@@ -282,7 +286,10 @@ fastDecimatorAVXR :: Int                                          -- ^ The decim
 fastDecimatorAVXR = mkDecimator 8 decimateCAVXRR
 
 -- | Returns a fast Decimator data structure implemented in C using whatever SIMD instructions your processor has available. For decimating real data with real coefficients.
-fastDecimatorR :: CPUInfo -> Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector Float)
+fastDecimatorR :: CPUInfo                                      -- ^ The CPU's capabilities
+               -> Int                                          -- ^ The decimation factor
+               -> [Float]                                      -- ^ The filter coefficients
+               -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
 fastDecimatorR info = featureSelect info fastDecimatorCR [(hasAVX, fastDecimatorAVXR), (hasSSE42, fastDecimatorSSER)]
 
 mkDecimatorC :: Int
@@ -323,7 +330,10 @@ fastDecimatorAVXC :: Int                                                 -- ^ Th
 fastDecimatorAVXC = mkDecimatorC 4 decimateCAVXRC
 
 -- | Returns a fast Decimator data structure implemented in C using whatever SIMD instructions your processor has available. For decimating complex data with real coefficients.
-fastDecimatorC :: CPUInfo -> Int -> [Float] -> IO (Decimator IO VS.Vector VS.MVector (Complex Float))
+fastDecimatorC :: CPUInfo                                                -- ^ The CPU's capabilities
+               -> Int                                                    -- ^ The decimation factor
+               -> [Float]                                                -- ^ The filter coefficients
+               -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
 fastDecimatorC info = featureSelect info fastDecimatorCC [(hasAVX, fastDecimatorAVXC), (hasSSE42, fastDecimatorSSEC)]
 
 {-# INLINE fastSymmetricDecimatorR #-}
