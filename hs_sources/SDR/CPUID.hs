@@ -7,7 +7,8 @@ module SDR.CPUID (
     getCPUInfo,
     hasSSE42,
     hasAVX,
-    hasAVX2
+    hasAVX2,
+    featureSelect
     ) where
 
 import Data.Word
@@ -15,6 +16,8 @@ import Data.Bits
 import Foreign.Ptr
 import Foreign.Marshal.Alloc
 import Foreign.Storable
+import Data.List
+import Data.Maybe
 
 foreign import ccall unsafe "cpuid"
     cpuid_c :: Word32 -> Ptr Word32 -> Ptr Word32 -> Ptr Word32 -> Ptr Word32 -> IO ()
@@ -68,4 +71,7 @@ hasAVX CPUInfo{..} = testBit features avx
 hasAVX2  :: CPUInfo -> Bool
 hasAVX2 (CPUInfo _ Nothing)  = False
 hasAVX2 (CPUInfo _ (Just f)) = testBit f avx2
+
+featureSelect :: CPUInfo -> a -> [(CPUInfo -> Bool, a)] -> a
+featureSelect info def list = maybe def snd $ find (($ info) . fst) list
 

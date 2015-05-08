@@ -34,6 +34,8 @@ import           Foreign.Ptr
 import           System.IO.Unsafe
 import           Foreign.Storable.Complex
 
+import           SDR.CPUID
+
 -- | A class for things that can be multiplied by a scalar.
 class Mult a b where
     mult :: a -> b -> a
@@ -92,6 +94,9 @@ convertCAVX inBuf = unsafePerformIO $ do
             convertCAVX_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
+convertFast :: CPUInfo -> VS.Vector CUChar -> VS.Vector (Complex Float)
+convertFast info = featureSelect info convertC [(hasAVX2, convertCAVX), (hasSSE42, convertCSSE)]
+
 -- | Scaling
 foreign import ccall unsafe "scale"
     scale_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
@@ -131,6 +136,9 @@ scaleCAVX factor inBuf outBuf =
     VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             scaleAVX_c (fromIntegral (VG.length inBuf)) (unsafeCoerce factor) iPtr oPtr
+
+scaleFast :: CPUInfo -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
+scaleFast info = featureSelect info scaleC [(hasAVX, scaleCAVX), (hasSSE42, scaleCSSE)]
 
 -- | Apply a function to both parts of a complex number
 cplxMap :: (a -> b)  -- ^ The function
