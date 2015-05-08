@@ -65,7 +65,12 @@ module SDR.Filter (
 
     -- ** Resamplers
     haskellResampler,
-    fastResampler,
+
+    -- *** Real Data
+    fastResamplerCR,
+    fastResamplerSSER,
+    fastResamplerAVXR,
+    fastResamplerR,
 
     -- * Filter
     firFilter,
@@ -90,7 +95,7 @@ import           Control.Monad.Primitive
 import           Pipes
 
 import           SDR.Util
-import           SDR.FilterInternal
+import           SDR.FilterInternal          hiding (mkResampler)
 import           SDR.CPUID
 
 {- | A `Filter` contains all of the information needed by the `filterr` 
@@ -368,24 +373,56 @@ haskellResampler interpolationR decimationR coeffs = do
         startDat              = 0
     return $ Resampler {..}
 
-{-# INLINE fastResampler #-}
--- | Returns a fast Resampler data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
-fastResampler :: Int                                          -- ^ The interpolation factor
-              -> Int                                          -- ^ The decimation factor
-              -> [Float]                                      -- ^ The filter coefficients
-              -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
-fastResampler interpolationR decimationR coeffs = do
+mkResampler :: Int
+            -> ResampleRR
+            -> Int
+            -> Int
+            -> [Float] 
+            -> IO (Resampler IO VS.Vector VS.MVector Float) 
+mkResampler sizeMultiple filterFunc interpolationR decimationR coeffs = do
     let vCoeffs     = VG.fromList coeffs
     evaluate vCoeffs
-    resamp <- resampleCAVXRR interpolationR decimationR coeffs
+    resamp <- filterFunc interpolationR decimationR coeffs
     let resampleOne   v w x y   = func1 <$> resamp (fst v) w x y
         resampleCross (group, offset) count x y z = do 
             offset' <- resampleCrossHighLevel interpolationR decimationR vCoeffs offset count x y z
             return (((group + count) `mod` interpolationR, offset'), offset')
-        numCoeffsR              = roundUp (length coeffs) (interpolationR * 8)
+        numCoeffsR              = roundUp (length coeffs) (interpolationR * sizeMultiple)
         func1 group             = let offset = interpolationR - 1 - ((interpolationR + group * decimationR - 1) `mod` interpolationR) in ((group, offset), offset)
         startDat                = (0, 0)
     return $ Resampler {..}
+
+{-# INLINE fastResamplerCR #-}
+-- | Returns a fast Resampler data structure implemented in C. For filtering real data with real coefficients.
+fastResamplerCR :: Int                                          -- ^ The interpolation factor
+                -> Int                                          -- ^ The decimation factor
+                -> [Float]                                      -- ^ The filter coefficients
+                -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
+fastResamplerCR = mkResampler 1 resampleCRR2
+
+{-# INLINE fastResamplerSSER #-}
+-- | Returns a fast Resampler data structure implemented in C using SSE instructions. For filtering real data with real coefficients.
+fastResamplerSSER :: Int                                          -- ^ The interpolation factor
+                  -> Int                                          -- ^ The decimation factor
+                  -> [Float]                                      -- ^ The filter coefficients
+                  -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
+fastResamplerSSER = mkResampler 4 resampleCSSERR
+
+{-# INLINE fastResamplerAVXR #-}
+-- | Returns a fast Resampler data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
+fastResamplerAVXR :: Int                                          -- ^ The interpolation factor
+                  -> Int                                          -- ^ The decimation factor
+                  -> [Float]                                      -- ^ The filter coefficients
+                  -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
+fastResamplerAVXR = mkResampler 8 resampleCAVXRR
+
+-- | Returns a fast Resampler data structure implemented in C using whatever SIMD instructions your processor has available. For resampling real data with real coefficients.
+fastResamplerR :: CPUInfo                                      -- ^ The CPU's capabilities
+               -> Int                                          -- ^ The interpolation factor
+               -> Int                                          -- ^ The decimation factor
+               -> [Float]                                      -- ^ The filter coefficients
+               -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
+fastResamplerR info = featureSelect info fastResamplerCR [(hasAVX, fastResamplerAVXR), (hasSSE42, fastResamplerSSER)]
 
 data Buffer v a = Buffer {
     buffer :: v a,

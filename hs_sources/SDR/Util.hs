@@ -11,11 +11,13 @@ module SDR.Util (
     convertC, 
     convertCSSE,
     convertCAVX,
+    convertFast,
 
     -- * Scaling
     scaleC,
     scaleCSSE,
     scaleCAVX,
+    scaleFast,
 
     -- * Misc Utils
     cplxMap,

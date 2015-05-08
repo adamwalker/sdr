@@ -336,22 +336,24 @@ mkResampler func n interpolation decimation coeffs = do
     where
     Coeffs {..} = prepareCoeffs n interpolation decimation coeffs
 
+type ResampleRR = Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO Int)
+
 foreign import ccall unsafe "resample2"
     resample2_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
 
-resampleCRR2 :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO Int)
+resampleCRR2 :: ResampleRR
 resampleCRR2 = mkResampler resample2_c 1
 
 foreign import ccall unsafe "resampleSSERR"
     resampleCSSERR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
 
-resampleCSSERR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO Int)
+resampleCSSERR :: ResampleRR
 resampleCSSERR = mkResampler resampleCSSERR_c 4
 
 foreign import ccall unsafe "resampleAVXRR"
     resampleAVXRR_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
 
-resampleCAVXRR :: Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO Int)
+resampleCAVXRR :: ResampleRR
 resampleCAVXRR = mkResampler resampleAVXRR_c 8
 
 {-
