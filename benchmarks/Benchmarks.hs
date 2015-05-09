@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, BangPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 import           Control.Monad.Primitive 
 import           Control.Monad
@@ -19,6 +19,7 @@ import           Criterion.Main
 
 import           SDR.FilterInternal
 import           SDR.Util
+import           SDR.CPUID
 
 theBench :: IO ()
 theBench = do
@@ -57,6 +58,11 @@ theBench = do
     outBuf        :: VS.MVector RealWorld Float <- VGM.new size
     outBufComplex :: VS.MVector RealWorld (Complex Float) <- VGM.new size
 
+    info <- getCPUInfo
+
+    let hasFeatures :: [(CPUInfo -> Bool, a)] -> [a]
+        hasFeatures = map snd . filter (($ info) . fst)
+
     resampler3 <- resampleCRR2   interpolation decimation coeffsList
     resampler4 <- resampleCSSERR interpolation decimation coeffsList
     resampler5 <- resampleCAVXRR interpolation decimation coeffsList
@@ -64,63 +70,63 @@ theBench = do
     --Benchmarks
     defaultMain [
             bgroup "filter" [
-                bgroup "real" [
-                    bench "highLevel"   $ nfIO $ filterHighLevel          coeffs    num inBuf outBuf,
-                    bench "imperative1" $ nfIO $ filterImperative1        coeffs    num inBuf outBuf,
-                    bench "imperative2" $ nfIO $ filterImperative2        coeffs    num inBuf outBuf,
-                    bench "c"           $ nfIO $ filterCRR                coeffs    num inBuf outBuf,
-                    bench "cSSE"        $ nfIO $ filterCSSERR             coeffs    num inBuf outBuf,
-                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRR    coeffsSym num inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ filterCAVXRR             coeffs    num inBuf outBuf,
-                    bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR    coeffsSym num inBuf outBuf
+                bgroup "real" $ hasFeatures [
+                    (const True, bench "highLevel"   $ nfIO $ filterHighLevel          coeffs    num inBuf outBuf),
+                    (const True, bench "imperative1" $ nfIO $ filterImperative1        coeffs    num inBuf outBuf),
+                    (const True, bench "imperative2" $ nfIO $ filterImperative2        coeffs    num inBuf outBuf),
+                    (const True, bench "c"           $ nfIO $ filterCRR                coeffs    num inBuf outBuf),
+                    (hasSSE42,   bench "cSSE"        $ nfIO $ filterCSSERR             coeffs    num inBuf outBuf),
+                    (hasSSE42,   bench "cSSESym"     $ nfIO $ filterCSSESymmetricRR    coeffsSym num inBuf outBuf),
+                    (hasAVX,     bench "cAVX"        $ nfIO $ filterCAVXRR             coeffs    num inBuf outBuf),
+                    (hasAVX,     bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRR    coeffsSym num inBuf outBuf)
                 ],
-                bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ filterHighLevel          coeffs    num inBufComplex outBufComplex,
-                    bench "c"           $ nfIO $ filterCRC                coeffs    num inBufComplex outBufComplex,
-                    bench "cSSE"        $ nfIO $ filterCSSERC             coeffs2   num inBufComplex outBufComplex,
-                    bench "cSSE2"       $ nfIO $ filterCSSERC2            coeffs    num inBufComplex outBufComplex,
-                    bench "cSSESym"     $ nfIO $ filterCSSESymmetricRC    coeffsSym num inBufComplex outBufComplex,
-                    bench "cAVX"        $ nfIO $ filterCAVXRC             coeffs2   num inBufComplex outBufComplex,
-                    bench "cAVX2"       $ nfIO $ filterCAVXRC2            coeffs    num inBufComplex outBufComplex,
-                    bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRC    coeffsSym num inBufComplex outBufComplex
+                bgroup "complex" $ hasFeatures [
+                    (const True, bench "highLevel"   $ nfIO $ filterHighLevel          coeffs    num inBufComplex outBufComplex),
+                    (const True, bench "c"           $ nfIO $ filterCRC                coeffs    num inBufComplex outBufComplex),
+                    (hasSSE42,   bench "cSSE"        $ nfIO $ filterCSSERC             coeffs2   num inBufComplex outBufComplex),
+                    (hasSSE42,   bench "cSSE2"       $ nfIO $ filterCSSERC2            coeffs    num inBufComplex outBufComplex),
+                    (hasSSE42,   bench "cSSESym"     $ nfIO $ filterCSSESymmetricRC    coeffsSym num inBufComplex outBufComplex),
+                    (hasAVX,     bench "cAVX"        $ nfIO $ filterCAVXRC             coeffs2   num inBufComplex outBufComplex),
+                    (hasAVX,     bench "cAVX2"       $ nfIO $ filterCAVXRC2            coeffs    num inBufComplex outBufComplex),
+                    (hasAVX,     bench "cAVXSym"     $ nfIO $ filterCAVXSymmetricRC    coeffsSym num inBufComplex outBufComplex)
                 ]
             ],
             bgroup "decimate" [
-                bgroup "real" [
-                    bench "highLevel"   $ nfIO $ decimateHighLevel        decimation coeffs    (num `quot` decimation) inBuf outBuf,
-                    bench "c"           $ nfIO $ decimateCRR              decimation coeffs    (num `quot` decimation) inBuf outBuf,
-                    bench "cSSE"        $ nfIO $ decimateCSSERR           decimation coeffs    (num `quot` decimation) inBuf outBuf,
-                    bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRR  decimation coeffsSym (num `quot` decimation) inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ decimateCAVXRR           decimation coeffs    (num `quot` decimation) inBuf outBuf,
-                    bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRR  decimation coeffsSym (num `quot` decimation) inBuf outBuf
+                bgroup "real" $ hasFeatures [
+                    (const True, bench "highLevel"   $ nfIO $ decimateHighLevel        decimation coeffs    (num `quot` decimation) inBuf outBuf),
+                    (const True, bench "c"           $ nfIO $ decimateCRR              decimation coeffs    (num `quot` decimation) inBuf outBuf),
+                    (hasSSE42,   bench "cSSE"        $ nfIO $ decimateCSSERR           decimation coeffs    (num `quot` decimation) inBuf outBuf),
+                    (hasSSE42,   bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRR  decimation coeffsSym (num `quot` decimation) inBuf outBuf),
+                    (hasAVX,     bench "cAVX"        $ nfIO $ decimateCAVXRR           decimation coeffs    (num `quot` decimation) inBuf outBuf),
+                    (hasAVX,     bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRR  decimation coeffsSym (num `quot` decimation) inBuf outBuf)
                 ],
-                bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ decimateHighLevel        decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex,
-                    bench "c"           $ nfIO $ decimateCRC              decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex,
-                    bench "cSSE"        $ nfIO $ decimateCSSERC           decimation coeffs2   (num `quot` decimation) inBufComplex outBufComplex,
-                    bench "cSSE2"       $ nfIO $ decimateCSSERC2          decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex,
-                    bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRC  decimation coeffsSym (num `quot` decimation) inBufComplex outBufComplex,
-                    bench "cAVX"        $ nfIO $ decimateCAVXRC           decimation coeffs2   (num `quot` decimation) inBufComplex outBufComplex,
-                    bench "cAVX2"       $ nfIO $ decimateCAVXRC2          decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex,
-                    bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRC  decimation coeffsSym (num `quot` decimation) inBufComplex outBufComplex
+                bgroup "complex" $ hasFeatures [
+                    (const True, bench "highLevel"   $ nfIO $ decimateHighLevel        decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex),
+                    (const True, bench "c"           $ nfIO $ decimateCRC              decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex),
+                    (hasSSE42,   bench "cSSE"        $ nfIO $ decimateCSSERC           decimation coeffs2   (num `quot` decimation) inBufComplex outBufComplex),
+                    (hasSSE42,   bench "cSSE2"       $ nfIO $ decimateCSSERC2          decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex),
+                    (hasSSE42,   bench "cSSESym"     $ nfIO $ decimateCSSESymmetricRC  decimation coeffsSym (num `quot` decimation) inBufComplex outBufComplex),
+                    (hasAVX,     bench "cAVX"        $ nfIO $ decimateCAVXRC           decimation coeffs2   (num `quot` decimation) inBufComplex outBufComplex),
+                    (hasAVX,     bench "cAVX2"       $ nfIO $ decimateCAVXRC2          decimation coeffs    (num `quot` decimation) inBufComplex outBufComplex),
+                    (hasAVX,     bench "cAVXSym"     $ nfIO $ decimateCAVXSymmetricRC  decimation coeffsSym (num `quot` decimation) inBufComplex outBufComplex)
                 ]
             ],
             bgroup "resample" [
-                bgroup "real" [
-                    bench "highLevel"   $ nfIO $ resampleHighLevel        interpolation decimation coeffs 0 (num `quot` decimation) inBuf outBuf,
-                    bench "c"           $ nfIO $ resampleCRR              (num `quot` decimation) interpolation decimation 0 coeffs inBuf outBuf,
-                    bench "c2"          $ nfIO $ resampler3               (num `quot` decimation) 0 inBuf outBuf,
-                    bench "cSSE"        $ nfIO $ resampler4               (num `quot` decimation) 0 inBuf outBuf,
-                    bench "cAVX"        $ nfIO $ resampler5               (num `quot` decimation) 0 inBuf outBuf
+                bgroup "real" $ hasFeatures [
+                    (const True, bench "highLevel"   $ nfIO $ resampleHighLevel        interpolation decimation coeffs 0 (num `quot` decimation) inBuf outBuf),
+                    (const True, bench "c"           $ nfIO $ resampleCRR              (num `quot` decimation) interpolation decimation 0 coeffs inBuf outBuf),
+                    (const True, bench "c2"          $ nfIO $ resampler3               (num `quot` decimation) 0 inBuf outBuf),
+                    (hasSSE42,   bench "cSSE"        $ nfIO $ resampler4               (num `quot` decimation) 0 inBuf outBuf),
+                    (hasAVX,     bench "cAVX"        $ nfIO $ resampler5               (num `quot` decimation) 0 inBuf outBuf)
                 ],
-                bgroup "complex" [
-                    bench "highLevel"   $ nfIO $ resampleHighLevel        interpolation decimation coeffs 0 (num `quot` decimation) inBufComplex outBufComplex
+                bgroup "complex" $ hasFeatures [
+                    (const True, bench "highLevel"   $ nfIO $ resampleHighLevel        interpolation decimation coeffs 0 (num `quot` decimation) inBufComplex outBufComplex)
                 ]
             ],
-            bgroup "scaling" [
-                bench "c"               $ nfIO $ scaleC    0.3 inBuf outBuf,
-                bench "cSSE"            $ nfIO $ scaleCSSE 0.3 inBuf outBuf,
-                bench "cAVX"            $ nfIO $ scaleCAVX 0.3 inBuf outBuf
+            bgroup "scaling" $ hasFeatures [
+                (const True, bench "c"               $ nfIO $ scaleC    0.3 inBuf outBuf),
+                (hasSSE42,   bench "cSSE"            $ nfIO $ scaleCSSE 0.3 inBuf outBuf),
+                (hasAVX,     bench "cAVX"            $ nfIO $ scaleCAVX 0.3 inBuf outBuf)
             ]
         ]
 
