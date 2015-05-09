@@ -2,6 +2,7 @@
 
 import           Control.Monad.Primitive 
 import           Data.Complex
+import           Control.Monad
 
 import qualified Data.Vector.Generic               as VG
 import qualified Data.Vector.Generic.Mutable       as VGM
@@ -15,6 +16,12 @@ import           Test.Framework.Providers.QuickCheck2 (testProperty)
 
 import           SDR.FilterInternal
 import           SDR.Util
+
+sameResult _  []     = return True
+sameResult eq (x:xs) = do
+    res  <- x
+    ress <- sequence xs
+    return $ and $ map (eq res) ress
 
 tests = [
         testGroup "filters" [
@@ -34,14 +41,15 @@ tests = [
     where
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
-    factors         = elements [1, 2, 3, 5, 7, 11, 13, 17, 23]
     factors'        = [1, 2, 3, 5, 7, 11, 13, 17, 23]
+    factors         = elements factors'
 
-    propFiltersReal = forAll sizes $ \size -> 
-                          forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
-                              forAll numCoeffs $ \numCoeffs -> 
-                                  forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
-                                      testFiltersReal size numCoeffs coeffs inBuf
+    propFiltersReal = 
+        forAll sizes $ \size -> 
+            forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
+                forAll numCoeffs $ \numCoeffs -> 
+                    forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                        testFiltersReal size numCoeffs coeffs inBuf
 
     testFiltersReal :: Int -> Int -> [Float] -> [Float] -> Property
     testFiltersReal size numCoeffs coeffs inBuf = monadicIO $ do
@@ -50,23 +58,25 @@ tests = [
             vInput      = VS.fromList inBuf
             num         = size - numCoeffs*2 + 1
 
-        r1 <- run $ getResult num $ filterHighLevel       vCoeffs     num vInput
-        r2 <- run $ getResult num $ filterImperative1     vCoeffs     num vInput
-        r3 <- run $ getResult num $ filterImperative2     vCoeffs     num vInput
-        r4 <- run $ getResult num $ filterCRR             vCoeffs     num vInput
-        r5 <- run $ getResult num $ filterCSSERR          vCoeffs     num vInput
-        r6 <- run $ getResult num $ filterCAVXRR          vCoeffs     num vInput
-        r7 <- run $ getResult num $ filterCSSESymmetricRR vCoeffsHalf num vInput
-        r8 <- run $ getResult num $ filterCAVXSymmetricRR vCoeffsHalf num vInput
+        res <- run $ sameResult eqDelta $ map (getResult num $) [
+                filterHighLevel       vCoeffs     num vInput,
+                filterImperative1     vCoeffs     num vInput,
+                filterImperative2     vCoeffs     num vInput,
+                filterCRR             vCoeffs     num vInput,
+                filterCSSERR          vCoeffs     num vInput,
+                filterCAVXRR          vCoeffs     num vInput,
+                filterCSSESymmetricRR vCoeffsHalf num vInput,
+                filterCAVXSymmetricRR vCoeffsHalf num vInput
+            ]
+        assert res
 
-        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6, r7, r8]
-
-    propFiltersComplex = forAll sizes $ \size -> 
-                             forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
-                                 forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
-                                     forAll numCoeffs $ \numCoeffs -> 
-                                         forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
-                                             testFiltersComplex size numCoeffs coeffs $ zipWith (:+) inBufR inBufI
+    propFiltersComplex = 
+        forAll sizes $ \size -> 
+            forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
+                forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
+                    forAll numCoeffs $ \numCoeffs -> 
+                        forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                            testFiltersComplex size numCoeffs coeffs $ zipWith (:+) inBufR inBufI
 
     testFiltersComplex :: Int -> Int -> [Float] -> [Complex Float] -> Property
     testFiltersComplex size numCoeffs coeffs inBuf = monadicIO $ do
@@ -76,22 +86,24 @@ tests = [
             num         = size - numCoeffs*2 + 1
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        r1 <- run $ getResult num $ filterHighLevel       vCoeffs  num vInput
-        r2 <- run $ getResult num $ filterCRC             vCoeffs  num vInput
-        r3 <- run $ getResult num $ filterCSSERC          vCoeffs2 num vInput
-        r4 <- run $ getResult num $ filterCSSERC2         vCoeffs  num vInput
-        r5 <- run $ getResult num $ filterCAVXRC          vCoeffs2 num vInput
-        r6 <- run $ getResult num $ filterCSSESymmetricRC vCoeffsHalf num vInput
-        r7 <- run $ getResult num $ filterCAVXSymmetricRC vCoeffsHalf num vInput
+        res <- run $ sameResult eqDeltaC $ map (getResult num $) [
+                filterHighLevel       vCoeffs  num vInput,
+                filterCRC             vCoeffs  num vInput,
+                filterCSSERC          vCoeffs2 num vInput,
+                filterCSSERC2         vCoeffs  num vInput,
+                filterCAVXRC          vCoeffs2 num vInput,
+                filterCSSESymmetricRC vCoeffsHalf num vInput,
+                filterCAVXSymmetricRC vCoeffsHalf num vInput
+            ]
+        assert res
 
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5, r6, r7]
-
-    propDecimationReal = forAll sizes $ \size -> 
-                             forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
-                                 forAll numCoeffs $ \numCoeffs -> 
-                                     forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
-                                        forAll factors $ \factor -> 
-                                             testDecimationReal size numCoeffs factor coeffs inBuf
+    propDecimationReal = 
+        forAll sizes $ \size -> 
+            forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
+                forAll numCoeffs $ \numCoeffs -> 
+                    forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                       forAll factors $ \factor -> 
+                            testDecimationReal size numCoeffs factor coeffs inBuf
 
     testDecimationReal :: Int -> Int -> Int -> [Float] -> [Float] -> Property
     testDecimationReal size numCoeffs factor coeffs inBuf = monadicIO $ do
@@ -100,22 +112,24 @@ tests = [
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` factor
 
-        r1 <- run $ getResult num $ decimateHighLevel       factor vCoeffs     num vInput
-        r2 <- run $ getResult num $ decimateCRR             factor vCoeffs     num vInput
-        r3 <- run $ getResult num $ decimateCSSERR          factor vCoeffs     num vInput
-        r4 <- run $ getResult num $ decimateCAVXRR          factor vCoeffs     num vInput
-        r5 <- run $ getResult num $ decimateCSSESymmetricRR factor vCoeffsHalf num vInput
-        r6 <- run $ getResult num $ decimateCAVXSymmetricRR factor vCoeffsHalf num vInput
+        res <- run $ sameResult eqDelta $ map (getResult num $) [
+                decimateHighLevel       factor vCoeffs     num vInput,
+                decimateCRR             factor vCoeffs     num vInput,
+                decimateCSSERR          factor vCoeffs     num vInput,
+                decimateCAVXRR          factor vCoeffs     num vInput,
+                decimateCSSESymmetricRR factor vCoeffsHalf num vInput,
+                decimateCAVXSymmetricRR factor vCoeffsHalf num vInput
+            ]
+        assert res
 
-        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5, r6]
-
-    propDecimationComplex = forAll sizes $ \size -> 
-                                forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
-                                    forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
-                                        forAll numCoeffs $ \numCoeffs -> 
-                                            forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
-                                                forAll factors $ \factor -> 
-                                                    testDecimationComplex size numCoeffs factor coeffs $ zipWith (:+) inBufR inBufI
+    propDecimationComplex = 
+        forAll sizes $ \size -> 
+            forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
+                forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
+                    forAll numCoeffs $ \numCoeffs -> 
+                        forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                            forAll factors $ \factor -> 
+                                testDecimationComplex size numCoeffs factor coeffs $ zipWith (:+) inBufR inBufI
 
     testDecimationComplex :: Int -> Int -> Int -> [Float] -> [Complex Float] -> Property
     testDecimationComplex size numCoeffs factor coeffs inBuf = monadicIO $ do
@@ -125,25 +139,27 @@ tests = [
             num         = (size - numCoeffs*2 + 1) `quot` factor
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        r1 <- run $ getResult num $ decimateHighLevel       factor vCoeffs  num vInput
-        r2 <- run $ getResult num $ decimateCRC             factor vCoeffs  num vInput
-        r3 <- run $ getResult num $ decimateCSSERC          factor vCoeffs2 num vInput
-        r4 <- run $ getResult num $ decimateCSSERC2         factor vCoeffs  num vInput
-        r5 <- run $ getResult num $ decimateCAVXRC          factor vCoeffs2 num vInput
-        r6 <- run $ getResult num $ decimateCSSESymmetricRC factor vCoeffsHalf  num vInput
-        r7 <- run $ getResult num $ decimateCAVXRC2         factor vCoeffs  num vInput
-        r8 <- run $ getResult num $ decimateCAVXSymmetricRC factor vCoeffsHalf  num vInput
+        res <- run $ sameResult eqDeltaC $ map (getResult num $) [
+                decimateHighLevel       factor vCoeffs  num vInput,
+                decimateCRC             factor vCoeffs  num vInput,
+                decimateCSSERC          factor vCoeffs2 num vInput,
+                decimateCSSERC2         factor vCoeffs  num vInput,
+                decimateCAVXRC          factor vCoeffs2 num vInput,
+                decimateCSSESymmetricRC factor vCoeffsHalf  num vInput,
+                decimateCAVXRC2         factor vCoeffs  num vInput,
+                decimateCAVXSymmetricRC factor vCoeffsHalf  num vInput
+            ]
+        assert res
 
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4, r5, r6, r7, r8]
-
-    propResamplingReal = forAll sizes $ \size -> 
-                             forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
-                                 forAll (elements [32 .. 512]) $ \numCoeffs -> 
-                                     forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
-                                        forAll (elements $ tail factors') $ \decimation -> 
-                                            forAll (elements $ filter (< decimation) factors') $ \interpolation -> 
-                                                forAll (elements [0..interpolation - 1]) $ \group -> 
-                                                    testResamplingReal size group numCoeffs interpolation decimation coeffs inBuf
+    propResamplingReal = 
+        forAll sizes $ \size -> 
+            forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
+                forAll (elements [32 .. 512]) $ \numCoeffs -> 
+                    forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                       forAll (elements $ tail factors') $ \decimation -> 
+                           forAll (elements $ filter (< decimation) factors') $ \interpolation -> 
+                               forAll (elements [0..interpolation - 1]) $ \group -> 
+                                   testResamplingReal size group numCoeffs interpolation decimation coeffs inBuf
 
     testResamplingReal :: Int -> Int -> Int -> Int -> Int -> [Float] -> [Float] -> Property
     testResamplingReal size group numCoeffs interpolation decimation coeffs inBuf = monadicIO $ do
@@ -151,31 +167,25 @@ tests = [
             vCoeffs     = VS.fromList $ coeffs ++ reverse coeffs
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` decimation
+            offset       = interpolation - 1 - ((interpolation + group * decimation - 1) `mod` interpolation) 
 
         resampler3 <- run $ resampleCRR2   interpolation decimation (coeffs ++ reverse coeffs)
         resampler4 <- run $ resampleCSSERR interpolation decimation (coeffs ++ reverse coeffs)
         resampler5 <- run $ resampleCAVXRR interpolation decimation (coeffs ++ reverse coeffs)
 
-        let offset = interpolation - 1 - ((interpolation + group * decimation - 1) `mod` interpolation) 
+        res <- run $ sameResult eqDelta $ map (getResult num $) [
+                void . resampleHighLevel       interpolation decimation vCoeffs offset num vInput,
+                void . resampleCRR             num interpolation decimation offset vCoeffs vInput,
+                void . resampler3              group num vInput,
+                void . resampler4              group num vInput,
+                void . resampler5              group num vInput
+            ]
+        assert res
 
-        r1 <- run $ getResult num $ resampleHighLevel       interpolation decimation vCoeffs offset num vInput
-        r2 <- run $ getResult num $ resampleCRR             num interpolation decimation offset vCoeffs vInput
-        r3 <- run $ getResult num $ resampler3              group num vInput
-        r4 <- run $ getResult num $ resampler4              group num vInput
-        r5 <- run $ getResult num $ resampler5              group num vInput
-
-        assert $ and $ map (r1 `eqDelta`) [r2, r3, r4, r5]
-
-    getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO b) -> IO [a]
-    getResult size func = do
-        outBuf <- VGM.new size
-        func outBuf
-        out :: VS.Vector a <- VG.freeze outBuf
-        return $ VG.toList out
-
-    propConversion = forAll sizes $ \size -> 
-                         forAll (vectorOf (2 * size) (choose (-10, 10))) $ \inBuf -> 
-                             testConversion size inBuf
+    propConversion = 
+        forAll sizes $ \size -> 
+            forAll (vectorOf (2 * size) (choose (-10, 10))) $ \inBuf -> 
+                testConversion size inBuf
     testConversion :: Int -> [Int] -> Property
     testConversion size inBuf = monadicIO $ do
         let vInput = VS.fromList $ map fromIntegral inBuf
@@ -187,21 +197,29 @@ tests = [
 
         assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4]
 
-    scales          = elements [0.1, 0.5, 1, 2, 10]
-    propScaleReal = forAll sizes $ \size -> 
-                        forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
-                            forAll scales $ \factor -> 
-                                testScaleReal size inBuf factor
+    scales        = elements [0.1, 0.5, 1, 2, 10]
+    propScaleReal = 
+        forAll sizes $ \size -> 
+            forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
+                forAll scales $ \factor -> 
+                    testScaleReal size inBuf factor
     testScaleReal :: Int -> [Float] -> Float -> Property
     testScaleReal size inBuf factor = monadicIO $ do
         let vInput = VS.fromList inBuf
 
-        r1 <- run $ getResult size $ scaleC    factor vInput
-        r2 <- run $ getResult size $ scaleCSSE factor vInput
-        r3 <- run $ getResult size $ scaleCAVX factor vInput
+        res <- run $ sameResult eqDelta $ map (getResult size $) [
+                scaleC    factor vInput,
+                scaleCSSE factor vInput,
+                scaleCAVX factor vInput
+            ]
+        assert res
 
-        assert $ and $ map (r1 `eqDelta`) [r2, r3]
-
+    getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO b) -> IO [a]
+    getResult size func = do
+        outBuf <- VGM.new size
+        func outBuf
+        out :: VS.Vector a <- VG.freeze outBuf
+        return $ VG.toList out
     eqDelta x y = and $ map (uncurry eqDelta') $ zip x y
         where
         eqDelta' x y = abs (x - y) < 0.01
