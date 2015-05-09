@@ -16,6 +16,7 @@ import           Test.Framework.Providers.QuickCheck2 (testProperty)
 
 import           SDR.FilterInternal
 import           SDR.Util
+import           SDR.CPUID
 
 sameResultM :: Monad m => (a -> a -> Bool) -> [m a] -> m Bool
 sameResultM _  []     = return True
@@ -28,7 +29,7 @@ sameResult :: (a -> a -> Bool) -> [a] -> Bool
 sameResult _ [] = True
 sameResult eq (x:xs) = and $ map (eq x) xs
 
-tests = [
+tests info = [
         testGroup "filters" [
             testProperty "real"    propFiltersReal,
             testProperty "complex" propFiltersComplex
@@ -63,15 +64,15 @@ tests = [
             vInput      = VS.fromList inBuf
             num         = size - numCoeffs*2 + 1
 
-        res <- run $ sameResultM eqDelta $ map (getResult num $) [
-                filterHighLevel       vCoeffs     num vInput,
-                filterImperative1     vCoeffs     num vInput,
-                filterImperative2     vCoeffs     num vInput,
-                filterCRR             vCoeffs     num vInput,
-                filterCSSERR          vCoeffs     num vInput,
-                filterCAVXRR          vCoeffs     num vInput,
-                filterCSSESymmetricRR vCoeffsHalf num vInput,
-                filterCAVXSymmetricRR vCoeffsHalf num vInput
+        res <- run $ sameResultM eqDelta $ map (getResult num $) $ map snd $ filter (($ info) . fst) [
+                (const True, filterHighLevel       vCoeffs     num vInput),
+                (const True, filterImperative1     vCoeffs     num vInput),
+                (const True, filterImperative2     vCoeffs     num vInput),
+                (const True, filterCRR             vCoeffs     num vInput),
+                (hasSSE42,   filterCSSERR          vCoeffs     num vInput),
+                (hasAVX,     filterCAVXRR          vCoeffs     num vInput),
+                (hasSSE42,   filterCSSESymmetricRR vCoeffsHalf num vInput),
+                (hasAVX,     filterCAVXSymmetricRR vCoeffsHalf num vInput)
             ]
         assert res
 
@@ -91,14 +92,14 @@ tests = [
             num         = size - numCoeffs*2 + 1
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        res <- run $ sameResultM eqDeltaC $ map (getResult num $) [
-                filterHighLevel       vCoeffs  num vInput,
-                filterCRC             vCoeffs  num vInput,
-                filterCSSERC          vCoeffs2 num vInput,
-                filterCSSERC2         vCoeffs  num vInput,
-                filterCAVXRC          vCoeffs2 num vInput,
-                filterCSSESymmetricRC vCoeffsHalf num vInput,
-                filterCAVXSymmetricRC vCoeffsHalf num vInput
+        res <- run $ sameResultM eqDeltaC $ map (getResult num $) $ map snd $ filter (($ info) . fst) [
+                (const True, filterHighLevel       vCoeffs  num vInput),
+                (const True, filterCRC             vCoeffs  num vInput),
+                (hasSSE42,   filterCSSERC          vCoeffs2 num vInput),
+                (hasSSE42,   filterCSSERC2         vCoeffs  num vInput),
+                (hasAVX,     filterCAVXRC          vCoeffs2 num vInput),
+                (hasSSE42,   filterCSSESymmetricRC vCoeffsHalf num vInput),
+                (hasAVX,     filterCAVXSymmetricRC vCoeffsHalf num vInput)
             ]
         assert res
 
@@ -117,13 +118,13 @@ tests = [
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` factor
 
-        res <- run $ sameResultM eqDelta $ map (getResult num $) [
-                decimateHighLevel       factor vCoeffs     num vInput,
-                decimateCRR             factor vCoeffs     num vInput,
-                decimateCSSERR          factor vCoeffs     num vInput,
-                decimateCAVXRR          factor vCoeffs     num vInput,
-                decimateCSSESymmetricRR factor vCoeffsHalf num vInput,
-                decimateCAVXSymmetricRR factor vCoeffsHalf num vInput
+        res <- run $ sameResultM eqDelta $ map (getResult num $) $ map snd $ filter (($ info) . fst) [
+                (const True, decimateHighLevel       factor vCoeffs     num vInput),
+                (const True, decimateCRR             factor vCoeffs     num vInput),
+                (hasSSE42,   decimateCSSERR          factor vCoeffs     num vInput),
+                (hasAVX,     decimateCAVXRR          factor vCoeffs     num vInput),
+                (hasSSE42,   decimateCSSESymmetricRR factor vCoeffsHalf num vInput),
+                (hasAVX,     decimateCAVXSymmetricRR factor vCoeffsHalf num vInput)
             ]
         assert res
 
@@ -144,15 +145,15 @@ tests = [
             num         = (size - numCoeffs*2 + 1) `quot` factor
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        res <- run $ sameResultM eqDeltaC $ map (getResult num $) [
-                decimateHighLevel       factor vCoeffs  num vInput,
-                decimateCRC             factor vCoeffs  num vInput,
-                decimateCSSERC          factor vCoeffs2 num vInput,
-                decimateCSSERC2         factor vCoeffs  num vInput,
-                decimateCAVXRC          factor vCoeffs2 num vInput,
-                decimateCSSESymmetricRC factor vCoeffsHalf  num vInput,
-                decimateCAVXRC2         factor vCoeffs  num vInput,
-                decimateCAVXSymmetricRC factor vCoeffsHalf  num vInput
+        res <- run $ sameResultM eqDeltaC $ map (getResult num $) $ map snd $ filter (($ info) . fst) [
+                (const True, decimateHighLevel       factor vCoeffs  num vInput),
+                (const True, decimateCRC             factor vCoeffs  num vInput),
+                (hasSSE42,   decimateCSSERC          factor vCoeffs2 num vInput),
+                (hasSSE42,   decimateCSSERC2         factor vCoeffs  num vInput),
+                (hasAVX,     decimateCAVXRC          factor vCoeffs2 num vInput),
+                (hasSSE42,   decimateCSSESymmetricRC factor vCoeffsHalf  num vInput),
+                (hasAVX,     decimateCAVXRC2         factor vCoeffs  num vInput),
+                (hasAVX,     decimateCAVXSymmetricRC factor vCoeffsHalf  num vInput)
             ]
         assert res
 
@@ -178,12 +179,12 @@ tests = [
         resampler4 <- run $ resampleCSSERR interpolation decimation (coeffs ++ reverse coeffs)
         resampler5 <- run $ resampleCAVXRR interpolation decimation (coeffs ++ reverse coeffs)
 
-        res <- run $ sameResultM eqDelta $ map (getResult num $) [
-                void . resampleHighLevel       interpolation decimation vCoeffs offset num vInput,
-                void . resampleCRR             num interpolation decimation offset vCoeffs vInput,
-                void . resampler3              group num vInput,
-                void . resampler4              group num vInput,
-                void . resampler5              group num vInput
+        res <- run $ sameResultM eqDelta $ map (getResult num $) $ map snd $ filter (($ info) . fst) [
+                (const True, void . resampleHighLevel       interpolation decimation vCoeffs offset num vInput),
+                (const True, void . resampleCRR             num interpolation decimation offset vCoeffs vInput),
+                (const True, void . resampler3              group num vInput),
+                (hasSSE42,   void . resampler4              group num vInput),
+                (hasAVX,     void . resampler5              group num vInput)
             ]
         assert res
 
@@ -195,11 +196,11 @@ tests = [
     testConversion size inBuf = monadicIO $ do
         let vInput = VS.fromList $ map fromIntegral inBuf
 
-        let res = sameResult eqDeltaC $ map (VG.toList $) [
-                (makeComplexBufferVect vInput :: VS.Vector (Complex Float)),
-                convertC              vInput,
-                convertCSSE           vInput,
-                convertCAVX           vInput
+        let res = sameResult eqDeltaC $ map (VG.toList $) $ map snd $ filter (($ info) . fst) [
+                (const True, (makeComplexBufferVect vInput :: VS.Vector (Complex Float))),
+                (const True, convertC              vInput),
+                (hasSSE42,   convertCSSE           vInput),
+                (hasAVX2,    convertCAVX           vInput)
                 ]
         assert res
 
@@ -213,10 +214,10 @@ tests = [
     testScaleReal size inBuf factor = monadicIO $ do
         let vInput = VS.fromList inBuf
 
-        res <- run $ sameResultM eqDelta $ map (getResult size $) [
-                scaleC    factor vInput,
-                scaleCSSE factor vInput,
-                scaleCAVX factor vInput
+        res <- run $ sameResultM eqDelta $ map (getResult size $) $ map snd $ filter (($ info) . fst) [
+                (const True, scaleC    factor vInput),
+                (hasSSE42,   scaleCSSE factor vInput),
+                (hasAVX,     scaleCAVX factor vInput)
             ]
         assert res
 
@@ -236,5 +237,7 @@ tests = [
     duplicate = concat . map func 
         where func x = [x, x]
 
-main = defaultMain tests
+main = do
+    info <- getCPUInfo 
+    defaultMain $ tests info
 
