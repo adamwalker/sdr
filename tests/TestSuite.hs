@@ -45,6 +45,9 @@ tests info = [
         testProperty "scaling"    propScaleReal
     ]
     where
+    hasFeatures :: [(CPUInfo -> Bool, a)] -> [a]
+    hasFeatures = map snd . filter (($ info) . fst)
+
     sizes           = elements [1024, 2048, 4096, 8192, 16384, 32768, 65536]
     numCoeffs       = elements [32, 64, 128, 256, 512]
     factors'        = [1, 2, 3, 5, 7, 11, 13, 17, 23]
@@ -64,7 +67,7 @@ tests info = [
             vInput      = VS.fromList inBuf
             num         = size - numCoeffs*2 + 1
 
-        res <- run $ sameResultM eqDelta $ map (getResult num $) $ map snd $ filter (($ info) . fst) [
+        res <- run $ sameResultM eqDelta $ map (getResult num $) $ hasFeatures [
                 (const True, filterHighLevel       vCoeffs     num vInput),
                 (const True, filterImperative1     vCoeffs     num vInput),
                 (const True, filterImperative2     vCoeffs     num vInput),
@@ -92,7 +95,7 @@ tests info = [
             num         = size - numCoeffs*2 + 1
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        res <- run $ sameResultM eqDeltaC $ map (getResult num $) $ map snd $ filter (($ info) . fst) [
+        res <- run $ sameResultM eqDeltaC $ map (getResult num $) $ hasFeatures [
                 (const True, filterHighLevel       vCoeffs  num vInput),
                 (const True, filterCRC             vCoeffs  num vInput),
                 (hasSSE42,   filterCSSERC          vCoeffs2 num vInput),
@@ -118,7 +121,7 @@ tests info = [
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` factor
 
-        res <- run $ sameResultM eqDelta $ map (getResult num $) $ map snd $ filter (($ info) . fst) [
+        res <- run $ sameResultM eqDelta $ map (getResult num $) $ hasFeatures [
                 (const True, decimateHighLevel       factor vCoeffs     num vInput),
                 (const True, decimateCRR             factor vCoeffs     num vInput),
                 (hasSSE42,   decimateCSSERR          factor vCoeffs     num vInput),
@@ -145,7 +148,7 @@ tests info = [
             num         = (size - numCoeffs*2 + 1) `quot` factor
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        res <- run $ sameResultM eqDeltaC $ map (getResult num $) $ map snd $ filter (($ info) . fst) [
+        res <- run $ sameResultM eqDeltaC $ map (getResult num $) $ hasFeatures [
                 (const True, decimateHighLevel       factor vCoeffs  num vInput),
                 (const True, decimateCRC             factor vCoeffs  num vInput),
                 (hasSSE42,   decimateCSSERC          factor vCoeffs2 num vInput),
@@ -179,7 +182,7 @@ tests info = [
         resampler4 <- run $ resampleCSSERR interpolation decimation (coeffs ++ reverse coeffs)
         resampler5 <- run $ resampleCAVXRR interpolation decimation (coeffs ++ reverse coeffs)
 
-        res <- run $ sameResultM eqDelta $ map (getResult num $) $ map snd $ filter (($ info) . fst) [
+        res <- run $ sameResultM eqDelta $ map (getResult num $) $ hasFeatures [
                 (const True, void . resampleHighLevel       interpolation decimation vCoeffs offset num vInput),
                 (const True, void . resampleCRR             num interpolation decimation offset vCoeffs vInput),
                 (const True, void . resampler3              group num vInput),
@@ -196,7 +199,7 @@ tests info = [
     testConversion size inBuf = monadicIO $ do
         let vInput = VS.fromList $ map fromIntegral inBuf
 
-        let res = sameResult eqDeltaC $ map (VG.toList $) $ map snd $ filter (($ info) . fst) [
+        let res = sameResult eqDeltaC $ map (VG.toList $) $ hasFeatures [
                 (const True, (makeComplexBufferVect vInput :: VS.Vector (Complex Float))),
                 (const True, convertC              vInput),
                 (hasSSE42,   convertCSSE           vInput),
@@ -214,7 +217,7 @@ tests info = [
     testScaleReal size inBuf factor = monadicIO $ do
         let vInput = VS.fromList inBuf
 
-        res <- run $ sameResultM eqDelta $ map (getResult size $) $ map snd $ filter (($ info) . fst) [
+        res <- run $ sameResultM eqDelta $ map (getResult size $) $ hasFeatures [
                 (const True, scaleC    factor vInput),
                 (hasSSE42,   scaleCSSE factor vInput),
                 (hasAVX,     scaleCAVX factor vInput)
