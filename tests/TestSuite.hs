@@ -17,11 +17,16 @@ import           Test.Framework.Providers.QuickCheck2 (testProperty)
 import           SDR.FilterInternal
 import           SDR.Util
 
-sameResult _  []     = return True
-sameResult eq (x:xs) = do
+sameResultM :: Monad m => (a -> a -> Bool) -> [m a] -> m Bool
+sameResultM _  []     = return True
+sameResultM eq (x:xs) = do
     res  <- x
     ress <- sequence xs
     return $ and $ map (eq res) ress
+
+sameResult :: (a -> a -> Bool) -> [a] -> Bool
+sameResult _ [] = True
+sameResult eq (x:xs) = and $ map (eq x) xs
 
 tests = [
         testGroup "filters" [
@@ -58,7 +63,7 @@ tests = [
             vInput      = VS.fromList inBuf
             num         = size - numCoeffs*2 + 1
 
-        res <- run $ sameResult eqDelta $ map (getResult num $) [
+        res <- run $ sameResultM eqDelta $ map (getResult num $) [
                 filterHighLevel       vCoeffs     num vInput,
                 filterImperative1     vCoeffs     num vInput,
                 filterImperative2     vCoeffs     num vInput,
@@ -86,7 +91,7 @@ tests = [
             num         = size - numCoeffs*2 + 1
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        res <- run $ sameResult eqDeltaC $ map (getResult num $) [
+        res <- run $ sameResultM eqDeltaC $ map (getResult num $) [
                 filterHighLevel       vCoeffs  num vInput,
                 filterCRC             vCoeffs  num vInput,
                 filterCSSERC          vCoeffs2 num vInput,
@@ -112,7 +117,7 @@ tests = [
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` factor
 
-        res <- run $ sameResult eqDelta $ map (getResult num $) [
+        res <- run $ sameResultM eqDelta $ map (getResult num $) [
                 decimateHighLevel       factor vCoeffs     num vInput,
                 decimateCRR             factor vCoeffs     num vInput,
                 decimateCSSERR          factor vCoeffs     num vInput,
@@ -139,7 +144,7 @@ tests = [
             num         = (size - numCoeffs*2 + 1) `quot` factor
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        res <- run $ sameResult eqDeltaC $ map (getResult num $) [
+        res <- run $ sameResultM eqDeltaC $ map (getResult num $) [
                 decimateHighLevel       factor vCoeffs  num vInput,
                 decimateCRC             factor vCoeffs  num vInput,
                 decimateCSSERC          factor vCoeffs2 num vInput,
@@ -173,7 +178,7 @@ tests = [
         resampler4 <- run $ resampleCSSERR interpolation decimation (coeffs ++ reverse coeffs)
         resampler5 <- run $ resampleCAVXRR interpolation decimation (coeffs ++ reverse coeffs)
 
-        res <- run $ sameResult eqDelta $ map (getResult num $) [
+        res <- run $ sameResultM eqDelta $ map (getResult num $) [
                 void . resampleHighLevel       interpolation decimation vCoeffs offset num vInput,
                 void . resampleCRR             num interpolation decimation offset vCoeffs vInput,
                 void . resampler3              group num vInput,
@@ -190,12 +195,13 @@ tests = [
     testConversion size inBuf = monadicIO $ do
         let vInput = VS.fromList $ map fromIntegral inBuf
 
-        let r1 = VG.toList $ (makeComplexBufferVect vInput :: VS.Vector (Complex Float))
-            r2 = VG.toList $ convertC              vInput
-            r3 = VG.toList $ convertCSSE           vInput
-            r4 = VG.toList $ convertCAVX           vInput
-
-        assert $ and $ map (r1 `eqDeltaC`) [r2, r3, r4]
+        let res = sameResult eqDeltaC $ map (VG.toList $) [
+                (makeComplexBufferVect vInput :: VS.Vector (Complex Float)),
+                convertC              vInput,
+                convertCSSE           vInput,
+                convertCAVX           vInput
+                ]
+        assert res
 
     scales        = elements [0.1, 0.5, 1, 2, 10]
     propScaleReal = 
@@ -207,7 +213,7 @@ tests = [
     testScaleReal size inBuf factor = monadicIO $ do
         let vInput = VS.fromList inBuf
 
-        res <- run $ sameResult eqDelta $ map (getResult size $) [
+        res <- run $ sameResultM eqDelta $ map (getResult size $) [
                 scaleC    factor vInput,
                 scaleCSSE factor vInput,
                 scaleCAVX factor vInput
