@@ -1,14 +1,21 @@
 {-# LANGUAGE RecordWildCards #-}
 
-{-| This module is for detecting which SIMD instruction sets your CPU supports. In particular, it can detect SSE4.2, AVX and AVX2 -} 
+{-| This module is for detecting which SIMD instruction sets your CPU supports. In particular, it can detect SSE4.2, AVX and AVX2. -} 
 module SDR.CPUID (
+    -- * Raw CPUID
     cpuid,
     cpuidExtended,
+
+    -- * High level CPU capabilities
     CPUInfo(..),
     getCPUInfo,
+
+    -- * Features
     hasSSE42,
     hasAVX,
     hasAVX2,
+
+    -- * Convenience functions
     featureSelect
     ) where
 
