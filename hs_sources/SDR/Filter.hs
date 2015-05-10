@@ -62,8 +62,10 @@ module SDR.Filter (
     fastDecimatorAVXC,
     fastDecimatorC,
 
-    -- *** Linear Phase
-    fastSymmetricDecimatorR,
+    -- *** Linear Phase Real Data
+    fastDecimatorSymSSER,
+    fastDecimatorSymAVXR,
+    fastDecimatorSymR,
 
     -- ** Resamplers
     haskellResampler,
@@ -358,20 +360,38 @@ fastDecimatorC :: CPUInfo                                                -- ^ Th
                -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
 fastDecimatorC info = featureSelect info fastDecimatorCC [(hasAVX, fastDecimatorAVXC), (hasSSE42, fastDecimatorSSEC)]
 
-{-# INLINE fastSymmetricDecimatorR #-}
--- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating real data with real coefficients. For decimators with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
-fastSymmetricDecimatorR :: Int                                          -- ^ The decimation factor
-                        -> [Float]                                      -- ^ The first half of the filter coefficients
-                        -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
-fastSymmetricDecimatorR decimationD coeffs = do
+mkDecimatorSymR :: DecimateRR
+                -> Int                                          
+                -> [Float]                                      
+                -> IO (Decimator IO VS.Vector VS.MVector Float)
+mkDecimatorSymR filterFunc decimationD coeffs = do
     let vCoeffs    = VG.fromList coeffs
     let vCoeffs2   = VG.fromList $ coeffs ++ reverse coeffs
     evaluate vCoeffs
     evaluate vCoeffs2
-    let decimateOne   = decimateCAVXSymmetricRR decimationD vCoeffs
-        decimateCross = decimateCrossHighLevel  decimationD vCoeffs2
+    let decimateOne   = filterFunc             decimationD vCoeffs
+        decimateCross = decimateCrossHighLevel decimationD vCoeffs2
         numCoeffsD    = length coeffs * 2
     return $ Decimator {..}
+    
+-- | Returns a fast Decimator data structure implemented in C using SSE instructions. For decimating real data with real coefficients. For decimators with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
+fastDecimatorSymSSER :: Int                                          -- ^ The decimation factor
+                     -> [Float]                                      -- ^ The first half of the filter coefficients
+                     -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
+fastDecimatorSymSSER = mkDecimatorSymR decimateCSSESymmetricRR
+
+-- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating real data with real coefficients. For decimators with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
+fastDecimatorSymAVXR :: Int                                          -- ^ The decimation factor
+                     -> [Float]                                      -- ^ The first half of the filter coefficients
+                     -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
+fastDecimatorSymAVXR = mkDecimatorSymR decimateCAVXSymmetricRR
+
+-- | Returns a fast Decimator data structure implemented in C using the fastest SIMD instruction set your processor supports. For decimating real data with real coefficients. For decimators with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
+fastDecimatorSymR :: CPUInfo                                      -- ^ The CPU's capabilities
+                  -> Int                                          -- ^ The decimation factor
+                  -> [Float]                                      -- ^ The filter coefficients
+                  -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
+fastDecimatorSymR info = featureSelect info (error "at least AVX required") [(hasAVX, fastDecimatorSymAVXR), (hasSSE42, fastDecimatorSymSSER)]
 
 {-# INLINE haskellResampler #-}
 -- | Returns a slow Resampler data structure entirely implemented in Haskell
