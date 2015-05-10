@@ -42,8 +42,10 @@ module SDR.Filter (
     fastFilterAVXC,
     fastFilterC,
 
-    -- *** Linear Phase
-    fastSymmetricFilterR,
+    -- *** Linear Phase Real Data
+    fastFilterSymSSER,
+    fastFilterSymAVXR,
+    fastFilterSymR,
 
     -- ** Decimators
     haskellDecimator,
@@ -226,19 +228,34 @@ fastFilterC :: CPUInfo                                             -- ^ The CPU'
             -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
 fastFilterC info = featureSelect info fastFilterCC [(hasAVX, fastFilterAVXC), (hasSSE42, fastFilterSSEC)]
 
-{-# INLINE fastSymmetricFilterR #-}
--- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering real data with real coefficients. For filters with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
-fastSymmetricFilterR :: [Float]                                   -- ^ The first half of the filter coefficients
-                     -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
-fastSymmetricFilterR coeffs = do
+mkFilterSymR :: FilterRR
+             -> [Float]                                   
+             -> IO (Filter IO VS.Vector VS.MVector Float) 
+mkFilterSymR filterFunc coeffs = do
     let vCoeffs     = VG.fromList coeffs 
     let vCoeffs2    = VG.fromList $ coeffs ++ reverse coeffs
     evaluate vCoeffs
     evaluate vCoeffs2
-    let filterOne   = filterCAVXSymmetricRR vCoeffs
-        filterCross = filterCrossHighLevel  vCoeffs2
+    let filterOne   = filterFunc          vCoeffs
+        filterCross = filterCrossHighLevel vCoeffs2
         numCoeffsF  = length coeffs * 2
     return $ Filter {..}
+
+-- | Returns a fast Filter data structure implemented in C using SSE instructions. For filtering real data with real coefficients. For filters with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
+fastFilterSymSSER :: [Float]                                   -- ^ The first half of the filter coefficients
+                  -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
+fastFilterSymSSER = mkFilterSymR filterCSSESymmetricRR
+
+-- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering real data with real coefficients. For filters with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
+fastFilterSymAVXR :: [Float]                                   -- ^ The first half of the filter coefficients
+                  -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
+fastFilterSymAVXR = mkFilterSymR filterCAVXSymmetricRR
+
+-- | Returns a fast Filter data structure implemented in C using the fastest SIMD instruction set your processor supports. For filtering complex data with real coefficients. For filters with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
+fastFilterSymR :: CPUInfo                                   -- ^ The CPU's capabilities
+               -> [Float]                                   -- ^ The filter coefficients
+               -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
+fastFilterSymR info = featureSelect info (error "At least SSE4.2 required") [(hasAVX, fastFilterSymAVXR), (hasSSE42, fastFilterSymSSER)]
 
 {-# INLINE haskellDecimator #-}
 -- | Returns a slow Decimator data structure entirely implemented in Haskell
