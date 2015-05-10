@@ -1,5 +1,5 @@
 name:                sdr
-version:             0.1.0.1
+version:             0.1.0.2
 synopsis:            A software defined radio library
 description:         
     Write software defined radio applications in Haskell.
@@ -114,7 +114,7 @@ Test-Suite test
         base                       >=4.6  && <4.9, 
         QuickCheck                 >=2.8  && <2.9, 
         vector                     >=0.10 && <0.11, 
-        sdr                        ==0.1.0.1, 
+        sdr                        ==0.1.0.2, 
         primitive                  >=0.5  && <0.7, 
         storable-complex           >=0.2  && <0.3,
         test-framework             >=0.8  && <0.9,
@@ -130,7 +130,7 @@ benchmark benchmark
         base             >=4.6  && <4.9, 
         criterion        >=1.0  && <1.2,
         vector           >=0.10 && <0.11, 
-        sdr              ==0.1.0.1, 
+        sdr              ==0.1.0.2, 
         primitive        >=0.5  && <0.7, 
         storable-complex >=0.2  && <0.3
     hs-source-dirs:      benchmarks
