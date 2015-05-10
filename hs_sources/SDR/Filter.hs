@@ -8,11 +8,11 @@
 
     The user must first create one of these data structures using the helper functions and pass this data structure to one of `firFilter`, `firDecimator`, or `firResampler` to create the `Pipe` that does the filtering. For example:
 
-    > decimatorStruct   <- fastDecimatorC decimation coeffs
+    > decimatorStruct   <- fastDecimatorC cpuInfo decimation coeffs
     > let decimatorPipe :: Pipe (Vector (Complex Float)) (Vector (Complex Float)) IO ()
     >     decimatorPipe =  firDecimator decimatorStruct outputSize
 
-    There are polymorphic Haskell only implementations of filtering, decimation and resampling, for example, `haskellFilter`. In addition, there are optimised C implementations that use SIMD instructions on x86 machines, such as `fastFilterR`. These are always specialized to either real or complex numbers. There are also even faster implementations specialized for the case where the filter coefficients are symmetric as in a linear phase filter such as `fastSymmetricFilterR`.
+    There are polymorphic Haskell only implementations of filtering, decimation and resampling, for example, `haskellFilter`. In addition, there are optimised C implementations that use SIMD instructions on x86 machines, such as `fastFilterR`. These are always specialized to either real or complex numbers. There are also even faster implementations specialized for the case where the filter coefficients are symmetric as in a linear phase filter such as `fastFilterSymR`.
 
     The Haskell implementations are reasonably fast due to the Vector library and GHC's LLVM backend, however, if speed is important you are much better off with the C implementations.
 
@@ -167,19 +167,16 @@ mkFilter sizeMultiple filterFunc coeffs = do
         filterCross = filterCrossHighLevel vCoeffs
     return $ Filter {..}
 
-{-# INLINE fastFilterCR #-}
 -- | Returns a fast Filter data structure implemented in C. For filtering real data with real coefficients.
 fastFilterCR :: [Float]                                   -- ^ The filter coefficients
              -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
 fastFilterCR = mkFilter 1 filterCRR
 
-{-# INLINE fastFilterSSER #-}
 -- | Returns a fast Filter data structure implemented in C using SSE instructions. For filtering real data with real coefficients.
 fastFilterSSER :: [Float]                                -- ^ The filter coefficients
             -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
 fastFilterSSER = mkFilter 4 filterCSSERR
 
-{-# INLINE fastFilterAVXR #-}
 -- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
 fastFilterAVXR :: [Float]                                -- ^ The filter coefficients
             -> IO (Filter IO VS.Vector VS.MVector Float) -- ^ The `Filter` data structure
@@ -206,19 +203,16 @@ mkFilterC sizeMultiple filterFunc coeffs = do
         filterCross = filterCrossHighLevel vCoeffs2
     return $ Filter {..}
 
-{-# INLINE fastFilterCC #-}
 -- | Returns a fast Filter data structure implemented in C For filtering complex data with real coefficients.
 fastFilterCC :: [Float]                                             -- ^ The filter coefficients
              -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
 fastFilterCC = mkFilterC 1 filterCRC
 
-{-# INLINE fastFilterSSEC #-}
 -- | Returns a fast Filter data structure implemented in C using SSE instructions. For filtering complex data with real coefficients.
 fastFilterSSEC :: [Float]                                          -- ^ The filter coefficients
                -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
 fastFilterSSEC = mkFilterC 2 filterCSSERC
 
-{-# INLINE fastFilterAVXC #-}
 -- | Returns a fast Filter data structure implemented in C using AVX instructions. For filtering complex data with real coefficients.
 fastFilterAVXC :: [Float]                                          -- ^ The filter coefficients
                -> IO (Filter IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Filter` data structure
@@ -288,21 +282,18 @@ mkDecimator sizeMultiple filterFunc decimationD coeffs = do
         decimateCross = decimateCrossHighLevel decimationD vCoeffs
     return $ Decimator {..}
 
-{-# INLINE fastDecimatorCR #-}
 -- | Returns a fast Decimator data structure implemented in C. For decimating real data with real coefficients.
 fastDecimatorCR :: Int                                          -- ^ The decimation factor
                 -> [Float]                                      -- ^ The filter coefficients
                 -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
 fastDecimatorCR = mkDecimator 1 decimateCRR
 
-{-# INLINE fastDecimatorSSER #-}
 -- | Returns a fast Decimator data structure implemented in C using SSE instructions. For decimating real data with real coefficients.
 fastDecimatorSSER :: Int                                          -- ^ The decimation factor
                   -> [Float]                                      -- ^ The filter coefficients
                   -> IO (Decimator IO VS.Vector VS.MVector Float) -- ^ The `Decimator` data structure
 fastDecimatorSSER = mkDecimator 4 decimateCSSERR
 
-{-# INLINE fastDecimatorAVXR #-}
 -- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating real data with real coefficients.
 fastDecimatorAVXR :: Int                                          -- ^ The decimation factor
                   -> [Float]                                      -- ^ The filter coefficients
@@ -332,21 +323,18 @@ mkDecimatorC sizeMultiple filterFunc decimationD coeffs = do
         decimateCross = decimateCrossHighLevel decimationD vCoeffs2
     return $ Decimator {..}
 
-{-# INLINE fastDecimatorCC #-}
 -- | Returns a fast Decimator data structure implemented in C. For decimating complex data with real coefficients.
 fastDecimatorCC :: Int                                                    -- ^ The decimation factor
                 -> [Float]                                                -- ^ The filter coefficients
                 -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
 fastDecimatorCC = mkDecimatorC 1 decimateCRC 
 
-{-# INLINE fastDecimatorSSEC #-}
 -- | Returns a fast Decimator data structure implemented in C using SSE instructions. For decimating complex data with real coefficients.
 fastDecimatorSSEC :: Int                                                    -- ^ The decimation factor
                   -> [Float]                                                -- ^ The filter coefficients
                   -> IO (Decimator IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Decimator` data structure
 fastDecimatorSSEC = mkDecimatorC 2 decimateCSSERC
 
-{-# INLINE fastDecimatorAVXC #-}
 -- | Returns a fast Decimator data structure implemented in C using AVX instructions. For decimating complex data with real coefficients.
 fastDecimatorAVXC :: Int                                                 -- ^ The decimation factor
                -> [Float]                                                -- ^ The filter coefficients
@@ -429,7 +417,6 @@ mkResampler sizeMultiple filterFunc interpolationR decimationR coeffs = do
         startDat                = (0, 0)
     return $ Resampler {..}
 
-{-# INLINE fastResamplerCR #-}
 -- | Returns a fast Resampler data structure implemented in C. For filtering real data with real coefficients.
 fastResamplerCR :: Int                                          -- ^ The interpolation factor
                 -> Int                                          -- ^ The decimation factor
@@ -437,7 +424,6 @@ fastResamplerCR :: Int                                          -- ^ The interpo
                 -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
 fastResamplerCR = mkResampler 1 resampleCRR2
 
-{-# INLINE fastResamplerSSER #-}
 -- | Returns a fast Resampler data structure implemented in C using SSE instructions. For filtering real data with real coefficients.
 fastResamplerSSER :: Int                                          -- ^ The interpolation factor
                   -> Int                                          -- ^ The decimation factor
@@ -445,7 +431,6 @@ fastResamplerSSER :: Int                                          -- ^ The inter
                   -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
 fastResamplerSSER = mkResampler 4 resampleCSSERR
 
-{-# INLINE fastResamplerAVXR #-}
 -- | Returns a fast Resampler data structure implemented in C using AVX instructions. For filtering real data with real coefficients.
 fastResamplerAVXR :: Int                                          -- ^ The interpolation factor
                   -> Int                                          -- ^ The decimation factor
