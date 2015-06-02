@@ -29,7 +29,13 @@ A chunk of the FM broadcast spectrum. Captured with an RTLSDR device and drawn a
 # Getting Started
 
 ## Installation
-Building with cabal sandboxes is recommended:
+
+You can install it from [Hackage](https://hackage.haskell.org/package/sdr):
+```
+cabal install sdr
+```
+
+Or, you can build it with cabal sandboxes:
 
 ```
 cabal sandbox init
@@ -68,6 +74,8 @@ To run the AM receiver:
 ```
 
 # Usage
+
+Documentation is available on [Hackage](https://hackage.haskell.org/package/sdr).
 
 An FM receiver:
 
