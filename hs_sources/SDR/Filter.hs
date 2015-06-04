@@ -89,6 +89,7 @@ module SDR.Filter (
     dcBlockingFilter
     ) where
 
+import           Control.Applicative
 import           Data.Complex
 import           Control.Exception           hiding (assert)
 import qualified Data.Vector.Generic         as VG

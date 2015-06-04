@@ -26,6 +26,7 @@ import Foreign.Marshal.Alloc
 import Foreign.Storable
 import Data.List
 import Data.Maybe
+import Control.Applicative
 
 foreign import ccall unsafe "cpuid"
     cpuid_c :: Word32 -> Ptr Word32 -> Ptr Word32 -> Ptr Word32 -> Ptr Word32 -> IO ()
