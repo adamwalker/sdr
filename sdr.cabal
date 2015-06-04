@@ -65,7 +65,7 @@ library
     -- other-modules:       
     other-extensions:    ScopedTypeVariables, GADTs
     build-depends:       
-        base                 >=4.6   && <4.9, 
+        base                 >=4.7   && <4.9, 
         fftwRaw              >=0.1   && <0.2, 
         bytestring           >=0.10  && <0.11, 
         pulse-simple         >=0.1   && <0.2, 
