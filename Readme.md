@@ -30,6 +30,8 @@ A chunk of the FM broadcast spectrum. Captured with an RTLSDR device and drawn a
 
 ## Installation
 
+This library will only build and run on 64 bit x86 Linux systems.
+
 You can install it from [Hackage](https://hackage.haskell.org/package/sdr):
 ```
 cabal install sdr
