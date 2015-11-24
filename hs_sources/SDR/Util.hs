@@ -7,11 +7,12 @@ module SDR.Util (
     mult,
 
     -- * Conversion to Floating Point
-    makeComplexBufferVect,
-    convertC, 
-    convertCSSE,
-    convertCAVX,
-    convertFast,
+    interleavedIQUnsigned256ToFloat,
+    interleavedIQUnsignedByteToFloat,
+    interleavedIQUnsignedByteToFloatSSE,
+    interleavedIQUnsignedByteToFloatAVX,
+    interleavedIQUnsignedByteToFloatFast,
+    interleavedIQSigned2048ToFloat,
 
     -- * Scaling
     scaleC,
@@ -50,10 +51,10 @@ instance (Num a) => Mult (Complex a) a where
 
 --TODO: none of these functions need the num argument
 
--- | Create a vector of complex float samples from a vector of interleaved I Q component bytes.
-{-# INLINE makeComplexBufferVect #-}
-makeComplexBufferVect :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a, VG.Vector v2 (Complex b)) => v1 a -> v2 (Complex b)
-makeComplexBufferVect input = VG.generate (VG.length input `quot` 2) convert
+-- | Create a vector of complex floating samples from a vector of interleaved I Q components. Each input element ranges from 0 to 255. This is the format that RTLSDR devices use.
+{-# INLINE interleavedIQUnsigned256ToFloat #-}
+interleavedIQUnsigned256ToFloat :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a, VG.Vector v2 (Complex b)) => v1 a -> v2 (Complex b)
+interleavedIQUnsigned256ToFloat input = VG.generate (VG.length input `quot` 2) convert
     where
     {-# INLINE convert #-}
     convert idx  = convert' (input `VG.unsafeIndex` (2 * idx)) :+ convert' (input `VG.unsafeIndex` (2 * idx + 1))
@@ -63,9 +64,9 @@ makeComplexBufferVect input = VG.generate (VG.length input `quot` 2) convert
 foreign import ccall unsafe "convertC"
     convertC_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
--- | Same as `makeComplexBufferVect` but written in C and specialized for Floats
-convertC :: VS.Vector CUChar -> VS.Vector (Complex Float)
-convertC inBuf = unsafePerformIO $ do
+-- | Same as `interleavedIQUnsigned256ToFloat` but written in C and specialized for unsigned byte inputs and Float outputs.
+interleavedIQUnsignedByteToFloat :: VS.Vector CUChar -> VS.Vector (Complex Float)
+interleavedIQUnsignedByteToFloat inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
@@ -75,9 +76,9 @@ convertC inBuf = unsafePerformIO $ do
 foreign import ccall unsafe "convertCSSE"
     convertCSSE_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
--- | Same as `makeComplexBufferVect` but written in C using SSE intrinsics and specialized for Floats
-convertCSSE :: VS.Vector CUChar -> VS.Vector (Complex Float)
-convertCSSE inBuf = unsafePerformIO $ do
+-- | Same as `interleavedIQUnsigned256ToFloat` but written in C using SSE intrinsics and specialized for unsigned byte inputs and Float outputs.
+interleavedIQUnsignedByteToFloatSSE :: VS.Vector CUChar -> VS.Vector (Complex Float)
+interleavedIQUnsignedByteToFloatSSE inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
@@ -87,18 +88,28 @@ convertCSSE inBuf = unsafePerformIO $ do
 foreign import ccall unsafe "convertCAVX"
     convertCAVX_c :: CInt -> Ptr CUChar -> Ptr CFloat -> IO ()
 
--- | Same as `makeComplexBufferVect` but written in C using AVX intrinsics and specialized for Floats
-convertCAVX :: VS.Vector CUChar -> VS.Vector (Complex Float)
-convertCAVX inBuf = unsafePerformIO $ do
+-- | Same as `interleavedIQUnsigned256ToFloat` but written in C using AVX intrinsics and specialized for unsigned byte inputs and Float outputs.
+interleavedIQUnsignedByteToFloatAVX :: VS.Vector CUChar -> VS.Vector (Complex Float)
+interleavedIQUnsignedByteToFloatAVX inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             convertCAVX_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
--- | Create a vector of complex float samples from a vector of interleaved I Q component bytes. Uses the fastest SIMD instruction set your processor supports.
-convertFast :: CPUInfo -> VS.Vector CUChar -> VS.Vector (Complex Float)
-convertFast info = featureSelect info convertC [(hasAVX2, convertCAVX), (hasSSE42, convertCSSE)]
+-- | Same as `interleavedIQUnsigned256ToFloat` but uses the fastest SIMD instruction set your processor supports and specialized for unsigned byte inputs and Float outputs.
+interleavedIQUnsignedByteToFloatFast :: CPUInfo -> VS.Vector CUChar -> VS.Vector (Complex Float)
+interleavedIQUnsignedByteToFloatFast info = featureSelect info interleavedIQUnsignedByteToFloat [(hasAVX2, interleavedIQUnsignedByteToFloatAVX), (hasSSE42, interleavedIQUnsignedByteToFloatSSE)]
+
+-- | Create a vector of complex float samples from a vector of interleaved I Q components. Each input element ranges from -2048 to 2047. This is the format that the BladeRF uses.
+{-# INLINE interleavedIQSigned2048ToFloat #-}
+interleavedIQSigned2048ToFloat :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a, VG.Vector v2 (Complex b)) => v1 a -> v2 (Complex b)
+interleavedIQSigned2048ToFloat input = VG.generate (VG.length input `quot` 2) convert
+    where
+    {-# INLINE convert #-}
+    convert idx  = convert' (input `VG.unsafeIndex` (2 * idx)) :+ convert' (input `VG.unsafeIndex` (2 * idx + 1))
+    {-# INLINE convert' #-}
+    convert' val = fromIntegral val / 2048
 
 -- | Scaling
 foreign import ccall unsafe "scale"
