@@ -49,8 +49,6 @@ instance (Num a) => Mult a a where
 instance (Num a) => Mult (Complex a) a where
     mult (x :+ y) z = (x * z) :+ (y * z)
 
---TODO: none of these functions need the num argument
-
 -- | Create a vector of complex floating samples from a vector of interleaved I Q components. Each input element ranges from 0 to 255. This is the format that RTLSDR devices use.
 {-# INLINE interleavedIQUnsigned256ToFloat #-}
 interleavedIQUnsigned256ToFloat :: (Num a, Integral a, Num b, Fractional b, VG.Vector v1 a, VG.Vector v2 (Complex b)) => v1 a -> v2 (Complex b)
