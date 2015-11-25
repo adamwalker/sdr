@@ -47,6 +47,8 @@ source-repository head
     location: https://github.com/adamwalker/sdr
 
 library
+    if arch(i386)
+        Buildable: False
     exposed-modules:     
         SDR.Pulse, 
         SDR.RTLSDRStream, 
