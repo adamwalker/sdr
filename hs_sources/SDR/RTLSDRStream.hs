@@ -51,12 +51,11 @@ setRTLSDRParams dev RTLSDRParams{..} = do
     return ()
 
 -- | Returns a producer that streams data from a Realtek RTL2832U based device. You probably want to use `interleavedIQUnsigned256ToFloat` to turn it into a list of complex Floats. This function initializes and configures the device for you. Use `sdrStreamFromDevice` if you need more control over how the device is configured or want to configure it yourself.
-sdrStream :: Word32                                                -- ^ Frequency
-          -> Word32                                                -- ^ Sample rate
+sdrStream :: RTLSDRParams                                          -- ^ Configuration parameters
           -> Word32                                                -- ^ Number of buffers
           -> Word32                                                -- ^ Buffer length
           -> EitherT String IO (Producer (VS.Vector CUChar) IO ()) -- ^ Either a string describing the error that occurred or the Producer
-sdrStream frequency sampleRate bufNum bufLen = do
+sdrStream params bufNum bufLen = do
     lift $ putStrLn "Initializing RTLSDR device..."
 
     dev' <- lift $ open 0
@@ -65,7 +64,7 @@ sdrStream frequency sampleRate bufNum bufLen = do
     lift $ do
         t <- getTunerType dev
         putStrLn $ "Found a: " ++ show t
-        setRTLSDRParams dev $ defaultRTLSDRParams frequency sampleRate
+        setRTLSDRParams dev params
         sdrStreamFromDevice dev bufNum bufLen
 
 -- | Returns a producer that streams data from a Realtek RTL2832U based device. You probably want to use `interleavedIQUnsigned256ToFloat` to turn it into a list of complex Floats. This function takes a pre-configured device handle to stream from.
