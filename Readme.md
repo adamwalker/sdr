@@ -15,10 +15,10 @@ A Software Defined Radio library written in Haskell
 * Line and waterfall plots using OpenGL
 * FM demodulation
 * PulseAudio sound sink
-* [rtl-sdr](http://sdr.osmocom.org/trac/wiki/rtl-sdr) based radio source supported and other sources are easily added
+* [rtl-sdr](http://sdr.osmocom.org/trac/wiki/rtl-sdr) and [BladeRF](https://nuand.com/) based radio sources/sinks supported and other sources are easily added
 * Extensive benchmark and test suites of signal processing functions
 
-See https://github.com/adamwalker/sdr-apps for a collection of simple apps built on the library and https://github.com/adamwalker/sdr-demo for a demo application.
+See [sdr-apps](https://github.com/adamwalker/sdr-apps) for a collection of simple apps built on the library, [sdr-demo](https://github.com/adamwalker/sdr-demo) for a demo application and [bladerf-sdr-apps](https://github.com/adamwalker/bladerf-sdr-apps) to get started with the BladeRF.
 
 # Screenshot
 A chunk of the FM broadcast spectrum. Captured with an RTLSDR device and drawn as a waterfall using the [Plot](https://github.com/adamwalker/sdr/blob/master/hs_sources/SDR/Plot.hs) module.
@@ -47,6 +47,8 @@ git clone https://github.com/adamwalker/sdr
 cabal sandbox add-source dynamic-graph haskell-fftw-simple sdr
 cabal install sdr
 ```
+
+If you want to use the BladeRF, you will also need [bladerf-pipes](https://github.com/adamwalker/bladerf-pipes) and [hlibBladeRF](https://github.com/victoredwardocallaghan/hlibBladeRF). 
 
 ## Example Applications
 
