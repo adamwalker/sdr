@@ -4,6 +4,9 @@ module SDR.FilterDesign (
     -- * Sinc Function
     sinc,
 
+    -- * Root raised cosine
+    srrc,
+
     -- * Windows
     hanning,
     hamming,
@@ -74,3 +77,17 @@ plotFrequency :: [Double] -- ^ The filter coefficients
 plotFrequency coeffs = toFile def "frequency_response.png" $ do
     layout_title .= "Frequency Response"
     plot (line "Frequency Response" [signal coeffs $ takeWhile (< pi) $ iterate (+ 0.01) 0])
+
+--ts is really the ratio ts / sampling period
+-- | Square root raised cosine
+srrc :: (Ord a, Floating a) => Int -> Int -> a -> [a]
+srrc n ts beta = map func [(-n) .. n]
+    where
+    func x 
+        | x == 0                                                 = 1 - beta + 4 * beta / pi
+        | abs (fromIntegral x) ~= (fromIntegral ts / (4 * beta)) = (beta / sqrt 2) * ((1 + 2/pi) * sin (pi / (4 * beta)) + (1 - 2/pi) * cos (pi / (4 * beta)))
+        | otherwise                                              = (sin (pi * xdivts * (1 - beta)) + 4 * beta * xdivts * cos (pi * xdivts * (1 + beta))) / (pi * xdivts * (1 - (4 * beta * xdivts) ** 2))
+            where
+            xdivts = fromIntegral x / fromIntegral ts
+    x ~= y = abs (x - y) < 0.001
+
