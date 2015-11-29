@@ -5,10 +5,12 @@ module SDR.VectorUtils (
     mapAccumMV,
     stride,
     fill,
+    vUnfoldr
     ) where
 
 import Control.Monad
 import Control.Monad.Primitive
+import Control.Monad.ST
 
 import           Data.Vector.Generic               as VG   hiding ((++))
 import qualified Data.Vector.Generic.Mutable       as VGM
@@ -62,3 +64,18 @@ fill str outBuf = void $ VFSM.foldM' put 0 str
         VGM.unsafeWrite outBuf i x
         return $ i + 1
 
+vUnfoldr :: VG.Vector v x => Int -> (acc -> (x, acc)) -> acc -> (v x, acc)
+vUnfoldr size func acc = runST $ do
+    vect <- VGM.new size
+    acc' <- go vect 0 acc
+    vect' <- VG.unsafeFreeze vect
+    return (vect', acc')
+    where
+    go vect offset acc = go' offset acc
+        where
+        go' offset acc 
+            | offset == size = return acc
+            | otherwise      = do
+                let (res, acc') = func acc
+                VGM.write vect offset res
+                go' (offset + 1) acc'
