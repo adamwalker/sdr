@@ -5,6 +5,7 @@ module SDR.PipeUtils (
     printStream,
     devnull,
     rate,
+    pMapAccum
     ) where
 
 import Data.Time.Clock
@@ -52,4 +53,13 @@ rate samples = do
             yield res
             rate' (buffers + 1)
     rate' 1
+
+pMapAccum :: (Monad m) => (acc -> x -> (acc, y)) -> acc -> Pipe x y m () 
+pMapAccum func acc = go acc
+    where
+    go acc = do
+        dat <- await
+        let (acc', res) = func acc dat
+        yield res
+        go acc'
 
