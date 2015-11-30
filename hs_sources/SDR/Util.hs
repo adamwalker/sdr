@@ -12,7 +12,11 @@ module SDR.Util (
     interleavedIQUnsignedByteToFloatSSE,
     interleavedIQUnsignedByteToFloatAVX,
     interleavedIQUnsignedByteToFloatFast,
+
     interleavedIQSigned2048ToFloat,
+    interleavedIQSignedWordToFloat,
+    interleavedIQSignedWordToFloatSSE,
+    interleavedIQSignedWordToFloatAVX,
 
     -- * Scaling
     scaleC,
@@ -108,6 +112,42 @@ interleavedIQSigned2048ToFloat input = VG.generate (VG.length input `quot` 2) co
     convert idx  = convert' (input `VG.unsafeIndex` (2 * idx)) :+ convert' (input `VG.unsafeIndex` (2 * idx + 1))
     {-# INLINE convert' #-}
     convert' val = fromIntegral val / 2048
+
+foreign import ccall unsafe "convertCBladeRF"
+    convertCBladeRF_c :: CInt -> Ptr CShort -> Ptr CFloat -> IO ()
+
+-- | Same as `interleavedIQUnsigned256ToFloat` but written in C and specialized for unsigned byte inputs and Float outputs.
+interleavedIQSignedWordToFloat :: VS.Vector CShort -> VS.Vector (Complex Float)
+interleavedIQSignedWordToFloat inBuf = unsafePerformIO $ do
+    outBuf <- VGM.new $ VG.length inBuf `quot` 2
+    VS.unsafeWith inBuf $ \iPtr -> 
+        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            convertCBladeRF_c (fromIntegral $ VG.length inBuf) iPtr oPtr
+    VG.freeze outBuf
+
+foreign import ccall unsafe "convertCSSEBladeRF"
+    convertCSSEBladeRF_c :: CInt -> Ptr CShort -> Ptr CFloat -> IO ()
+
+-- | Same as `interleavedIQUnsigned256ToFloat` but written in C using SSE intrinsics and specialized for unsigned byte inputs and Float outputs.
+interleavedIQSignedWordToFloatSSE :: VS.Vector CShort -> VS.Vector (Complex Float)
+interleavedIQSignedWordToFloatSSE inBuf = unsafePerformIO $ do
+    outBuf <- VGM.new $ VG.length inBuf `quot` 2
+    VS.unsafeWith inBuf $ \iPtr -> 
+        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            convertCSSEBladeRF_c (fromIntegral $ VG.length inBuf) iPtr oPtr
+    VG.freeze outBuf
+
+foreign import ccall unsafe "convertCAVXBladeRF"
+    convertCAVXBladeRF_c :: CInt -> Ptr CShort -> Ptr CFloat -> IO ()
+
+-- | Same as `interleavedIQUnsigned256ToFloat` but written in C using AVX intrinsics and specialized for unsigned byte inputs and Float outputs.
+interleavedIQSignedWordToFloatAVX :: VS.Vector CShort -> VS.Vector (Complex Float)
+interleavedIQSignedWordToFloatAVX inBuf = unsafePerformIO $ do
+    outBuf <- VGM.new $ VG.length inBuf `quot` 2
+    VS.unsafeWith inBuf $ \iPtr -> 
+        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            convertCAVXBladeRF_c (fromIntegral $ VG.length inBuf) iPtr oPtr
+    VG.freeze outBuf
 
 -- | Scaling
 foreign import ccall unsafe "scale"

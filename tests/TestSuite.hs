@@ -41,7 +41,10 @@ tests info = [
         testGroup "resamplers" [
             testProperty "real" propResamplingReal
         ],
-        testProperty "conversion" propConversion,
+        testGroup "conversion" [
+            testProperty "rtlsdr"  propConversionRTLSDR,
+            testProperty "BladeRF" propConversionBladeRF
+        ],
         testProperty "scaling"    propScaleReal
     ]
     where
@@ -191,19 +194,35 @@ tests info = [
             ]
         assert res
 
-    propConversion = 
+    propConversionRTLSDR = 
         forAll sizes $ \size -> 
             forAll (vectorOf (2 * size) (choose (-10, 10))) $ \inBuf -> 
-                testConversion size inBuf
-    testConversion :: Int -> [Int] -> Property
-    testConversion size inBuf = monadicIO $ do
+                testConversionRTLSDR size inBuf
+    testConversionRTLSDR :: Int -> [Int] -> Property
+    testConversionRTLSDR size inBuf = monadicIO $ do
         let vInput = VS.fromList $ map fromIntegral inBuf
 
         let res = sameResult eqDeltaC $ map (VG.toList $) $ hasFeatures [
-                (const True, (makeComplexBufferVect vInput :: VS.Vector (Complex Float))),
-                (const True, convertC              vInput),
-                (hasSSE42,   convertCSSE           vInput),
-                (hasAVX2,    convertCAVX           vInput)
+                (const True, (interleavedIQUnsigned256ToFloat    vInput :: VS.Vector (Complex Float))),
+                (const True, interleavedIQUnsignedByteToFloat    vInput),
+                (hasSSE42,   interleavedIQUnsignedByteToFloatSSE vInput),
+                (hasAVX2,    interleavedIQUnsignedByteToFloatAVX vInput)
+                ]
+        assert res
+
+    propConversionBladeRF = 
+        forAll sizes $ \size -> 
+            forAll (vectorOf (2 * size) (choose (-10, 10))) $ \inBuf -> 
+                testConversionBladeRF size inBuf
+    testConversionBladeRF :: Int -> [Int] -> Property
+    testConversionBladeRF size inBuf = monadicIO $ do
+        let vInput = VS.fromList $ map fromIntegral inBuf
+
+        let res = sameResult eqDeltaC $ map (VG.toList $) $ hasFeatures [
+                (const True, (interleavedIQSigned2048ToFloat   vInput :: VS.Vector (Complex Float))),
+                (const True, interleavedIQSignedWordToFloat    vInput),
+                (hasSSE42,   interleavedIQSignedWordToFloatSSE vInput),
+                (hasAVX2,    interleavedIQSignedWordToFloatAVX vInput)
                 ]
         assert res
 

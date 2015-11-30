@@ -43,6 +43,10 @@ theBench = do
         inBufComplex =  VG.fromList $ take size $ do
             i <- [0..]
             return $ i :+ i
+        inBufRTLSDR  :: VS.Vector CUChar
+        inBufRTLSDR  =  VG.fromList $ take size [0 ..]
+        inBufBladeRF :: VS.Vector CShort
+        inBufBladeRF =  VG.fromList $ take size [0 ..]
 
         numConv   = 16386
         inBufConv :: VS.Vector CUChar
@@ -127,6 +131,20 @@ theBench = do
                 (const True, bench "c"               $ nfIO $ scaleC    0.3 inBuf outBuf),
                 (hasSSE42,   bench "cSSE"            $ nfIO $ scaleCSSE 0.3 inBuf outBuf),
                 (hasAVX,     bench "cAVX"            $ nfIO $ scaleCAVX 0.3 inBuf outBuf)
+            ],
+            bgroup "conversion" [
+                bgroup "RTLSDR" $ hasFeatures [
+                    (const True, bench "h"    $ nf (interleavedIQUnsigned256ToFloat :: VS.Vector CUChar -> VS.Vector (Complex Float)) inBufRTLSDR),
+                    (const True, bench "c"    $ nf interleavedIQUnsignedByteToFloat    inBufRTLSDR),
+                    (hasSSE42,   bench "cSSE" $ nf interleavedIQUnsignedByteToFloatSSE inBufRTLSDR),
+                    (hasAVX2,    bench "cAVX" $ nf interleavedIQUnsignedByteToFloatAVX inBufRTLSDR)
+                ],
+                bgroup "BladeRF" $ hasFeatures [
+                    (const True, bench "h"    $ nf (interleavedIQSigned2048ToFloat :: VS.Vector CShort -> VS.Vector (Complex Float))  inBufBladeRF),
+                    (const True, bench "c"    $ nf interleavedIQSignedWordToFloat    inBufBladeRF),
+                    (hasSSE42,   bench "cSSE" $ nf interleavedIQSignedWordToFloatSSE inBufBladeRF),
+                    (hasAVX2,    bench "cAVX" $ nf interleavedIQSignedWordToFloatAVX inBufBladeRF)
+                ]
             ]
         ]
 
