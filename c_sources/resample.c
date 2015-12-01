@@ -13,7 +13,7 @@
 /*
  * Rational downsampling
  */
-void resample(int buf_size, int coeff_size, int interpolation, int decimation, int filter_offset, float *coeffs, float *in_buf, float *out_buf){
+void resampleRR(int buf_size, int coeff_size, int interpolation, int decimation, int filter_offset, float *coeffs, float *in_buf, float *out_buf){
     int j, k, l;
     int input_offset = 0;
     for(k=0; k<buf_size; k++) {
@@ -31,7 +31,7 @@ void resample(int buf_size, int coeff_size, int interpolation, int decimation, i
     }
 }
 
-int resample2(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
+int resample2RR(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
     int   i, j;
     int   group      = starting_group;
     float *start_ptr = in_buf;
@@ -78,6 +78,61 @@ int resampleAVXRR(int buf_size, int num_coeffs, int starting_group, int num_grou
         _mm_store_ss(out_buf + i, res);
 
         startPtr  += increments[group];
+        group++;
+        if(group == num_groups) 
+            group = 0;
+    }
+
+    return group;
+}
+
+int resample2RC(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
+    int   i;
+    int   group      = starting_group;
+    float *start_ptr = in_buf;
+
+    for(i=0; i<buf_size*2; i+=2){
+        dotprod_C(num_coeffs, coeffs[group], start_ptr, out_buf + i);
+
+        start_ptr  += (2 * increments[group]);
+        group++;
+        if(group == num_groups) 
+            group = 0;
+    }
+
+    return group;
+}
+
+int resampleSSERC(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
+    int   i;
+    int   group      = starting_group;
+    float *startPtr  = in_buf;
+
+    for(i=0; i<buf_size*2; i+=2){
+        __m128 accum = sse_dotprod_C(num_coeffs, coeffs[group], startPtr);
+        accum = sse_hadd_C(accum);
+        store_complex(out_buf + i, accum);
+
+        startPtr  += (2 * increments[group]);
+        group++;
+        if(group == num_groups) 
+            group = 0;
+    }
+
+    return group;
+}
+
+int resampleAVXRC(int buf_size, int num_coeffs, int starting_group, int num_groups, int *increments, float **coeffs, float *in_buf, float *out_buf){
+    int   i;
+    int   group      = starting_group;
+    float *startPtr  = in_buf;
+
+    for(i=0; i<buf_size*2; i+=2){
+        __m256 accum = avx_dotprod_C(num_coeffs, coeffs[group], startPtr);
+        __m128 res   = avx_hadd_C(accum);
+        store_complex(out_buf + i, res);
+
+        startPtr  += (2 * increments[group]);
         group++;
         if(group == num_groups) 
             group = 0;

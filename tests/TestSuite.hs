@@ -39,7 +39,8 @@ tests info = [
             testProperty "complex" propDecimationComplex
         ],
         testGroup "resamplers" [
-            testProperty "real" propResamplingReal
+            testProperty "real" propResamplingReal,
+            testProperty "complex" propResamplingComplex
         ],
         testGroup "conversion" [
             testProperty "rtlsdr"  propConversionRTLSDR,
@@ -188,6 +189,37 @@ tests info = [
         res <- run $ sameResultM eqDelta $ map (getResult num $) $ hasFeatures [
                 (const True, void . resampleHighLevel       interpolation decimation vCoeffs offset num vInput),
                 (const True, void . resampleCRR             num interpolation decimation offset vCoeffs vInput),
+                (const True, void . resampler3              group num vInput),
+                (hasSSE42,   void . resampler4              group num vInput),
+                (hasAVX,     void . resampler5              group num vInput)
+            ]
+        assert res
+
+    propResamplingComplex = 
+        forAll sizes $ \size -> 
+            forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
+                forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
+                    forAll (elements [32 .. 512]) $ \numCoeffs -> 
+                        forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+                           forAll (elements $ tail factors') $ \decimation -> 
+                               forAll (elements $ filter (< decimation) factors') $ \interpolation -> 
+                                   forAll (elements [0..interpolation - 1]) $ \group -> 
+                                       testResamplingComplex size group numCoeffs interpolation decimation coeffs $ zipWith (:+) inBufR inBufI
+
+    testResamplingComplex :: Int -> Int -> Int -> Int -> Int -> [Float] -> [Complex Float] -> Property
+    testResamplingComplex size group numCoeffs interpolation decimation coeffs inBuf = monadicIO $ do
+        let vCoeffsHalf = VS.fromList coeffs
+            vCoeffs     = VS.fromList $ coeffs ++ reverse coeffs
+            vInput      = VS.fromList inBuf
+            num         = (size - numCoeffs*2 + 1) `quot` decimation
+            offset       = interpolation - 1 - ((interpolation + group * decimation - 1) `mod` interpolation) 
+
+        resampler3 <- run $ resampleCRC    interpolation decimation (coeffs ++ reverse coeffs)
+        resampler4 <- run $ resampleCSSERC interpolation decimation (coeffs ++ reverse coeffs)
+        resampler5 <- run $ resampleCAVXRC interpolation decimation (coeffs ++ reverse coeffs)
+
+        res <- run $ sameResultM eqDeltaC $ map (getResult num $) $ hasFeatures [
+                (const True, void . resampleHighLevel       interpolation decimation vCoeffs offset num vInput),
                 (const True, void . resampler3              group num vInput),
                 (hasSSE42,   void . resampler4              group num vInput),
                 (hasAVX,     void . resampler5              group num vInput)

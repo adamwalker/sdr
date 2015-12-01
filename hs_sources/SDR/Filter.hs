@@ -100,7 +100,7 @@ import           Control.Monad.Primitive
 import           Pipes
 
 import           SDR.Util
-import           SDR.FilterInternal          hiding (mkResampler)
+import           SDR.FilterInternal          hiding (mkResampler, mkResamplerC)
 import           SDR.CPUID
 
 {- | A `Filter` contains all of the information needed by the `filterr` 
@@ -418,6 +418,25 @@ mkResampler sizeMultiple filterFunc interpolationR decimationR coeffs = do
         startDat                = (0, 0)
     return $ Resampler {..}
 
+mkResamplerC :: Int
+             -> ResampleRC
+             -> Int
+             -> Int
+             -> [Float] 
+             -> IO (Resampler IO VS.Vector VS.MVector (Complex Float)) 
+mkResamplerC sizeMultiple filterFunc interpolationR decimationR coeffs = do
+    let vCoeffs     = VG.fromList coeffs
+    evaluate vCoeffs
+    resamp <- filterFunc interpolationR decimationR coeffs
+    let resampleOne   v w x y   = func1 <$> resamp (fst v) w x y
+        resampleCross (group, offset) count x y z = do 
+            offset' <- resampleCrossHighLevel interpolationR decimationR vCoeffs offset count x y z
+            return (((group + count) `mod` interpolationR, offset'), offset')
+        numCoeffsR              = roundUp (length coeffs) (interpolationR * sizeMultiple)
+        func1 group             = let offset = interpolationR - 1 - ((interpolationR + group * decimationR - 1) `mod` interpolationR) in ((group, offset), offset)
+        startDat                = (0, 0)
+    return $ Resampler {..}
+
 -- | Returns a fast Resampler data structure implemented in C. For filtering real data with real coefficients.
 fastResamplerCR :: Int                                          -- ^ The interpolation factor
                 -> Int                                          -- ^ The decimation factor
@@ -446,6 +465,35 @@ fastResamplerR :: CPUInfo                                      -- ^ The CPU's ca
                -> [Float]                                      -- ^ The filter coefficients
                -> IO (Resampler IO VS.Vector VS.MVector Float) -- ^ The `Resampler` data structure
 fastResamplerR info = featureSelect info fastResamplerCR [(hasAVX, fastResamplerAVXR), (hasSSE42, fastResamplerSSER)]
+
+-- | Returns a fast Resampler data structure implemented in C. For filtering complex data with real coefficients.
+fastResamplerCC :: Int                                          -- ^ The interpolation factor
+                -> Int                                          -- ^ The decimation factor
+                -> [Float]                                      -- ^ The filter coefficients
+                -> IO (Resampler IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Resampler` data structure
+fastResamplerCC = mkResamplerC 1 resampleCRC
+
+-- | Returns a fast Resampler data structure implemented in C using SSE instructions. For filtering complex data with real coefficients.
+fastResamplerSSEC :: Int                                          -- ^ The interpolation factor
+                  -> Int                                          -- ^ The decimation factor
+                  -> [Float]                                      -- ^ The filter coefficients
+                  -> IO (Resampler IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Resampler` data structure
+fastResamplerSSEC = mkResamplerC 4 resampleCSSERC
+
+-- | Returns a fast Resampler data structure implemented in C using AVX instructions. For filtering complex data with real coefficients.
+fastResamplerAVXC :: Int                                          -- ^ The interpolation factor
+                  -> Int                                          -- ^ The decimation factor
+                  -> [Float]                                      -- ^ The filter coefficients
+                  -> IO (Resampler IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Resampler` data structure
+fastResamplerAVXC = mkResamplerC 8 resampleCAVXRC
+
+-- | Returns a fast Resampler data structure implemented in C using the fastest SIMD instruction set your processor supports. For resampling complex data with real coefficients.
+fastResamplerC :: CPUInfo                                      -- ^ The CPU's capabilities
+               -> Int                                          -- ^ The interpolation factor
+               -> Int                                          -- ^ The decimation factor
+               -> [Float]                                      -- ^ The filter coefficients
+               -> IO (Resampler IO VS.Vector VS.MVector (Complex Float)) -- ^ The `Resampler` data structure
+fastResamplerC info = featureSelect info fastResamplerCC [(hasAVX, fastResamplerAVXC), (hasSSE42, fastResamplerSSEC)]
 
 data Buffer v a = Buffer {
     buffer :: v a,

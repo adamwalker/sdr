@@ -265,7 +265,7 @@ resampleHighLevel interpolation decimation coeffs filterOffset count inBuf outBu
         | otherwise = return filterOffset
     dotProd filterOffset offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) (stride interpolation (VG.unsafeDrop filterOffset coeffs))
 
-foreign import ccall unsafe "resample"
+foreign import ccall unsafe "resampleRR"
     resample_c :: CInt -> CInt -> CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
 resampleCRR :: Int -> Int -> Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
@@ -325,6 +325,12 @@ resampleFFIR func inBuf outBuf = liftM fromIntegral $
         VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             func iPtr oPtr
 
+resampleFFIC :: (Ptr CFloat -> Ptr CFloat -> IO CInt) -> VS.Vector (Complex Float) -> VSM.MVector RealWorld (Complex Float) -> IO Int
+resampleFFIC func inBuf outBuf = liftM fromIntegral $
+    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+            func iPtr oPtr
+
 type ResampleR = CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
 
 mkResampler :: ResampleR -> Int -> Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO Int)
@@ -338,7 +344,7 @@ mkResampler func n interpolation decimation coeffs = do
 
 type ResampleRR = Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector Float -> VS.MVector RealWorld Float -> IO Int)
 
-foreign import ccall unsafe "resample2"
+foreign import ccall unsafe "resample2RR"
     resample2_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
 
 resampleCRR2 :: ResampleRR
@@ -355,6 +361,35 @@ foreign import ccall unsafe "resampleAVXRR"
 
 resampleCAVXRR :: ResampleRR
 resampleCAVXRR = mkResampler resampleAVXRR_c 8
+
+type ResampleRC = Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO Int)
+
+mkResamplerC :: ResampleR -> Int -> Int -> Int -> [Float] -> IO (Int -> Int -> VS.Vector (Complex Float) -> VS.MVector RealWorld (Complex Float) -> IO Int)
+mkResamplerC func n interpolation decimation coeffs = do
+    groupsP     <- mapM newArray $ map (map realToFrac) groups
+    groupsPP    <- newArray groupsP
+    incrementsP <- newArray $ map fromIntegral increments
+    return $ \offset num -> resampleFFIC $ func (fromIntegral num) (fromIntegral numCoeffs) (fromIntegral offset) (fromIntegral numGroups) incrementsP groupsPP
+    where
+    Coeffs {..} = prepareCoeffs n interpolation decimation coeffs
+
+foreign import ccall unsafe "resample2RC"
+    resample2RC_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
+
+resampleCRC :: ResampleRC
+resampleCRC = mkResamplerC resample2RC_c 1
+
+foreign import ccall unsafe "resampleSSERC"
+    resampleCSSERC_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
+
+resampleCSSERC :: ResampleRC
+resampleCSSERC = mkResamplerC resampleCSSERC_c 4
+
+foreign import ccall unsafe "resampleAVXRC"
+    resampleAVXRC_c :: CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
+
+resampleCAVXRC :: ResampleRC
+resampleCAVXRC = mkResamplerC resampleAVXRC_c 8
 
 {-
  - Cross buffer
