@@ -71,6 +71,10 @@ theBench = do
     resampler4 <- resampleCSSERR interpolation decimation coeffsList
     resampler5 <- resampleCAVXRR interpolation decimation coeffsList
 
+    resampler3C <- resampleCRC    interpolation decimation coeffsList
+    resampler4C <- resampleCSSERC interpolation decimation coeffsList
+    resampler5C <- resampleCAVXRC interpolation decimation coeffsList
+
     --Benchmarks
     defaultMain [
             bgroup "filter" [
@@ -124,7 +128,10 @@ theBench = do
                     (hasAVX,     bench "cAVX"        $ nfIO $ resampler5               (num `quot` decimation) 0 inBuf outBuf)
                 ],
                 bgroup "complex" $ hasFeatures [
-                    (const True, bench "highLevel"   $ nfIO $ resampleHighLevel        interpolation decimation coeffs 0 (num `quot` decimation) inBufComplex outBufComplex)
+                    (const True, bench "highLevel"   $ nfIO $ resampleHighLevel        interpolation decimation coeffs 0 (num `quot` decimation) inBufComplex outBufComplex),
+                    (const True, bench "c"           $ nfIO $ resampler3C               (num `quot` decimation) 0 inBufComplex outBufComplex),
+                    (const True, bench "SSE"         $ nfIO $ resampler4C               (num `quot` decimation) 0 inBufComplex outBufComplex),
+                    (const True, bench "AVX"         $ nfIO $ resampler5C               (num `quot` decimation) 0 inBufComplex outBufComplex)
                 ]
             ],
             bgroup "scaling" $ hasFeatures [
