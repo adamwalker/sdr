@@ -93,7 +93,8 @@ library
         optparse-applicative >=0.11  && <0.12, 
         Decimal              >=0.4   && <0.5, 
         Chart                >=1.3   && <1.5, 
-        Chart-cairo          >=1.3   && <1.5
+        Chart-cairo          >=1.3   && <1.5,
+        mwc-random
     -- hs-source-dirs:      
     default-language:    Haskell2010
     ghc-options:         -O2

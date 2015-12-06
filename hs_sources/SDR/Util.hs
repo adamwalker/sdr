@@ -29,7 +29,9 @@ module SDR.Util (
 
     -- * Misc Utils
     cplxMap,
-    quarterBandUp
+    quarterBandUp,
+    streamString,
+    streamRandom
     ) where
 
 import           Foreign.C.Types
@@ -43,8 +45,15 @@ import           Unsafe.Coerce
 import           Foreign.Ptr
 import           System.IO.Unsafe
 import           Foreign.Storable.Complex
+import           Control.Monad
+import qualified System.Random.MWC as R
+import           Data.Bits
+import           Pipes
+import qualified Pipes.Prelude as P
+import           Data.Word
 
 import           SDR.CPUID
+import           SDR.VectorUtils
 
 -- | A class for things that can be multiplied by a scalar.
 class Mult a b where
@@ -237,3 +246,33 @@ quarterBandUp size = VG.generate size func
         where
         m = idx `mod` 4
 
+streamString :: forall m b. (FiniteBits b, Monad m) => [b] -> Int -> Producer (VS.Vector Float) m ()
+streamString str size = P.unfoldr (return . Right . func) (str, 0)
+    where
+    bitsPerChar = finiteBitSize (undefined :: b)
+    toFloat :: Bool -> Float
+    toFloat x   = if x then 1 else (-1)
+    func = vUnfoldr size funcy 
+        where
+        funcy ([], offsetChar) = funcy (str, 0)
+        funcy (rem@(x:xs), offsetChar)
+            | offsetChar == bitsPerChar = funcy (xs, 0)
+            | otherwise                 = (toFloat $ testBit x offsetChar, (rem, offsetChar + 1))
+
+streamRandom :: forall m. PrimMonad m => Int -> Producer (VS.Vector Float) m ()
+streamRandom size = do
+    gen   <- lift $ R.create 
+    start <- lift $ R.uniform gen
+    P.unfoldr (liftM Right . (func gen)) (start, 0)
+    where
+    toFloat :: Bool -> Float
+    toFloat x   = if x then 1 else (-1)
+    func :: R.Gen (PrimState m) -> (Word64, Int) -> m (VS.Vector Float, (Word64, Int))
+    func gen = vUnfoldrM size funcy 
+        where
+        funcy (current, offset) = do
+            let res =  toFloat $ testBit current offset
+            if offset == 63 then do
+                current' <- R.uniform gen
+                return (res, (current', 0))
+            else return (res, (current, offset+1))
