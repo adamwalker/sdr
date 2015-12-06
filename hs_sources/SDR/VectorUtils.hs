@@ -5,7 +5,8 @@ module SDR.VectorUtils (
     mapAccumMV,
     stride,
     fill,
-    vUnfoldr
+    vUnfoldr,
+    vUnfoldrM
     ) where
 
 import Control.Monad
@@ -79,3 +80,20 @@ vUnfoldr size func acc = runST $ do
                 let (res, acc') = func acc
                 VGM.write vect offset res
                 go' (offset + 1) acc'
+
+vUnfoldrM :: (PrimMonad m, VG.Vector v x) => Int -> (acc -> m (x, acc)) -> acc -> m (v x, acc)
+vUnfoldrM size func acc = do
+    vect <- VGM.new size
+    acc' <- go vect 0 acc
+    vect' <- VG.unsafeFreeze vect
+    return (vect', acc')
+    where
+    go vect offset acc = go' offset acc
+        where
+        go' offset acc 
+            | offset == size = return acc
+            | otherwise      = do
+                (res, acc') <- func acc
+                VGM.write vect offset res
+                go' (offset + 1) acc'
+
