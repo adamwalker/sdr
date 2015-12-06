@@ -84,3 +84,19 @@ void convertCAVXBladeRF(int num, int16_t *in, float *out){
     }
 }
 
+void convertBladeRFTransmit(int num, float *in, int16_t *out){
+    int i;
+    for(i=0; i<num; i++){
+        float val   = in[i];        // [-1, 1)
+        val         = val + 1;      // [0, 2)
+        val         = val * 2048;   // [0, 4096)
+        int16_t res = (int16_t)val; // [0, 4095]
+        res         = res - 2048;   // [-2048, 2047]
+
+        if(res > 2047)  res = 2047;
+        if(res < -2048) res = -2048;
+
+        out[i]      = res;
+    }
+}
+

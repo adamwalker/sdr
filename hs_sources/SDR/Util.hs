@@ -18,6 +18,9 @@ module SDR.Util (
     interleavedIQSignedWordToFloatSSE,
     interleavedIQSignedWordToFloatAVX,
 
+    complexFloatToInterleavedIQSigned2048,
+    complexFloatToInterleavedIQSignedWord,
+
     -- * Scaling
     scaleC,
     scaleCSSE,
@@ -149,6 +152,27 @@ interleavedIQSignedWordToFloatAVX inBuf = unsafePerformIO $ do
             convertCAVXBladeRF_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
+complexFloatToInterleavedIQSigned2048 :: (Integral b, RealFrac a, VG.Vector v1 (Complex a), VG.Vector v2 b) => v1 (Complex a) -> v2 b
+complexFloatToInterleavedIQSigned2048 input = VG.generate (VG.length input * 2) convert
+    where
+    {-# INLINE convert #-}
+    convert idx  
+        | even idx = convert' $ realPart (input `VG.unsafeIndex` (idx `quot` 2))
+        | odd  idx = convert' $ imagPart (input `VG.unsafeIndex` (idx `quot` 2))
+    {-# INLINE convert' #-}
+    convert' val = round $ val * 2048
+
+foreign import ccall unsafe "convertBladeRFTransmit"
+    convertBladeRFTransmit_c :: CInt -> Ptr CFloat -> Ptr CShort -> IO ()
+
+complexFloatToInterleavedIQSignedWord :: VS.Vector (Complex Float) -> VS.Vector CShort
+complexFloatToInterleavedIQSignedWord inBuf = unsafePerformIO $ do
+    outBuf <- VGM.new $ VG.length inBuf * 2
+    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+        VSM.unsafeWith outBuf $ \oPtr -> 
+            convertBladeRFTransmit_c (fromIntegral $ VG.length inBuf * 2) iPtr oPtr
+    VG.freeze outBuf
+    
 -- | Scaling
 foreign import ccall unsafe "scale"
     scale_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
