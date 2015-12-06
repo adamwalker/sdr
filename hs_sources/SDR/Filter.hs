@@ -76,6 +76,11 @@ module SDR.Filter (
     fastResamplerAVXR,
     fastResamplerR,
 
+    fastResamplerCC,
+    fastResamplerSSEC,
+    fastResamplerAVXC,
+    fastResamplerC,
+
     -- * Filter
     firFilter,
 
