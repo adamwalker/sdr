@@ -65,7 +65,13 @@ fill str outBuf = void $ VFSM.foldM' put 0 str
         VGM.unsafeWrite outBuf i x
         return $ i + 1
 
-vUnfoldr :: VG.Vector v x => Int -> (acc -> (x, acc)) -> acc -> (v x, acc)
+-- | Similar to unfoldrN from the vector package but the generator function cannot terminate and it returns the final value of the seed in addition to the vector
+{-# INLINE vUnfoldr #-}
+vUnfoldr :: VG.Vector v x 
+         => Int               -- ^ Generates a vector with this size
+         -> (acc -> (x, acc)) -- ^ The generator function
+         -> acc               -- ^ The initial value of the seed
+         -> (v x, acc)        -- ^ The (vector, final value of seed) result
 vUnfoldr size func acc = runST $ do
     vect <- VGM.new size
     acc' <- go vect 0 acc
@@ -81,7 +87,13 @@ vUnfoldr size func acc = runST $ do
                 VGM.write vect offset res
                 go' (offset + 1) acc'
 
-vUnfoldrM :: (PrimMonad m, VG.Vector v x) => Int -> (acc -> m (x, acc)) -> acc -> m (v x, acc)
+-- | The same as `vUnfoldr` but the generator function is monadic
+{-# INLINE vUnfoldrM #-}
+vUnfoldrM :: (PrimMonad m, VG.Vector v x) 
+          => Int                 -- ^ Generates a vector with this size
+          -> (acc -> m (x, acc)) -- ^ The monadic generator function                    
+          -> acc                 -- ^ The initial value of the seed
+          -> m (v x, acc)        -- ^ The (vector, final value of seed) result
 vUnfoldrM size func acc = do
     vect <- VGM.new size
     acc' <- go vect 0 acc

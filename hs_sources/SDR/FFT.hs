@@ -3,7 +3,6 @@
 {-| Fast FFTs using FFTW -}
 module SDR.FFT (
     -- * Windows
-    fftFixup,
     hamming,
     hanning,
     blackman,
@@ -38,16 +37,6 @@ mallocForeignBufferAligned :: forall a. Storable a => Int -> IO (ForeignPtr a)
 mallocForeignBufferAligned elems = do
     ptr <- fftwMalloc $ fromIntegral $ elems * sizeOf (undefined :: a)
     newForeignPtr fftwFreePtr ptr
-
--- | Compute a vector of alternating 1s and 0s of the given size.
-fftFixup :: (VG.Vector v n, Num n) 
-         => Int -- ^ The length of the Vector
-         -> v n
-fftFixup size = VG.generate size func
-    where
-    func idx 
-        | even idx  = 1
-        | otherwise = -1
 
 -- | Creates a Pipe that performs a complex to complex DFT.
 fftw :: (VG.Vector v (Complex CDouble)) 

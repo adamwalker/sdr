@@ -6,7 +6,7 @@ module SDR.Util (
     Mult,
     mult,
 
-    -- * Conversion to Floating Point
+    -- * Conversion to floating point for reception
     interleavedIQUnsigned256ToFloat,
     interleavedIQUnsignedByteToFloat,
     interleavedIQUnsignedByteToFloatSSE,
@@ -18,6 +18,7 @@ module SDR.Util (
     interleavedIQSignedWordToFloatSSE,
     interleavedIQSignedWordToFloatAVX,
 
+    -- * Conversion from floating point for transmission
     complexFloatToInterleavedIQSigned2048,
     complexFloatToInterleavedIQSignedWord,
 
@@ -27,9 +28,14 @@ module SDR.Util (
     scaleCAVX,
     scaleFast,
 
-    -- * Misc Utils
+    -- * Mapping over complex numbers
     cplxMap,
+
+    -- * Frequency shifting
+    halfBandUp,
     quarterBandUp,
+
+    -- * Data streams
     streamString,
     streamRandom
     ) where
@@ -161,6 +167,7 @@ interleavedIQSignedWordToFloatAVX inBuf = unsafePerformIO $ do
             convertCAVXBladeRF_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
+-- | Create a vector of interleaved I Q component integral samples from a vector of complex Floats. Each input ranges from -2048 to 2047. This is the format the BladeRF uses.
 complexFloatToInterleavedIQSigned2048 :: (Integral b, RealFrac a, VG.Vector v1 (Complex a), VG.Vector v2 b) => v1 (Complex a) -> v2 b
 complexFloatToInterleavedIQSigned2048 input = VG.generate (VG.length input * 2) convert
     where
@@ -174,6 +181,7 @@ complexFloatToInterleavedIQSigned2048 input = VG.generate (VG.length input * 2) 
 foreign import ccall unsafe "convertBladeRFTransmit"
     convertBladeRFTransmit_c :: CInt -> Ptr CFloat -> Ptr CShort -> IO ()
 
+-- | Same as `complexFloatToInterleavedIQSigned2048` but written in C and specialized for Float inputs and signed short outputs.
 complexFloatToInterleavedIQSignedWord :: VS.Vector (Complex Float) -> VS.Vector CShort
 complexFloatToInterleavedIQSignedWord inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf * 2
@@ -232,6 +240,16 @@ cplxMap :: (a -> b)  -- ^ The function
         -> Complex b -- ^ Output complex number
 cplxMap f (x :+ y) = f x :+ f y
 
+-- | Multiplication by this vector shifts all frequencies up by 1/2 of the sampling frequency
+halfBandUp :: (VG.Vector v n, Num n) 
+           => Int -- ^ The length of the Vector
+           -> v n 
+halfBandUp size = VG.generate size func
+    where
+    func idx 
+        | even idx  = 1
+        | otherwise = -1
+
 -- | Multiplication by this vector shifts all frequencies up by 1/4 of the sampling frequency
 quarterBandUp :: (VG.Vector v (Complex n), Num n) 
               => Int -- ^ The length of the Vector
@@ -246,7 +264,11 @@ quarterBandUp size = VG.generate size func
         where
         m = idx `mod` 4
 
-streamString :: forall m b. (FiniteBits b, Monad m) => [b] -> Int -> Producer (VS.Vector Float) m ()
+-- | A Producer that streams vectors of the bits that make up the string argument concatenated repeatedly. Each bit is encoded as a float with value (+1) for 1 and (-1) for 0.
+streamString :: forall m b. (FiniteBits b, Monad m) 
+             => [b] -- ^ The string whose bits are to be streamed
+             -> Int -- ^ The size of each streamed vector
+             -> Producer (VS.Vector Float) m ()
 streamString str size = P.unfoldr (return . Right . func) (str, 0)
     where
     bitsPerChar = finiteBitSize (undefined :: b)
@@ -259,11 +281,14 @@ streamString str size = P.unfoldr (return . Right . func) (str, 0)
             | offsetChar == bitsPerChar = funcy (xs, 0)
             | otherwise                 = (toFloat $ testBit x offsetChar, (rem, offsetChar + 1))
 
-streamRandom :: forall m. PrimMonad m => Int -> Producer (VS.Vector Float) m ()
+-- | A Producer that streams vectors of random bits. Each bit is encoded as a float with value (+1) for 1 and (-1) for 0.
+streamRandom :: forall m. PrimMonad m 
+             => Int -- ^ The size of each streamed vector
+             -> Producer (VS.Vector Float) m ()
 streamRandom size = do
-    gen   <- lift $ R.create 
+    gen   <- lift R.create 
     start <- lift $ R.uniform gen
-    P.unfoldr (liftM Right . (func gen)) (start, 0)
+    P.unfoldr (liftM Right . func gen) (start, 0)
     where
     toFloat :: Bool -> Float
     toFloat x   = if x then 1 else (-1)
@@ -276,3 +301,4 @@ streamRandom size = do
                 current' <- R.uniform gen
                 return (res, (current', 0))
             else return (res, (current, offset+1))
+
