@@ -24,7 +24,7 @@ description:
     .
     * PulseAudio sound sink
     .
-    * <http://sdr.osmocom.org/trac/wiki/rtl-sdr rtl-sdr> based radio source supported and other sources are easily added
+    * <http://sdr.osmocom.org/trac/wiki/rtl-sdr rtl-sdr> and <https://nuand.com BladeRF> based radio sources/sinks supported and other sources are easily added
     .
     See <https://github.com/adamwalker/sdr> for more features and screenshots.
     .
