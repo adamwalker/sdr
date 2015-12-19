@@ -54,7 +54,11 @@ rate samples = do
             rate' (buffers + 1)
     rate' 1
 
-pMapAccum :: (Monad m) => (acc -> x -> (acc, y)) -> acc -> Pipe x y m () 
+-- | mapAccum for Pipes
+pMapAccum :: (Monad m) 
+          => (acc -> x -> (acc, y)) -- ^ Accumulating function
+          -> acc                    -- ^ Initial value of the accumulator
+          -> Pipe x y m () 
 pMapAccum func acc = go acc
     where
     go acc = do

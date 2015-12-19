@@ -80,7 +80,11 @@ plotFrequency coeffs = toFile def "frequency_response.png" $ do
 
 --ts is really the ratio ts / sampling period
 -- | Square root raised cosine
-srrc :: (Ord a, Floating a) => Int -> Int -> a -> [a]
+srrc :: (Ord a, Floating a) 
+     => Int -- ^ size: from [-n .. n]
+     -> Int -- ^ sampling period
+     -> a   -- ^ beta
+     -> [a]
 srrc n ts beta = map func [(-n) .. n]
     where
     func x 
