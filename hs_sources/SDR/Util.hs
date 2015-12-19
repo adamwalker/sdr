@@ -7,18 +7,22 @@ module SDR.Util (
     mult,
 
     -- * Conversion to floating point for reception
+    -- ** RTLSDR
     interleavedIQUnsigned256ToFloat,
     interleavedIQUnsignedByteToFloat,
     interleavedIQUnsignedByteToFloatSSE,
     interleavedIQUnsignedByteToFloatAVX,
     interleavedIQUnsignedByteToFloatFast,
 
+    -- ** BladeRF
     interleavedIQSigned2048ToFloat,
     interleavedIQSignedWordToFloat,
     interleavedIQSignedWordToFloatSSE,
     interleavedIQSignedWordToFloatAVX,
+    interleavedIQSignedWordToFloatFast,
 
     -- * Conversion from floating point for transmission
+    -- ** BladeRF
     complexFloatToInterleavedIQSigned2048,
     complexFloatToInterleavedIQSignedWord,
 
@@ -134,7 +138,7 @@ interleavedIQSigned2048ToFloat input = VG.generate (VG.length input `quot` 2) co
 foreign import ccall unsafe "convertCBladeRF"
     convertCBladeRF_c :: CInt -> Ptr CShort -> Ptr CFloat -> IO ()
 
--- | Same as `interleavedIQUnsigned256ToFloat` but written in C and specialized for unsigned byte inputs and Float outputs.
+-- | Same as `interleavedIQUnsigned256ToFloat` but written in C and specialized for signed short inputs and Float outputs.
 interleavedIQSignedWordToFloat :: VS.Vector CShort -> VS.Vector (Complex Float)
 interleavedIQSignedWordToFloat inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
@@ -146,7 +150,7 @@ interleavedIQSignedWordToFloat inBuf = unsafePerformIO $ do
 foreign import ccall unsafe "convertCSSEBladeRF"
     convertCSSEBladeRF_c :: CInt -> Ptr CShort -> Ptr CFloat -> IO ()
 
--- | Same as `interleavedIQUnsigned256ToFloat` but written in C using SSE intrinsics and specialized for unsigned byte inputs and Float outputs.
+-- | Same as `interleavedIQUnsigned256ToFloat` but written in C using SSE intrinsics and specialized for signed short inputs and Float outputs.
 interleavedIQSignedWordToFloatSSE :: VS.Vector CShort -> VS.Vector (Complex Float)
 interleavedIQSignedWordToFloatSSE inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
@@ -158,7 +162,7 @@ interleavedIQSignedWordToFloatSSE inBuf = unsafePerformIO $ do
 foreign import ccall unsafe "convertCAVXBladeRF"
     convertCAVXBladeRF_c :: CInt -> Ptr CShort -> Ptr CFloat -> IO ()
 
--- | Same as `interleavedIQUnsigned256ToFloat` but written in C using AVX intrinsics and specialized for unsigned byte inputs and Float outputs.
+-- | Same as `interleavedIQUnsigned256ToFloat` but written in C using AVX intrinsics and specialized for signed short inputs and Float outputs.
 interleavedIQSignedWordToFloatAVX :: VS.Vector CShort -> VS.Vector (Complex Float)
 interleavedIQSignedWordToFloatAVX inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
@@ -166,6 +170,10 @@ interleavedIQSignedWordToFloatAVX inBuf = unsafePerformIO $ do
         VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
             convertCAVXBladeRF_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
+
+-- | Same as `interleavedIQSigned2048ToFloat` but uses the fastest SIMD instruction set your processor supports and specialized for signed short inputs and Float outputs.
+interleavedIQSignedWordToFloatFast :: CPUInfo -> VS.Vector CShort -> VS.Vector (Complex Float)
+interleavedIQSignedWordToFloatFast info = featureSelect info interleavedIQSignedWordToFloat [(hasAVX2, interleavedIQSignedWordToFloatAVX), (hasSSE42, interleavedIQSignedWordToFloatSSE)]
 
 -- | Create a vector of interleaved I Q component integral samples from a vector of complex Floats. Each input ranges from -2048 to 2047. This is the format the BladeRF uses.
 complexFloatToInterleavedIQSigned2048 :: (Integral b, RealFrac a, VG.Vector v1 (Complex a), VG.Vector v2 b) => v1 (Complex a) -> v2 b
