@@ -59,6 +59,7 @@ blackman size = VG.generate size func
     where
     func idx = 0.42 - 0.5 * cos((2 * pi * fromIntegral idx) / (fromIntegral size - 1)) + 0.08 * cos((4 * pi * fromIntegral idx) / (fromIntegral size - 1))
 
+-- | Compute a windowed sinc function
 windowedSinc :: (Floating n, VG.Vector v n)
              => Int          -- ^ The length
              -> n            -- ^ The cutoff frequency (from 0 to 1)
