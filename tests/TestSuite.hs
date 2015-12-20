@@ -23,11 +23,11 @@ sameResultM _  []     = return True
 sameResultM eq (x:xs) = do
     res  <- x
     ress <- sequence xs
-    return $ and $ map (eq res) ress
+    return $ all (eq res) ress
 
 sameResult :: (a -> a -> Bool) -> [a] -> Bool
 sameResult _ [] = True
-sameResult eq (x:xs) = and $ map (eq x) xs
+sameResult eq (x:xs) = all (eq x) xs
 
 tests info = [
         testGroup "filters" [
@@ -281,10 +281,10 @@ tests info = [
         func outBuf
         out :: VS.Vector a <- VG.freeze outBuf
         return $ VG.toList out
-    eqDelta x y = and $ map (uncurry eqDelta') $ zip x y
+    eqDelta x y = all (uncurry eqDelta') $ zip x y
         where
         eqDelta' x y = abs (x - y) < 0.01
-    eqDeltaC x y = and $ map (uncurry eqDelta') $ zip x y
+    eqDeltaC x y = all (uncurry eqDelta') $ zip x y
         where
         eqDelta' x y = magnitude (x - y) < 0.01
     duplicate :: [a] -> [a]
