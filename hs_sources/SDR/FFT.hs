@@ -22,16 +22,15 @@ import           Foreign.ForeignPtr
 import           Control.Concurrent           hiding (yield)
 import qualified Data.Map                     as Map
 
-import           Data.Vector.Generic          as VG
-import           Data.Vector.Generic.Mutable  as VGM
-import           Data.Vector.Storable         as VS
-import           Data.Vector.Storable.Mutable as VSM
-import           Data.Vector.Fusion.Stream    as VFS
+import qualified Data.Vector.Generic          as VG
+import qualified Data.Vector.Storable         as VS
+import qualified Data.Vector.Storable.Mutable as VSM
 
 import           Pipes
 import           Numeric.FFTW
 
 import           SDR.FilterDesign
+import           SDR.VectorUtils
 
 mallocForeignBufferAligned :: forall a. Storable a => Int -> IO (ForeignPtr a)
 mallocForeignBufferAligned elems = do
@@ -55,7 +54,7 @@ fftw samples = do
         ina <- lift $ mallocForeignBufferAligned samples
         let inv = VSM.unsafeFromForeignPtr0 ina samples
 
-        lift $ VGM.fill inv $ VFS.mapM return $ VG.stream inv'
+        lift $ copyInto inv inv'
 
         let (fp, offset, length) = VSM.unsafeToForeignPtr inv
 
@@ -83,7 +82,7 @@ fftwReal samples = do
         ina <- lift $ mallocForeignBufferAligned samples
         let inv = VSM.unsafeFromForeignPtr0 ina samples
 
-        lift $ VGM.fill inv $ VFS.mapM return $ VG.stream inv'
+        lift $ copyInto inv inv'
         let (fp, offset, length) = VSM.unsafeToForeignPtr inv
 
         lift $ withForeignPtr fp  $ \fpp -> 
@@ -121,7 +120,7 @@ fftwParallel threads samples = do
         ina <- mallocForeignBufferAligned samples
         let inv = VSM.unsafeFromForeignPtr0 ina samples
 
-        VGM.fill inv $ VFS.mapM return $ VG.stream res
+        copyInto inv res
 
         let (fp, offset, length) = VSM.unsafeToForeignPtr inv
 

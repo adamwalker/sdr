@@ -46,10 +46,10 @@ module SDR.Util (
 
 import           Foreign.C.Types
 import           Data.Complex
-import           Data.Vector.Generic          as VG   hiding ((++))
+import qualified Data.Vector.Generic          as VG   
 import qualified Data.Vector.Generic.Mutable  as VGM
-import           Data.Vector.Storable         as VS   hiding ((++))
-import           Data.Vector.Storable.Mutable as VSM  
+import qualified Data.Vector.Storable         as VS   
+import qualified Data.Vector.Storable.Mutable as VSM  
 import           Control.Monad.Primitive
 import           Unsafe.Coerce
 import           Foreign.Ptr

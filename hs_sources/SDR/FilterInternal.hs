@@ -20,15 +20,14 @@ import qualified Data.Vector.Generic               as VG
 import qualified Data.Vector.Generic.Mutable       as VGM
 import qualified Data.Vector.Storable              as VS
 import qualified Data.Vector.Storable.Mutable      as VSM
-import qualified Data.Vector.Fusion.Stream         as VFS
-import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
+import qualified Data.Vector.Fusion.Bundle         as VFB
 
 import           SDR.VectorUtils
 import           SDR.Util
 
 {-# INLINE filterHighLevel #-}
 filterHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> vm (PrimState m) a -> m ()
-filterHighLevel coeffs num inBuf outBuf = fill (VFSM.generate num dotProd) outBuf
+filterHighLevel coeffs num inBuf outBuf = fill (VFB.generate num dotProd) outBuf
     where
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
@@ -156,7 +155,7 @@ filterCAVXSymmetricRC = filterFFIC filterAVXSymmetricRC_c
 decimateHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> v a -> vm (PrimState m) a -> m ()
 decimateHighLevel factor coeffs num inBuf outBuf = fill x outBuf
     where 
-    x = VFSM.map dotProd (VFSM.iterateN num (+ factor) 0)
+    x = VFB.map dotProd (VFB.iterateN num (+ factor) 0)
     dotProd offset = VG.sum $ VG.zipWith mult (VG.unsafeDrop offset inBuf) coeffs
 
 type DecimateCRR = CInt -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
@@ -399,12 +398,12 @@ resampleCAVXRC = mkResamplerC resampleAVXRC_c 8
 decimateCrossHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => Int -> v b -> Int -> v a -> v a -> vm (PrimState m) a -> m ()
 decimateCrossHighLevel factor coeffs num lastBuf nextBuf outBuf = fill x outBuf
     where
-    x = VFSM.map dotProd (VFSM.iterateN num (+ factor) 0)
+    x = VFB.map dotProd (VFB.iterateN num (+ factor) 0)
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) coeffs
 
 {-# INLINE filterCrossHighLevel #-}
 filterCrossHighLevel :: (PrimMonad m, Functor m, Num a, Mult a b, VG.Vector v a, VG.Vector v b, VGM.MVector vm a) => v b -> Int -> v a -> v a -> vm (PrimState m) a -> m ()
-filterCrossHighLevel coeffs num lastBuf nextBuf outBuf = fill (VFSM.generate num dotProd) outBuf
+filterCrossHighLevel coeffs num lastBuf nextBuf outBuf = fill (VFB.generate num dotProd) outBuf
     where
     dotProd i = VG.sum $ VG.zipWith mult (VG.unsafeDrop i lastBuf VG.++ nextBuf) coeffs
 

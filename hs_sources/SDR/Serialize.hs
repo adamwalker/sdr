@@ -31,8 +31,8 @@ import           Data.ByteString.Internal
 import           Data.ByteString          as BS
 import           System.IO
 
-import           Data.Vector.Generic      as VG hiding ((++))
-import           Data.Vector.Storable     as VS hiding ((++))
+import qualified Data.Vector.Generic      as VG hiding ((++))
+import qualified Data.Vector.Storable     as VS hiding ((++))
 
 import           Pipes
 import qualified Pipes.Prelude            as P
