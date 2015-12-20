@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, ScopedTypeVariables, BangPatterns, RecordWildCards #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, ScopedTypeVariables, RecordWildCards #-}
 
 import           Control.Monad.Primitive 
 import           Control.Monad
