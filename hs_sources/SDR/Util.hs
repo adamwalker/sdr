@@ -41,7 +41,11 @@ module SDR.Util (
 
     -- * Data streams
     streamString,
-    streamRandom
+    streamRandom,
+
+    -- * Automatic gain control
+    agc,
+    agcPipe
     ) where
 
 import           Foreign.C.Types
@@ -61,9 +65,13 @@ import           Data.Bits
 import           Pipes
 import qualified Pipes.Prelude as P
 import           Data.Word
+import           Foreign.Storable
+import           Control.Arrow as A
+import           Data.Tuple
 
 import           SDR.CPUID
 import           SDR.VectorUtils
+import           SDR.PipeUtils
 
 -- | A class for things that can be multiplied by a scalar.
 class Mult a b where
@@ -309,4 +317,29 @@ streamRandom size = do
                 current' <- R.uniform gen
                 return (res, (current', 0))
             else return (res, (current, offset+1))
+
+(a :+ b) `cdiv` y = (a/y) :+ (b/y)
+(a :+ b) `cmul` y = (a*y) :+ (b*y)
+
+-- | Simple automatic gain control 
+agc :: (Num a, Storable a, RealFloat a) 
+    => a                          -- ^ a
+    -> a                          -- ^ reference
+    -> a                          -- ^ initial state
+    -> VS.Vector (Complex a)      -- ^ input vector
+    -> (a, VS.Vector (Complex a)) -- ^ (final state, output vector)
+agc mu reference state input = A.first snd $ swap $ vUnfoldr (VS.length input) go (0, state)
+    where
+    go (offset, state) = 
+        let
+            corrected = (input VS.! offset) `cmul` state
+            state'    = state + mu * (reference - magnitude corrected)
+        in  (corrected, (offset + 1, state'))
+
+-- | Simple automatic gain control pipe
+agcPipe :: (Num a, Storable a, RealFloat a, Monad m)
+        => a -- ^ a
+        -> a -- ^ reference
+        -> Pipe (VS.Vector (Complex a)) (VS.Vector (Complex a)) m ()
+agcPipe mu reference = pMapAccum (agc mu reference) 1
 
