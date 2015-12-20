@@ -8,7 +8,9 @@ module SDR.FFT (
     blackman,
 
     -- * FFTs
+    fftw'
     fftw,
+    fftwReal'
     fftwReal,
     fftwParallel
     ) where
@@ -37,11 +39,11 @@ mallocForeignBufferAligned elems = do
     ptr <- fftwMalloc $ fromIntegral $ elems * sizeOf (undefined :: a)
     newForeignPtr fftwFreePtr ptr
 
--- | Creates a Pipe that performs a complex to complex DFT.
-fftw :: (VG.Vector v (Complex CDouble)) 
+-- | Creates a function that performs a complex to complex DFT.
+fftw' :: (VG.Vector v (Complex CDouble)) 
      => Int -- ^ The size of the input and output buffers
-     -> IO (Pipe (v (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ())
-fftw samples = do
+     -> IO (v (Complex CDouble) -> IO (VS.Vector (Complex CDouble)))
+fftw' samples = do
     ina <- mallocForeignBufferAligned samples
     out <- mallocForeignBufferAligned samples
 
@@ -49,26 +51,34 @@ fftw samples = do
         withForeignPtr out $ \op -> 
             planDFT1d samples ip op Forward fftwEstimate
     
-    return $ for cat $ \inv' -> do
-        out <- lift $ mallocForeignBufferAligned samples
-        ina <- lift $ mallocForeignBufferAligned samples
+    return $ \inv' -> do
+        out <- mallocForeignBufferAligned samples
+        ina <- mallocForeignBufferAligned samples
         let inv = VSM.unsafeFromForeignPtr0 ina samples
 
-        lift $ copyInto inv inv'
+        copyInto inv inv'
 
         let (fp, offset, length) = VSM.unsafeToForeignPtr inv
 
-        lift $ withForeignPtr fp $ \fpp -> 
+        withForeignPtr fp $ \fpp -> 
             withForeignPtr out $ \op -> 
                 executeDFT plan fpp op
 
-        yield $ VS.unsafeFromForeignPtr0 out samples
+        return $ VS.unsafeFromForeignPtr0 out samples
 
--- | Creates a pipe that performs a real to complex DFT.
-fftwReal :: (VG.Vector v CDouble) 
+-- | Creates a Pipe that performs a complex to complex DFT.
+fftw :: (VG.Vector v (Complex CDouble)) 
+     => Int -- ^ The size of the input and output buffers
+     -> IO (Pipe (v (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ())
+fftw samples = do
+    func <- fftw' samples
+    return $ for cat $ \dat -> lift (func dat) >>= yield
+
+-- | Creates a function that performs a real to complex DFT.
+fftwReal' :: (VG.Vector v CDouble) 
          => Int -- ^ The size of the input Vector
-         -> IO (Pipe (v CDouble) (VS.Vector (Complex CDouble)) IO ())
-fftwReal samples = do
+         -> IO (v CDouble -> IO (VS.Vector (Complex CDouble)))
+fftwReal' samples = do
     --Allocate in and out buffers that wont be used because there doesnt seem to be a way to create a plan without them
     ina <- mallocForeignBufferAligned samples
     out <- mallocForeignBufferAligned samples
@@ -77,19 +87,27 @@ fftwReal samples = do
         withForeignPtr out $ \op -> 
             planDFTR2C1d samples ip op fftwEstimate
 
-    return $ for cat $ \inv' -> do
-        out <- lift $ mallocForeignBufferAligned ((samples `quot` 2) + 1)
-        ina <- lift $ mallocForeignBufferAligned samples
+    return $ \inv' -> do
+        out <- mallocForeignBufferAligned ((samples `quot` 2) + 1)
+        ina <- mallocForeignBufferAligned samples
         let inv = VSM.unsafeFromForeignPtr0 ina samples
 
-        lift $ copyInto inv inv'
+        copyInto inv inv'
         let (fp, offset, length) = VSM.unsafeToForeignPtr inv
 
-        lift $ withForeignPtr fp  $ \fpp -> 
+        withForeignPtr fp  $ \fpp -> 
             withForeignPtr out $ \op -> 
                 executeDFTR2C plan fpp op
 
-        yield $ VS.unsafeFromForeignPtr0 out samples
+        return $ VS.unsafeFromForeignPtr0 out samples
+
+-- | Creates a pipe that performs a real to complex DFT.
+fftwReal :: (VG.Vector v CDouble) 
+         => Int -- ^ The size of the input Vector
+         -> IO (Pipe (v CDouble) (VS.Vector (Complex CDouble)) IO ())
+fftwReal samples = do
+    func <- fftwReal' samples
+    return $ for cat $ \dat -> lift (func dat) >>= yield
 
 {-| Creates a pipe that uses multiple threads to perform complex to complex DFTs in
     a pipelined fashion. Each time a buffer is consumed, it is given to
