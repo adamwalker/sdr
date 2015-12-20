@@ -288,7 +288,7 @@ tests info = [
         where
         eqDelta' x y = magnitude (x - y) < 0.01
     duplicate :: [a] -> [a]
-    duplicate = concat . map func 
+    duplicate = concatMap func
         where func x = [x, x]
 
 main = do

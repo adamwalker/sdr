@@ -204,7 +204,7 @@ theBench = do
         inBufConv = VG.fromList $ take size $ concat $ repeat [0 .. 255]
 
         duplicate :: [a] -> [a]
-        duplicate = concat . map func 
+        duplicate = concatMap func
             where func x = [x, x]
 
         coeffs2 :: VS.Vector Float
@@ -343,7 +343,7 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
         where
         eqDelta' x y = magnitude (x - y) < 0.01
     duplicate :: [a] -> [a]
-    duplicate = concat . map func 
+    duplicate = concatMap func
         where func x = [x, x]
 
 main = theBench
