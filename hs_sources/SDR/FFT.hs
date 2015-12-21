@@ -8,9 +8,9 @@ module SDR.FFT (
     blackman,
 
     -- * FFTs
-    fftw'
+    fftw',
     fftw,
-    fftwReal'
+    fftwReal',
     fftwReal,
     fftwParallel
     ) where
