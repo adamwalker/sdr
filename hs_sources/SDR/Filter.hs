@@ -144,7 +144,7 @@ data Resampler m v vm a = forall dat. Resampler {
 }
 
 duplicate :: [a] -> [a]
-duplicate = concatCap func
+duplicate = concatMap func
     where func x = [x, x]
 
 {-# INLINE haskellFilter #-}
