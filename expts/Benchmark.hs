@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, ScopedTypeVariables, BangPatterns, RecordWildCards #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, ScopedTypeVariables, RecordWildCards #-}
 
 import           Control.Monad.Primitive 
 import           Control.Monad
@@ -204,7 +204,7 @@ theBench = do
         inBufConv = VG.fromList $ take size $ concat $ repeat [0 .. 255]
 
         duplicate :: [a] -> [a]
-        duplicate = concat . map func 
+        duplicate = concatMap func
             where func x = [x, x]
 
         coeffs2 :: VS.Vector Float
@@ -261,12 +261,12 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
 
         r1 <- run $ getResult num $ filterHighLevel       num vCoeffs     vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r1]
     propFiltersComplex = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
                                  forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
                                      forAll numCoeffs $ \numCoeffs -> 
                                          forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
+        assert $ all (r1 `eqDelta`) [r1]
                                              testFiltersComplex size numCoeffs coeffs $ zipWith (:+) inBufR inBufI
     testFiltersComplex :: Int -> Int -> [Float] -> [Complex Float] -> Property
     testFiltersComplex size numCoeffs coeffs inBuf = monadicIO $ do
@@ -278,12 +278,12 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
 
         r1 <- run $ getResult num $ filterHighLevel       num vCoeffs     vInput
 
-        assert $ and $ map (r1 `eqDeltaC`) [r1]
     propDecimationReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                                  forAll numCoeffs $ \numCoeffs -> 
                                      forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
                                         forAll factors $ \factor -> 
+        assert $ all (r1 `eqDeltaC`) [r1]
                                              testDecimationReal size numCoeffs factor coeffs inBuf
     testDecimationReal :: Int -> Int -> Int -> [Float] -> [Float] -> Property
     testDecimationReal size numCoeffs factor coeffs inBuf = monadicIO $ do
@@ -294,13 +294,13 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
 
         r1 <- run $ getResult num $ decimateHighLevel       num factor vCoeffs     vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r1]
     propDecimationComplex = forAll sizes $ \size -> 
                                 forAll (vectorOf size (choose (-10, 10))) $ \inBufR -> 
                                     forAll (vectorOf size (choose (-10, 10))) $ \inBufI -> 
                                         forAll numCoeffs $ \numCoeffs -> 
                                             forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
                                                 forAll factors $ \factor -> 
+        assert $ all (r1 `eqDelta`) [r1]
                                                     testDecimationComplex size numCoeffs factor coeffs $ zipWith (:+) inBufR inBufI
     testDecimationComplex :: Int -> Int -> Int -> [Float] -> [Complex Float] -> Property
     testDecimationComplex size numCoeffs factor coeffs inBuf = monadicIO $ do
@@ -312,13 +312,13 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
 
         r1 <- run $ getResult num $ decimateHighLevel       num factor vCoeffs     vInput
 
-        assert $ and $ map (r1 `eqDeltaC`) [r1]
     propResamplingReal = forAll sizes $ \size -> 
                              forAll (vectorOf size (choose (-10, 10))) $ \inBuf -> 
                                  forAll numCoeffs $ \numCoeffs -> 
                                      forAll (vectorOf numCoeffs (choose (-10, 10))) $ \coeffs -> 
                                         forAll (elements $ tail factors') $ \decimation -> 
                                             forAll (elements $ filter (< decimation) factors') $ \interpolation -> 
+        assert $ all (r1 `eqDeltaC`) [r1]
                                                  testResamplingReal size numCoeffs interpolation decimation coeffs inBuf
     testResamplingReal :: Int -> Int -> Int -> Int -> [Float] -> [Float] -> Property
     testResamplingReal size numCoeffs interpolation decimation coeffs inBuf = monadicIO $ do
@@ -329,21 +329,21 @@ theTest = quickCheck $ conjoin [propFiltersComplex]
 
         r1 <- run $ getResult num $ resampleHighLevel       num interpolation decimation 0 vCoeffs vInput
 
-        assert $ and $ map (r1 `eqDelta`) [r1]
+        assert $ all (r1 `eqDelta`) [r1]
     getResult :: (VSM.Storable a) => Int -> (VS.MVector RealWorld a -> IO b) -> IO [a]
     getResult size func = do
         outBuf <- VGM.new size
         func outBuf
         out :: VS.Vector a <- VG.freeze outBuf
         return $ VG.toList out
-    eqDelta x y = and $ map (uncurry eqDelta') $ zip x y
+    eqDelta x y = all (uncurry eqDelta') $ zip x y
         where
         eqDelta' x y = abs (x - y) < 0.01
-    eqDeltaC x y = and $ map (uncurry eqDelta') $ zip x y
+    eqDeltaC x y = all (uncurry eqDelta') $ zip x y
         where
         eqDelta' x y = magnitude (x - y) < 0.01
     duplicate :: [a] -> [a]
-    duplicate = concat . map func 
+    duplicate = concatMap func
         where func x = [x, x]
 
 main = theBench

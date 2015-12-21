@@ -23,11 +23,11 @@ sameResultM _  []     = return True
 sameResultM eq (x:xs) = do
     res  <- x
     ress <- sequence xs
-    return $ and $ map (eq res) ress
+    return $ all (eq res) ress
 
 sameResult :: (a -> a -> Bool) -> [a] -> Bool
 sameResult _ [] = True
-sameResult eq (x:xs) = and $ map (eq x) xs
+sameResult eq (x:xs) = all (eq x) xs
 
 tests info = [
         testGroup "filters" [
@@ -71,7 +71,7 @@ tests info = [
             vInput      = VS.fromList inBuf
             num         = size - numCoeffs*2 + 1
 
-        res <- run $ sameResultM eqDelta $ map (getResult num $) $ hasFeatures [
+        res <- run $ sameResultM eqDelta $ map (getResult num) $ hasFeatures [
                 (const True, filterHighLevel       vCoeffs     num vInput),
                 (const True, filterImperative1     vCoeffs     num vInput),
                 (const True, filterImperative2     vCoeffs     num vInput),
@@ -99,7 +99,7 @@ tests info = [
             num         = size - numCoeffs*2 + 1
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        res <- run $ sameResultM eqDeltaC $ map (getResult num $) $ hasFeatures [
+        res <- run $ sameResultM eqDeltaC $ map (getResult num) $ hasFeatures [
                 (const True, filterHighLevel       vCoeffs  num vInput),
                 (const True, filterCRC             vCoeffs  num vInput),
                 (hasSSE42,   filterCSSERC          vCoeffs2 num vInput),
@@ -125,7 +125,7 @@ tests info = [
             vInput      = VS.fromList inBuf
             num         = (size - numCoeffs*2 + 1) `quot` factor
 
-        res <- run $ sameResultM eqDelta $ map (getResult num $) $ hasFeatures [
+        res <- run $ sameResultM eqDelta $ map (getResult num) $ hasFeatures [
                 (const True, decimateHighLevel       factor vCoeffs     num vInput),
                 (const True, decimateCRR             factor vCoeffs     num vInput),
                 (hasSSE42,   decimateCSSERR          factor vCoeffs     num vInput),
@@ -152,7 +152,7 @@ tests info = [
             num         = (size - numCoeffs*2 + 1) `quot` factor
             vCoeffs2    = VG.fromList $ duplicate $ coeffs ++ reverse coeffs
 
-        res <- run $ sameResultM eqDeltaC $ map (getResult num $) $ hasFeatures [
+        res <- run $ sameResultM eqDeltaC $ map (getResult num) $ hasFeatures [
                 (const True, decimateHighLevel       factor vCoeffs  num vInput),
                 (const True, decimateCRC             factor vCoeffs  num vInput),
                 (hasSSE42,   decimateCSSERC          factor vCoeffs2 num vInput),
@@ -186,7 +186,7 @@ tests info = [
         resampler4 <- run $ resampleCSSERR interpolation decimation (coeffs ++ reverse coeffs)
         resampler5 <- run $ resampleCAVXRR interpolation decimation (coeffs ++ reverse coeffs)
 
-        res <- run $ sameResultM eqDelta $ map (getResult num $) $ hasFeatures [
+        res <- run $ sameResultM eqDelta $ map (getResult num) $ hasFeatures [
                 (const True, void . resampleHighLevel       interpolation decimation vCoeffs offset num vInput),
                 (const True, void . resampleCRR             num interpolation decimation offset vCoeffs vInput),
                 (const True, void . resampler3              group num vInput),
@@ -218,7 +218,7 @@ tests info = [
         resampler4 <- run $ resampleCSSERC interpolation decimation (coeffs ++ reverse coeffs)
         resampler5 <- run $ resampleCAVXRC interpolation decimation (coeffs ++ reverse coeffs)
 
-        res <- run $ sameResultM eqDeltaC $ map (getResult num $) $ hasFeatures [
+        res <- run $ sameResultM eqDeltaC $ map (getResult num) $ hasFeatures [
                 (const True, void . resampleHighLevel       interpolation decimation vCoeffs offset num vInput),
                 (const True, void . resampler3              group num vInput),
                 (hasSSE42,   void . resampler4              group num vInput),
@@ -234,7 +234,7 @@ tests info = [
     testConversionRTLSDR size inBuf = monadicIO $ do
         let vInput = VS.fromList $ map fromIntegral inBuf
 
-        let res = sameResult eqDeltaC $ map (VG.toList $) $ hasFeatures [
+        let res = sameResult eqDeltaC $ map VG.toList $ hasFeatures [
                 (const True, (interleavedIQUnsigned256ToFloat    vInput :: VS.Vector (Complex Float))),
                 (const True, interleavedIQUnsignedByteToFloat    vInput),
                 (hasSSE42,   interleavedIQUnsignedByteToFloatSSE vInput),
@@ -250,7 +250,7 @@ tests info = [
     testConversionBladeRF size inBuf = monadicIO $ do
         let vInput = VS.fromList $ map fromIntegral inBuf
 
-        let res = sameResult eqDeltaC $ map (VG.toList $) $ hasFeatures [
+        let res = sameResult eqDeltaC $ map VG.toList $ hasFeatures [
                 (const True, (interleavedIQSigned2048ToFloat   vInput :: VS.Vector (Complex Float))),
                 (const True, interleavedIQSignedWordToFloat    vInput),
                 (hasSSE42,   interleavedIQSignedWordToFloatSSE vInput),
@@ -268,7 +268,7 @@ tests info = [
     testScaleReal size inBuf factor = monadicIO $ do
         let vInput = VS.fromList inBuf
 
-        res <- run $ sameResultM eqDelta $ map (getResult size $) $ hasFeatures [
+        res <- run $ sameResultM eqDelta $ map (getResult size) $ hasFeatures [
                 (const True, scaleC    factor vInput),
                 (hasSSE42,   scaleCSSE factor vInput),
                 (hasAVX,     scaleCAVX factor vInput)
@@ -281,14 +281,14 @@ tests info = [
         func outBuf
         out :: VS.Vector a <- VG.freeze outBuf
         return $ VG.toList out
-    eqDelta x y = and $ map (uncurry eqDelta') $ zip x y
+    eqDelta x y = all (uncurry eqDelta') $ zip x y
         where
         eqDelta' x y = abs (x - y) < 0.01
-    eqDeltaC x y = and $ map (uncurry eqDelta') $ zip x y
+    eqDeltaC x y = all (uncurry eqDelta') $ zip x y
         where
         eqDelta' x y = magnitude (x - y) < 0.01
     duplicate :: [a] -> [a]
-    duplicate = concat . map func 
+    duplicate = concatMap func
         where func x = [x, x]
 
 main = do

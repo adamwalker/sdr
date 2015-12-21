@@ -144,7 +144,7 @@ data Resampler m v vm a = forall dat. Resampler {
 }
 
 duplicate :: [a] -> [a]
-duplicate = concat . map func 
+duplicate = concatCap func
     where func x = [x, x]
 
 {-# INLINE haskellFilter #-}
@@ -158,7 +158,7 @@ haskellFilter coeffs = do
     let filterOne   = filterHighLevel      vCoeffs
         filterCross = filterCrossHighLevel vCoeffs
         numCoeffsF  = length coeffs
-    return $ Filter {..}
+    return Filter {..}
 
 mkFilter :: Int
          -> FilterRR
@@ -172,7 +172,7 @@ mkFilter sizeMultiple filterFunc coeffs = do
     evaluate vCoeffs
     let filterOne   = filterFunc           vCoeffs
         filterCross = filterCrossHighLevel vCoeffs
-    return $ Filter {..}
+    return Filter {..}
 
 -- | Returns a fast Filter data structure implemented in C. For filtering real data with real coefficients.
 fastFilterCR :: [Float]                                   -- ^ The filter coefficients
@@ -208,7 +208,7 @@ mkFilterC sizeMultiple filterFunc coeffs = do
     evaluate vCoeffs
     let filterOne   = filterFunc           vCoeffs
         filterCross = filterCrossHighLevel vCoeffs2
-    return $ Filter {..}
+    return Filter {..}
 
 -- | Returns a fast Filter data structure implemented in C For filtering complex data with real coefficients.
 fastFilterCC :: [Float]                                             -- ^ The filter coefficients
@@ -242,7 +242,7 @@ mkFilterSymR filterFunc coeffs = do
     let filterOne   = filterFunc          vCoeffs
         filterCross = filterCrossHighLevel vCoeffs2
         numCoeffsF  = length coeffs * 2
-    return $ Filter {..}
+    return Filter {..}
 
 -- | Returns a fast Filter data structure implemented in C using SSE instructions. For filtering real data with real coefficients. For filters with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
 fastFilterSymSSER :: [Float]                                   -- ^ The first half of the filter coefficients
@@ -287,7 +287,7 @@ mkDecimator sizeMultiple filterFunc decimationD coeffs = do
     evaluate vCoeffs
     let decimateOne   = filterFunc             decimationD vCoeffs
         decimateCross = decimateCrossHighLevel decimationD vCoeffs
-    return $ Decimator {..}
+    return Decimator {..}
 
 -- | Returns a fast Decimator data structure implemented in C. For decimating real data with real coefficients.
 fastDecimatorCR :: Int                                          -- ^ The decimation factor
@@ -328,7 +328,7 @@ mkDecimatorC sizeMultiple filterFunc decimationD coeffs = do
     evaluate vCoeffs
     let decimateOne   = filterFunc             decimationD vCoeffs
         decimateCross = decimateCrossHighLevel decimationD vCoeffs2
-    return $ Decimator {..}
+    return Decimator {..}
 
 -- | Returns a fast Decimator data structure implemented in C. For decimating complex data with real coefficients.
 fastDecimatorCC :: Int                                                    -- ^ The decimation factor
@@ -367,8 +367,8 @@ mkDecimatorSymR filterFunc decimationD coeffs = do
     let decimateOne   = filterFunc             decimationD vCoeffs
         decimateCross = decimateCrossHighLevel decimationD vCoeffs2
         numCoeffsD    = length coeffs * 2
-    return $ Decimator {..}
     
+    return Decimator {..}
 -- | Returns a fast Decimator data structure implemented in C using SSE instructions. For decimating real data with real coefficients. For decimators with symmetric coefficients, i.e. 'linear phase'. Coefficient length must be a multiple of 4.
 fastDecimatorSymSSER :: Int                                          -- ^ The decimation factor
                      -> [Float]                                      -- ^ The first half of the filter coefficients
@@ -403,7 +403,7 @@ haskellResampler interpolationR decimationR coeffs = do
         numCoeffsR            = length coeffs
         func          x       = (x, x)
         startDat              = 0
-    return $ Resampler {..}
+    return Resampler {..}
 
 mkResampler :: Int
             -> ResampleRR
@@ -422,7 +422,7 @@ mkResampler sizeMultiple filterFunc interpolationR decimationR coeffs = do
         numCoeffsR              = roundUp (length coeffs) (interpolationR * sizeMultiple)
         func1 group             = let offset = interpolationR - 1 - ((interpolationR + group * decimationR - 1) `mod` interpolationR) in ((group, offset), offset)
         startDat                = (0, 0)
-    return $ Resampler {..}
+    return Resampler {..}
 
 mkResamplerC :: Int
              -> ResampleRC
@@ -441,7 +441,7 @@ mkResamplerC sizeMultiple filterFunc interpolationR decimationR coeffs = do
         numCoeffsR              = roundUp (length coeffs) (interpolationR * sizeMultiple)
         func1 group             = let offset = interpolationR - 1 - ((interpolationR + group * decimationR - 1) `mod` interpolationR) in ((group, offset), offset)
         startDat                = (0, 0)
-    return $ Resampler {..}
+    return Resampler {..}
 
 -- | Returns a fast Resampler data structure implemented in C. For filtering real data with real coefficients.
 fastResamplerCR :: Int                                          -- ^ The interpolation factor
