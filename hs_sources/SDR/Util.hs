@@ -45,7 +45,11 @@ module SDR.Util (
 
     -- * Automatic gain control
     agc,
-    agcPipe
+    agcPipe,
+
+    -- * Squashing initialization into the Pipe
+    combineInit,
+    combineInitTrans
     ) where
 
 import           Foreign.C.Types
@@ -342,4 +346,12 @@ agcPipe :: (Num a, Storable a, RealFloat a, Monad m)
         -> a -- ^ reference
         -> Pipe (VS.Vector (Complex a)) (VS.Vector (Complex a)) m ()
 agcPipe mu reference = pMapAccum (agc mu reference) 1
+
+-- | Specializes to combineInit :: IO (Pipe a b IO ()) -> Pipe a b IO ()
+combineInit :: (Monad m, MonadTrans t, Monad (t m)) => m (t m a) -> t m a
+combineInit = join . lift
+
+-- | Specializes to combineInitTrans :: EitherT String IO (Pipe a b IO ()) -> Pipe a b (EitherT String IO) ()
+combineInitTrans :: (Monad (t1 m), Monad (t (t1 m)), MonadTrans t, Monad m, MFunctor t, MonadTrans t1) => (t1 m) ((t m) a) -> t (t1 m) a
+combineInitTrans = combineInit . fmap (hoist lift)
 
