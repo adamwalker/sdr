@@ -1,5 +1,5 @@
 name:                sdr
-version:             0.1.0.6
+version:             0.1.0.7
 synopsis:            A software defined radio library
 description:         
     Write software defined radio applications in Haskell.
@@ -67,23 +67,23 @@ library
     -- other-modules:       
     other-extensions:    ScopedTypeVariables, GADTs
     build-depends:       
-        base                 >=4.7   && <4.9, 
+        base                 >=4.7   && <5,
         fftwRaw              >=0.1   && <0.2, 
         bytestring           >=0.10  && <0.11, 
         pulse-simple         >=0.1   && <0.2, 
-        pipes                >=4.1   && <4.2, 
+        pipes                >=4.1   && <4.3, 
         pipes-concurrency    >=2.0   && <2.1, 
-        either               >=4.1   && <4.4, 
-        time                 >=1.4   && <1.6, 
+        either               >=4.1   && <4.5, 
+        time                 >=1.4   && <1.7, 
         rtlsdr               >=0.1   && <0.2, 
         storable-complex     >=0.2   && <0.3, 
         pipes-bytestring     >=2.0   && <2.2, 
-        dynamic-graph        ==0.1.0.8,
+        dynamic-graph        ==0.1.0.9,
         array                >=0.4   && <0.6, 
         vector               >=0.11  && <0.12,
         tuple                >=0.2   && <0.4, 
-        OpenGL               >=2.11  && <2.13, 
-        GLFW-b               >=1.4.7 && <1.4.8,
+        OpenGL               >=2.11  && <3.1,
+        GLFW-b               >=1.4.8 && <1.4.9,
         primitive            >=0.5   && <0.7, 
         colour               >=2.3   && <2.4, 
         pango                >=0.13  && <0.14, 
@@ -91,9 +91,9 @@ library
         cairo                >=0.13  && <0.14, 
         cereal               >=0.4   && <0.6, 
         optparse-applicative >=0.11  && <0.13, 
-        Decimal              >=0.4   && <0.5, 
-        Chart                >=1.3   && <1.6, 
-        Chart-cairo          >=1.3   && <1.6,
+        Decimal              >=0.4   && <0.5,
+        Chart                >=1.3   && <1.9, 
+        Chart-cairo          >=1.3   && <1.9,
         mwc-random
     -- hs-source-dirs:      
     default-language:    Haskell2010
@@ -114,10 +114,10 @@ Test-Suite test
     type:                exitcode-stdio-1.0
     main-is:             TestSuite.hs
     build-depends:       
-        base                       >=4.6  && <4.9, 
-        QuickCheck                 >=2.8  && <2.9, 
+        base                       >=4.6  && <5, 
+        QuickCheck                 >=2.8  && <2.10, 
         vector                     >=0.11 && <0.12, 
-        sdr                        ==0.1.0.6, 
+        sdr                        ==0.1.0.7, 
         primitive                  >=0.5  && <0.7, 
         storable-complex           >=0.2  && <0.3,
         test-framework             >=0.8  && <0.9,
@@ -130,10 +130,10 @@ benchmark benchmark
     type:                exitcode-stdio-1.0
     main-is:             Benchmarks.hs
     build-depends:       
-        base             >=4.6  && <4.9, 
+        base             >=4.6  && <5, 
         criterion        >=1.0  && <1.2,
         vector           >=0.11 && <0.12, 
-        sdr              ==0.1.0.6, 
+        sdr              ==0.1.0.7, 
         primitive        >=0.5  && <0.7, 
         storable-complex >=0.2  && <0.3
     hs-source-dirs:      benchmarks
