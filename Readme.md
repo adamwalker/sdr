@@ -88,7 +88,7 @@ import           Control.Monad.Trans.Either
 import           Data.Vector.Generic        as VG 
 import           Pipes
 import qualified Pipes.Prelude              as P
-import           Foreign.Storable.Complex
+
 
 import SDR.Filter 
 import SDR.RTLSDRStream
@@ -107,7 +107,7 @@ main = eitherT putStrLn return $ do
 
     info <- lift getCPUInfo
 
-    str  <- sdrStream frequency 1280000 1 (fromIntegral samples * 2)
+    str  <- sdrStream (defaultRTLSDRParams frequency 1280000) 1 (fromIntegral samples * 2)
 
     lift $ do
 
@@ -118,7 +118,7 @@ main = eitherT putStrLn return $ do
         filt <- fastFilterSymR info coeffsAudioFilter
 
         runEffect $   str
-                  >-> P.map convertCAVX 
+                  >-> P.map (interleavedIQUnsignedByteToFloatFast info)
                   >-> firDecimator deci samples 
                   >-> fmDemod
                   >-> firResampler resp samples 
