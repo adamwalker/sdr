@@ -23,6 +23,7 @@ import           Data.Complex
 import           Foreign.ForeignPtr
 import           Control.Concurrent           hiding (yield)
 import qualified Data.Map                     as Map
+import           Data.Coerce
 
 import qualified Data.Vector.Generic          as VG
 import qualified Data.Vector.Storable         as VS
@@ -40,9 +41,9 @@ mallocForeignBufferAligned elems = do
     newForeignPtr fftwFreePtr ptr
 
 -- | Creates a function that performs a complex to complex DFT.
-fftw' :: (VG.Vector v (Complex CDouble)) 
+fftw' :: (VG.Vector v (Complex Double)) 
      => Int -- ^ The size of the input and output buffers
-     -> IO (v (Complex CDouble) -> IO (VS.Vector (Complex CDouble)))
+     -> IO (v (Complex Double) -> IO (VS.Vector (Complex Double)))
 fftw' samples = do
     ina <- mallocForeignBufferAligned samples
     out <- mallocForeignBufferAligned samples
@@ -60,24 +61,24 @@ fftw' samples = do
 
         let (fp, offset, length) = VSM.unsafeToForeignPtr inv
 
-        withForeignPtr fp $ \fpp -> 
-            withForeignPtr out $ \op -> 
+        withForeignPtr (coerce fp) $ \fpp -> 
+            withForeignPtr (coerce out) $ \op -> 
                 executeDFT plan fpp op
 
         return $ VS.unsafeFromForeignPtr0 out samples
 
 -- | Creates a Pipe that performs a complex to complex DFT.
-fftw :: (VG.Vector v (Complex CDouble)) 
+fftw :: (VG.Vector v (Complex Double)) 
      => Int -- ^ The size of the input and output buffers
-     -> IO (Pipe (v (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ())
+     -> IO (Pipe (v (Complex Double)) (VS.Vector (Complex Double)) IO ())
 fftw samples = do
     func <- fftw' samples
     return $ for cat $ \dat -> lift (func dat) >>= yield
 
 -- | Creates a function that performs a real to complex DFT.
-fftwReal' :: (VG.Vector v CDouble) 
+fftwReal' :: (VG.Vector v Double) 
          => Int -- ^ The size of the input Vector
-         -> IO (v CDouble -> IO (VS.Vector (Complex CDouble)))
+         -> IO (v Double -> IO (VS.Vector (Complex Double)))
 fftwReal' samples = do
     --Allocate in and out buffers that wont be used because there doesnt seem to be a way to create a plan without them
     ina <- mallocForeignBufferAligned samples
@@ -95,16 +96,16 @@ fftwReal' samples = do
         copyInto inv inv'
         let (fp, offset, length) = VSM.unsafeToForeignPtr inv
 
-        withForeignPtr fp  $ \fpp -> 
-            withForeignPtr out $ \op -> 
+        withForeignPtr (coerce fp)  $ \fpp -> 
+            withForeignPtr (coerce out) $ \op -> 
                 executeDFTR2C plan fpp op
 
         return $ VS.unsafeFromForeignPtr0 out samples
 
 -- | Creates a pipe that performs a real to complex DFT.
-fftwReal :: (VG.Vector v CDouble) 
+fftwReal :: (VG.Vector v Double) 
          => Int -- ^ The size of the input Vector
-         -> IO (Pipe (v CDouble) (VS.Vector (Complex CDouble)) IO ())
+         -> IO (Pipe (v Double) (VS.Vector (Complex Double)) IO ())
 fftwReal samples = do
     func <- fftwReal' samples
     return $ for cat $ \dat -> lift (func dat) >>= yield
@@ -114,10 +115,10 @@ fftwReal samples = do
     a pool of threads to perform the DFT. Then, if a thread has finished
     performing a previous DFT, the result is yielded.
 -}
-fftwParallel :: (VG.Vector v (Complex CDouble)) 
+fftwParallel :: (VG.Vector v (Complex Double)) 
              => Int -- ^ The number of threads to use
              -> Int -- ^ The size of the input Vector
-             -> IO (Pipe (v (Complex CDouble)) (VS.Vector (Complex CDouble)) IO ())
+             -> IO (Pipe (v (Complex Double)) (VS.Vector (Complex Double)) IO ())
 fftwParallel threads samples = do
     --plan the DFT
     ina <- mallocForeignBufferAligned samples
@@ -142,8 +143,8 @@ fftwParallel threads samples = do
 
         let (fp, offset, length) = VSM.unsafeToForeignPtr inv
 
-        withForeignPtr fp $ \fpp -> 
-            withForeignPtr out $ \op -> 
+        withForeignPtr (coerce fp) $ \fpp -> 
+            withForeignPtr (coerce out) $ \op -> 
                 executeDFT plan fpp op
 
         theMap <- takeMVar outMap
