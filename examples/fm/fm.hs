@@ -2,7 +2,6 @@ import           Control.Monad.Trans.Either
 import           Data.Vector.Generic        as VG 
 import           Pipes
 import qualified Pipes.Prelude              as P
-import           Foreign.Storable.Complex
 
 import SDR.Filter 
 import SDR.RTLSDRStream

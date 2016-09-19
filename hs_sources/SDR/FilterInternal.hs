@@ -10,7 +10,7 @@ import           Control.Monad.Primitive
 import           Control.Monad
 import           Foreign.C.Types
 import           Foreign.Ptr
-import           Unsafe.Coerce
+import           Data.Coerce
 import           Data.Complex
 import           Foreign.Marshal.Array
 import           Foreign.Marshal.Alloc
@@ -65,16 +65,16 @@ type FilterRC  = VS.Vector Float -> Int -> VS.Vector (Complex Float) -> VS.MVect
 
 filterFFIR :: FilterCRR -> FilterRR 
 filterFFIR func coeffs num inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+    VS.unsafeWith (coerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
                 func (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
 filterFFIC :: FilterCRR -> FilterRC 
 filterFFIC func coeffs num inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+    VS.unsafeWith (coerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
                 func (fromIntegral num) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
 foreign import ccall unsafe "filterRR"
@@ -164,16 +164,16 @@ type DecimateRC  = Int -> VS.Vector Float -> Int -> VS.Vector (Complex Float) ->
 
 decimateFFIR :: DecimateCRR -> DecimateRR 
 decimateFFIR func factor coeffs num inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+    VS.unsafeWith (coerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
                 func (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
 decimateFFIC :: DecimateCRR -> DecimateRC 
 decimateFFIC func factor coeffs num inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+    VS.unsafeWith (coerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
                 func (fromIntegral num) (fromIntegral factor) (fromIntegral $ VG.length coeffs) cPtr iPtr oPtr
 
 foreign import ccall unsafe "decimateRR"
@@ -269,9 +269,9 @@ foreign import ccall unsafe "resampleRR"
 
 resampleCRR :: Int -> Int -> Int -> Int -> VS.Vector Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
 resampleCRR num interpolation decimation offset coeffs inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce coeffs) $ \cPtr -> 
-        VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-            VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+    VS.unsafeWith (coerce coeffs) $ \cPtr -> 
+        VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+            VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
                 resample_c (fromIntegral num) (fromIntegral $ VG.length coeffs) (fromIntegral interpolation) (fromIntegral decimation) (fromIntegral offset) cPtr iPtr oPtr
 
 pad :: a -> Int -> [a] -> [a]
@@ -320,14 +320,14 @@ prepareCoeffs n interpolation decimation coeffs = Coeffs {..}
 
 resampleFFIR :: (Ptr CFloat -> Ptr CFloat -> IO CInt) -> VS.Vector Float -> VSM.MVector RealWorld Float -> IO Int
 resampleFFIR func inBuf outBuf = liftM fromIntegral $
-    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+    VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
             func iPtr oPtr
 
 resampleFFIC :: (Ptr CFloat -> Ptr CFloat -> IO CInt) -> VS.Vector (Complex Float) -> VSM.MVector RealWorld (Complex Float) -> IO Int
 resampleFFIC func inBuf outBuf = liftM fromIntegral $
-    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+    VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
             func iPtr oPtr
 
 type ResampleR = CInt -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr (Ptr CFloat) -> Ptr CFloat -> Ptr CFloat -> IO CInt
@@ -429,8 +429,8 @@ dcBlocker :: Int -> Float -> Float -> VS.Vector Float -> VS.MVector RealWorld Fl
 dcBlocker num lastSample lastOutput inBuf outBuf = 
     alloca $ \fsp -> 
         alloca $ \fop -> 
-            VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-                VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> do
+            VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+                VSM.unsafeWith (coerce outBuf) $ \oPtr -> do
                     c_dcBlocker (fromIntegral num) (realToFrac lastSample) (realToFrac lastOutput) fsp fop iPtr oPtr
                     r1 <- peek fsp
                     r2 <- peek fop

@@ -59,7 +59,7 @@ import qualified Data.Vector.Generic.Mutable  as VGM
 import qualified Data.Vector.Storable         as VS   
 import qualified Data.Vector.Storable.Mutable as VSM  
 import           Control.Monad.Primitive
-import           Unsafe.Coerce
+import           Data.Coerce
 import           Foreign.Ptr
 import           System.IO.Unsafe
 import           Foreign.Storable.Complex
@@ -105,7 +105,7 @@ interleavedIQUnsignedByteToFloat :: VS.Vector CUChar -> VS.Vector (Complex Float
 interleavedIQUnsignedByteToFloat inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
-        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
             convertC_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
@@ -117,7 +117,7 @@ interleavedIQUnsignedByteToFloatSSE :: VS.Vector CUChar -> VS.Vector (Complex Fl
 interleavedIQUnsignedByteToFloatSSE inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
-        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
             convertCSSE_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
@@ -129,7 +129,7 @@ interleavedIQUnsignedByteToFloatAVX :: VS.Vector CUChar -> VS.Vector (Complex Fl
 interleavedIQUnsignedByteToFloatAVX inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
-        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
             convertCAVX_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
@@ -155,7 +155,7 @@ interleavedIQSignedWordToFloat :: VS.Vector CShort -> VS.Vector (Complex Float)
 interleavedIQSignedWordToFloat inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
-        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
             convertCBladeRF_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
@@ -167,7 +167,7 @@ interleavedIQSignedWordToFloatSSE :: VS.Vector CShort -> VS.Vector (Complex Floa
 interleavedIQSignedWordToFloatSSE inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
-        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
             convertCSSEBladeRF_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
@@ -179,7 +179,7 @@ interleavedIQSignedWordToFloatAVX :: VS.Vector CShort -> VS.Vector (Complex Floa
 interleavedIQSignedWordToFloatAVX inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf `quot` 2
     VS.unsafeWith inBuf $ \iPtr -> 
-        VSM.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
             convertCAVXBladeRF_c (fromIntegral $ VG.length inBuf) iPtr oPtr
     VG.freeze outBuf
 
@@ -205,7 +205,7 @@ foreign import ccall unsafe "convertBladeRFTransmit"
 complexFloatToInterleavedIQSignedWord :: VS.Vector (Complex Float) -> VS.Vector CShort
 complexFloatToInterleavedIQSignedWord inBuf = unsafePerformIO $ do
     outBuf <- VGM.new $ VG.length inBuf * 2
-    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
+    VS.unsafeWith (coerce inBuf) $ \iPtr -> 
         VSM.unsafeWith outBuf $ \oPtr -> 
             convertBladeRFTransmit_c (fromIntegral $ VG.length inBuf * 2) iPtr oPtr
     VG.freeze outBuf
@@ -220,9 +220,9 @@ scaleC :: Float                      -- ^ Scale factor
        -> VS.MVector RealWorld Float -- ^ Output vector
        -> IO ()
 scaleC factor inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            scale_c (fromIntegral (VG.length inBuf)) (unsafeCoerce factor) iPtr oPtr
+    VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
+            scale_c (fromIntegral (VG.length inBuf)) (coerce factor) iPtr oPtr
 
 foreign import ccall unsafe "scaleSSE"
     scaleSSE_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat-> IO ()
@@ -233,9 +233,9 @@ scaleCSSE :: Float                      -- ^ Scale factor
           -> VS.MVector RealWorld Float -- ^ Output vector
           -> IO ()
 scaleCSSE factor inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            scaleSSE_c (fromIntegral (VG.length inBuf)) (unsafeCoerce factor) iPtr oPtr
+    VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
+            scaleSSE_c (fromIntegral (VG.length inBuf)) (coerce factor) iPtr oPtr
 
 foreign import ccall unsafe "scaleAVX"
     scaleAVX_c :: CInt -> CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
@@ -246,9 +246,9 @@ scaleCAVX :: Float                      -- ^ Scale factor
           -> VS.MVector RealWorld Float -- ^ Output vector
           -> IO ()
 scaleCAVX factor inBuf outBuf = 
-    VS.unsafeWith (unsafeCoerce inBuf) $ \iPtr -> 
-        VS.unsafeWith (unsafeCoerce outBuf) $ \oPtr -> 
-            scaleAVX_c (fromIntegral (VG.length inBuf)) (unsafeCoerce factor) iPtr oPtr
+    VS.unsafeWith (coerce inBuf) $ \iPtr -> 
+        VSM.unsafeWith (coerce outBuf) $ \oPtr -> 
+            scaleAVX_c (fromIntegral (VG.length inBuf)) (coerce factor) iPtr oPtr
 
 -- | Scale a vector. Uses the fastest SIMD instruction set your processor supports.
 scaleFast :: CPUInfo -> Float -> VS.Vector Float -> VS.MVector RealWorld Float -> IO ()
