@@ -72,10 +72,11 @@ signal coeffs xs = [ (x / pi, func x) | x <- xs ]
     where
     func phase = magnitude $ sum $ zipWith (\index mag -> mkPolar mag (phase * (- index))) (iterate (+ 1) (- ((fromIntegral (length coeffs) - 1) / 2))) coeffs
 
--- | Given filter coefficients, plot their frequency response and save the graph as "frequency_response.png".
+-- | Given filter coefficients, plot their frequency response and save the graph as a png file
 plotFrequency :: [Double] -- ^ The filter coefficients
+              -> FilePath -- ^ The filename 
               -> IO ()
-plotFrequency coeffs = toFile def "frequency_response.png" $ do
+plotFrequency coeffs fName = toFile def fName $ do
     layout_title .= "Frequency Response"
     plot (line "Frequency Response" [signal coeffs $ takeWhile (< pi) $ iterate (+ 0.01) 0])
 
