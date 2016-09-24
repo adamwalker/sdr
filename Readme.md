@@ -2,6 +2,8 @@
 
 A Software Defined Radio library written in Haskell
 
+See the [blog post](https://adamwalker.github.io/Introducing-SDR/).
+
 # Features
 * Write software defined radio applications in Haskell
 * Signal processing blocks can be chained together using the [Pipes](https://hackage.haskell.org/package/pipes) library
