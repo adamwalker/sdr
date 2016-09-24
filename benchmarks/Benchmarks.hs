@@ -11,7 +11,7 @@ import qualified Data.Vector.Generic               as VG
 import qualified Data.Vector.Generic.Mutable       as VGM
 import qualified Data.Vector.Storable              as VS
 import qualified Data.Vector.Storable.Mutable      as VSM
-import qualified Data.Vector.Fusion.Stream         as VFS
+import qualified Data.Vector.Fusion.Bundle         as VFS
 import qualified Data.Vector.Fusion.Stream.Monadic as VFSM
 
 import           Foreign.Storable.Complex
