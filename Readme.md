@@ -25,7 +25,7 @@ See [sdr-apps](https://github.com/adamwalker/sdr-apps) for a collection of simpl
 # Screenshot
 A chunk of the FM broadcast spectrum. Captured with an RTLSDR device and drawn as a waterfall using the [Plot](https://github.com/adamwalker/sdr/blob/master/hs_sources/SDR/Plot.hs) module.
 
-![Screenshot](../screenshots/screenshots/screenshot.png?raw=true)
+![Screenshot](https://raw.githubusercontent.com/adamwalker/sdr/screenshots/screenshots/screenshot.png?raw=true)
 
 
 # Getting Started
