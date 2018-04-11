@@ -1,4 +1,5 @@
-import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Except
+import           Control.Error.Util
 import           Data.Vector.Generic        as VG 
 import           Pipes
 import qualified Pipes.Prelude              as P
@@ -16,7 +17,7 @@ import Coeffs
 samples    = 8192
 frequency  = 105700000
 
-main = eitherT putStrLn return $ do
+main = exceptT putStrLn return $ do
 
     info <- lift getCPUInfo
 
