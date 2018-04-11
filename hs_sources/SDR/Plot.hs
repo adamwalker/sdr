@@ -18,7 +18,7 @@ module SDR.Plot (
     centeredAxes
     ) where
 
-import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Except
 import qualified Data.Vector.Storable       as VS
 import           Graphics.Rendering.OpenGL
 import           Graphics.Rendering.Cairo
@@ -39,7 +39,7 @@ plotLine :: Int -- ^ Window width
          -> Int -- ^ Window height
          -> Int -- ^ Number of samples in each buffer
          -> Int -- ^ Number of vertices in graph
-         -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+         -> ExceptT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotLine width height samples resolution = window width height $ fmap pipeify $ renderLine samples resolution
 
 -- | Create a window and plot a dynamic line graph of the incoming data. With Axes.
@@ -48,7 +48,7 @@ plotLineAxes :: Int       -- ^ Window width
              -> Int       -- ^ Number of samples in each buffer
              -> Int       -- ^ Number of vertices in graph
              -> Render () -- ^ Cairo Render object that draws the axes
-             -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+             -> ExceptT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotLineAxes width height samples xResolution rm = window width height $ do
     --render the graph
     renderFunc <- renderLine samples xResolution
@@ -74,7 +74,7 @@ plotWaterfall :: Int       -- ^ Window width
               -> Int       -- ^ Number of columns
               -> Int       -- ^ Number of rows 
               -> [GLfloat] -- ^ The color map
-              -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+              -> ExceptT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotWaterfall windowWidth windowHeight width height colorMap = window windowWidth windowHeight $ renderWaterfall width height colorMap 
 
 {-
@@ -105,7 +105,7 @@ plotFill :: Int       -- ^ Window width
          -> Int       -- ^ Window height
          -> Int       -- ^ Number of samples in each buffer
          -> [GLfloat] -- ^ The color map
-         -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+         -> ExceptT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFill width height samples colorMap = window width height $ fmap pipeify $ renderFilledLine samples colorMap
 
 -- | Create a window and plot a dynamic filled in line graph of the incoming data. With Axes.
@@ -114,7 +114,7 @@ plotFillAxes :: Int       -- ^ Window width
              -> Int       -- ^ Number of samples in each buffer
              -> [GLfloat] -- ^ The color map
              -> Render () -- ^ Cairo Render object that draws the axes
-             -> EitherT String IO (Consumer (VS.Vector GLfloat) IO ())
+             -> ExceptT String IO (Consumer (VS.Vector GLfloat) IO ())
 plotFillAxes width height samples colorMap rm = window width height $ do
     renderFunc <- renderFilledLine samples colorMap
     

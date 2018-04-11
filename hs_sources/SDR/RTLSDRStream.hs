@@ -10,7 +10,7 @@ module SDR.RTLSDRStream (
     ) where
 
 import           Control.Monad
-import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Except
 import           Data.Word
 import           Data.Int
 import           Foreign.ForeignPtr
@@ -54,12 +54,12 @@ setRTLSDRParams dev RTLSDRParams{..} = do
 sdrStream :: RTLSDRParams                                          -- ^ Configuration parameters
           -> Word32                                                -- ^ Number of buffers
           -> Word32                                                -- ^ Buffer length
-          -> EitherT String IO (Producer (VS.Vector CUChar) IO ()) -- ^ Either a string describing the error that occurred or the Producer
+          -> ExceptT String IO (Producer (VS.Vector CUChar) IO ()) -- ^ Either a string describing the error that occurred or the Producer
 sdrStream params bufNum bufLen = do
     lift $ putStrLn "Initializing RTLSDR device..."
 
     dev' <- lift $ open 0
-    dev  <- maybe (left "Failed to open device") return dev'
+    dev  <- maybe (throwE "Failed to open device") return dev'
 
     lift $ do
         t <- getTunerType dev
