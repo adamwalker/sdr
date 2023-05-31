@@ -34,7 +34,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              Adam Walker
 maintainer:          adamwalker10@gmail.com
-copyright:           2018 Adam Walker
+copyright:           2023 Adam Walker
 category:            Software Defined Radio
 homepage:            https://github.com/adamwalker/sdr
 bug-reports:         https://github.com/adamwalker/sdr/issues
