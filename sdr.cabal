@@ -1,5 +1,5 @@
 name:                sdr
-version:             0.1.0.13
+version:             0.1.0.14
 synopsis:            A software defined radio library
 description:         
     Write software defined radio applications in Haskell.
