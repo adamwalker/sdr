@@ -39,17 +39,6 @@ You can install it from [Hackage](https://hackage.haskell.org/package/sdr):
 cabal install sdr
 ```
 
-Or, you can build it with cabal sandboxes:
-
-```
-cabal sandbox init
-git clone https://github.com/adamwalker/dynamic-graph
-git clone https://github.com/adamwalker/haskell-fftw-simple
-git clone https://github.com/adamwalker/sdr
-cabal sandbox add-source dynamic-graph haskell-fftw-simple sdr
-cabal install sdr
-```
-
 If you want to use the BladeRF, you will also need [bladerf-pipes](https://github.com/adamwalker/bladerf-pipes) and [hlibBladeRF](https://github.com/victoredwardocallaghan/hlibBladeRF). 
 
 ## Example Applications
@@ -60,23 +49,25 @@ Clone and build:
 
 ```
 git clone https://github.com/adamwalker/sdr-apps  
-cabal sandbox add-source sdr-apps
-cabal install sdr-apps
+cd sdr-apps
+cabal install
 ```
 
 To run the FM receiver:
+
+(Assuming cabal-built binaries are in your path)
 ```
-.cabal-sandbox/bin/fm -f <your favourite station, e.g. 90.2M>  
+fm -f <your favourite station, e.g. 90.2M>  
 ```
 
 To run the waterfall plot:
 ```
-.cabal-sandbox/bin/waterfall -f <center frequency, e.g. 90.2M> -r <sample rate, e.g. 1280M>
+waterfall -f <center frequency, e.g. 90.2M> -r <sample rate, e.g. 1280M>
 ```
 
 To run the AM receiver:
 ```
-.cabal-sandbox/bin/am -f <center frequency, e.g. 124.4M> 
+am -f <center frequency, e.g. 124.4M> 
 ```
 
 # Usage
